@@ -5,10 +5,24 @@
       "Bash(npx create-next-app@14 pqrs-calle-100-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm)",
       "Bash(cp -r /c/Users/d.hernandeza2/Documents/pqrs-calle-100-temp/* /c/Users/d.hernandeza2/Documents/PQRS_CALLE_100/)",
       "Bash(cp -r /c/Users/d.hernandeza2/Documents/pqrs-calle-100-temp/.* /c/Users/d.hernandeza2/Documents/PQRS_CALLE_100/)",
-      "Bash(npx shadcn@latest init -d)"
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add badge card dialog dropdown-menu input label select separator sheet table tabs textarea toast)",
+      "Bash(npx shadcn@latest add badge card dialog dropdown-menu input label select separator sheet table tabs textarea sonner)",
+      "Bash(npx prisma:*)",
+      "Bash(git remote:*)",
+      "Bash(npx next:*)",
+      "Bash(ls src/generated/prisma/index* src/generated/prisma/package*)",
+      "Bash(npm uninstall:*)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(npm ls:*)",
+      "Bash(npm run:*)",
+      "Bash(find . -maxdepth 3 -type f \\\\\\(-name *.md -o -name *.txt -o -name README* \\\\\\) ! -path ./node_modules/*)",
+      "Bash(git log:*)",
+      "Read(//c/Users/d.hernandeza2/.claude/projects/**)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\d.hernandeza2\\Documents\\pqrs-calle-100-temp"
+      "C:\\Users\\d.hernandeza2\\Documents\\pqrs-calle-100-temp",
+      "c:\\Users\\d.hernandeza2\\Documents\\PQRS_CALLE_100\\src\\app\\(protected)\\pqrs"
     ]
   }
 }

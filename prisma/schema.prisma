@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(RESIDENTE)
+  bloque        Int?
+  apto          Int?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  pqrsCreated   Pqrs[]    @relation("CreatedBy")
+  pqrsManaged   Pqrs[]    @relation("ManagedBy")
+  sessions      Session[]
+  accounts      Account[]
+}
+
+enum Role {
+  ADMIN
+  ASISTENTE
+  CONSEJO
+  RESIDENTE
+}
+
+model Pqrs {
+  id                            String          @id @default(cuid())
+  numero                        Int             @unique @default(autoincrement())
+  medio                         Medio           @default(PLATAFORMA_WEB)
+  fechaRecibido                 DateTime
+  mes                           String
+  bloque                        Int
+  apto                          Int
+  nombreResidente               String
+  tipoPqrs                      TipoPqrs
+  asunto                        String
+  descripcion                   String          @db.Text
+
+  // Gestión por asistente/admin
+  fechaPrimerContacto           DateTime?
+  tiempoRespuestaPrimerContacto Int?
+  accionTomada                  String?         @db.Text
+  estado                        Estado          @default(EN_ESPERA)
+  evidenciaCierre               String?         @db.Text
+  fechaCierre                   DateTime?
+  tiempoRespuestaCierre         Int?
+
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  creadoPor       User?     @relation("CreatedBy", fields: [creadoPorId], references: [id])
+  creadoPorId     String?
+  gestionadoPor   User?     @relation("ManagedBy", fields: [gestionadoPorId], references: [id])
+  gestionadoPorId String?
+
+  // Trazabilidad
+  historial HistorialPqrs[]
+}
+
+enum Medio {
+  PLATAFORMA_WEB
+}
+
+enum TipoPqrs {
+  PETICION
+  QUEJA
+  RECLAMO
+  SUGERENCIA
+}
+
+enum Estado {
+  EN_ESPERA
+  EN_PROGRESO
+  TERMINADO
+}
+
+model HistorialPqrs {
+  id            String   @id @default(cuid())
+  pqrsId        String
+  pqrs          Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+  estadoAntes   Estado?
+  estadoDespues Estado
+  nota          String?
+  creadoAt      DateTime @default(now())
+}
+
+// NextAuth tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
