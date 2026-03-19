@@ -2,25 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, FileText, Loader2 } from "lucide-react";
+  Plus,
+  FileText,
+  Loader2,
+  ClipboardList,
+  Frown,
+  AlertTriangle,
+  Lightbulb,
+  ChevronRight,
+  Clock,
+  Hourglass,
+  CheckCircle2,
+  Eye,
+} from "lucide-react";
 
 interface Pqrs {
   id: string;
@@ -30,60 +25,89 @@ interface Pqrs {
   descripcion: string;
   estado: string;
   fechaRecibido: string;
-  fechaCierre: string | null;
   bloque: number;
   apto: number;
   nombreResidente: string;
   creadoPor: { name: string } | null;
 }
 
-const tipoBadgeColor: Record<string, string> = {
-  PETICION: "bg-blue-100 text-blue-800",
-  QUEJA: "bg-red-100 text-red-800",
-  RECLAMO: "bg-orange-100 text-orange-800",
-  SUGERENCIA: "bg-green-100 text-green-800",
+const tipoConfig: Record<
+  string,
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badgeBg: string;
+    badgeText: string;
+    value: string;
+  }
+> = {
+  PETICION: {
+    label: "Petición",
+    icon: ClipboardList,
+    badgeBg: "bg-blue-100",
+    badgeText: "text-blue-700",
+    value: "PETICION",
+  },
+  QUEJA: {
+    label: "Queja",
+    icon: Frown,
+    badgeBg: "bg-red-100",
+    badgeText: "text-red-700",
+    value: "QUEJA",
+  },
+  RECLAMO: {
+    label: "Reclamo",
+    icon: AlertTriangle,
+    badgeBg: "bg-orange-100",
+    badgeText: "text-orange-700",
+    value: "RECLAMO",
+  },
+  SUGERENCIA: {
+    label: "Sugerencia",
+    icon: Lightbulb,
+    badgeBg: "bg-green-100",
+    badgeText: "text-green-700",
+    value: "SUGERENCIA",
+  },
 };
 
-const tipoLabel: Record<string, string> = {
-  PETICION: "Petición",
-  QUEJA: "Queja",
-  RECLAMO: "Reclamo",
-  SUGERENCIA: "Sugerencia",
-};
-
-const estadoBadge: Record<string, string> = {
-  EN_ESPERA: "bg-yellow-100 text-yellow-800",
-  EN_PROGRESO: "bg-blue-100 text-blue-800",
-  TERMINADO: "bg-green-100 text-green-800",
-};
-
-const estadoLabel: Record<string, string> = {
-  EN_ESPERA: "En espera",
-  EN_PROGRESO: "En progreso",
-  TERMINADO: "Terminado",
+const estadoConfig: Record<
+  string,
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    bg: string;
+    text: string;
+  }
+> = {
+  EN_ESPERA: {
+    label: "En espera",
+    icon: Hourglass,
+    bg: "bg-yellow-100",
+    text: "text-yellow-700",
+  },
+  EN_PROGRESO: {
+    label: "En progreso",
+    icon: Clock,
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+  },
+  TERMINADO: {
+    label: "Terminado",
+    icon: CheckCircle2,
+    bg: "bg-green-100",
+    text: "text-green-700",
+  },
 };
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("es-CO", {
+  return new Date(dateStr).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
 }
 
-function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// Generar lista de años (desde 2021 hasta el actual)
 function getYears() {
   const current = new Date().getFullYear();
   const years: number[] = [];
@@ -93,6 +117,13 @@ function getYears() {
   return years;
 }
 
+const tipoList = [
+  tipoConfig.PETICION,
+  tipoConfig.QUEJA,
+  tipoConfig.RECLAMO,
+  tipoConfig.SUGERENCIA,
+];
+
 interface PqrsListProps {
   role: string;
 }
@@ -100,241 +131,252 @@ interface PqrsListProps {
 export function PqrsList({ role }: PqrsListProps) {
   const [pqrs, setPqrs] = useState<Pqrs[]>([]);
   const [loading, setLoading] = useState(true);
-  const [estado, setEstado] = useState("");
   const [tipo, setTipo] = useState("");
   const [year, setYear] = useState("");
+  const [seguimiento, setSeguimiento] = useState(false);
 
   const isResidente = role === "RESIDENTE";
-  const canCreate = isResidente || role === "ADMIN";
+  const canCreate = !isResidente && role === "ADMIN";
 
   const fetchPqrs = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (estado) params.set("estado", estado);
+    // For non-residents, only show active (EN_ESPERA + EN_PROGRESO)
+    if (!isResidente) {
+      params.set("scope", "active");
+    }
     if (tipo) params.set("tipo", tipo);
     if (year) params.set("year", year);
+    // Seguimiento: only EN_PROGRESO for residents
+    if (isResidente && seguimiento) {
+      params.set("estado", "EN_PROGRESO");
+    }
 
     const res = await fetch(`/api/pqrs?${params.toString()}`);
     const data = await res.json();
     setPqrs(data);
     setLoading(false);
-  }, [estado, tipo, year]);
+  }, [tipo, year, isResidente, seguimiento]);
 
   useEffect(() => {
     fetchPqrs();
   }, [fetchPqrs]);
 
-  // Estado vacío para residente
-  if (!loading && pqrs.length === 0 && isResidente && !estado && !tipo && !year) {
+  // Empty state for resident (no PQRS at all)
+  if (!loading && pqrs.length === 0 && isResidente && !tipo && !year && !seguimiento) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">No tienes PQRS</h2>
-        <p className="text-muted-foreground mb-6">
-          Crea tu primera solicitud para comenzar
-        </p>
-        <Link href="/pqrs/nuevo">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Crear mi primera PQRS
-          </Button>
-        </Link>
+      <div className="space-y-6">
+        {/* Type icons for creating */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Mis PQRS</h1>
+          <p className="text-gray-500 mb-4">Selecciona el tipo de solicitud que deseas crear:</p>
+          <div className="grid grid-cols-4 gap-3">
+            {tipoList.map((t) => {
+              const Icon = t.icon;
+              return (
+                <Link
+                  key={t.value}
+                  href={`/pqrs/nuevo?tipo=${t.value}`}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-transparent ${t.badgeBg} hover:border-current ${t.badgeText} transition-all hover:shadow-md`}
+                >
+                  <Icon className="h-8 w-8" />
+                  <span className="text-xs font-bold text-center">{t.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-4">
+            <FileText className="h-10 w-10 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            No tienes solicitudes aún
+          </h2>
+          <p className="text-gray-500 max-w-sm">
+            Selecciona un tipo arriba para crear tu primera solicitud
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          {isResidente ? "Mis PQRS" : "PQRS"}
-        </h1>
-        {canCreate && (
-          <Link href="/pqrs/nuevo">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" />
+      {/* Resident: 4 type icons + Seguimiento */}
+      {isResidente && (
+        <>
+          <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
+
+          {/* 4x1 type icons */}
+          <div className="grid grid-cols-4 gap-2">
+            {tipoList.map((t) => {
+              const Icon = t.icon;
+              return (
+                <Link
+                  key={t.value}
+                  href={`/pqrs/nuevo?tipo=${t.value}`}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-transparent ${t.badgeBg} hover:border-current ${t.badgeText} transition-all hover:shadow-md`}
+                >
+                  <Icon className="h-7 w-7" />
+                  <span className="text-[11px] font-bold text-center leading-tight">{t.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Seguimiento button */}
+          <button
+            onClick={() => setSeguimiento(!seguimiento)}
+            className={`inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-xl transition-colors text-sm ${
+              seguimiento
+                ? "bg-green-800 text-white"
+                : "bg-green-700 text-white hover:bg-green-800"
+            }`}
+          >
+            <Eye className="h-4 w-4" />
+            {seguimiento ? "Ver todas" : "Seguimiento"}
+          </button>
+        </>
+      )}
+
+      {/* Non-resident header */}
+      {!isResidente && (
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">PQRS Activas</h1>
+          {canCreate && (
+            <Link
+              href="/pqrs/nuevo"
+              className="inline-flex items-center gap-2 bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl hover:bg-green-800 transition-colors text-sm"
+            >
+              <Plus className="h-4 w-4" />
               Nueva
-            </Button>
-          </Link>
-        )}
-      </div>
+            </Link>
+          )}
+        </div>
+      )}
 
-      {/* Filtros */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <Select value={year} onValueChange={(v) => v && setYear(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Año" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {getYears().map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          <option value="">Año</option>
+          {getYears().map((y) => (
+            <option key={y} value={String(y)}>
+              {y}
+            </option>
+          ))}
+        </select>
 
-        <Select value={estado} onValueChange={(v) => v && setEstado(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="EN_ESPERA">En espera</SelectItem>
-            <SelectItem value="EN_PROGRESO">En progreso</SelectItem>
-            <SelectItem value="TERMINADO">Terminado</SelectItem>
-          </SelectContent>
-        </Select>
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          <option value="">Tipo</option>
+          <option value="PETICION">Petición</option>
+          <option value="QUEJA">Queja</option>
+          <option value="RECLAMO">Reclamo</option>
+          <option value="SUGERENCIA">Sugerencia</option>
+        </select>
 
-        <Select value={tipo} onValueChange={(v) => v && setTipo(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="PETICION">Petición</SelectItem>
-            <SelectItem value="QUEJA">Queja</SelectItem>
-            <SelectItem value="RECLAMO">Reclamo</SelectItem>
-            <SelectItem value="SUGERENCIA">Sugerencia</SelectItem>
-          </SelectContent>
-        </Select>
+        {(year || tipo) && (
+          <button
+            onClick={() => {
+              setYear("");
+              setTipo("");
+            }}
+            className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            Limpiar
+          </button>
+        )}
       </div>
 
       {/* Loading */}
       {loading && (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
         </div>
       )}
 
-      {/* Sin resultados con filtros */}
+      {/* No results */}
       {!loading && pqrs.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No se encontraron PQRS con los filtros seleccionados.
+        <div className="text-center py-16">
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <FileText className="h-8 w-8 text-gray-400" />
+          </div>
+          <p className="text-gray-500">
+            {isResidente && seguimiento
+              ? "No tienes PQRS en proceso en este momento."
+              : isResidente
+                ? "No se encontraron PQRS con los filtros seleccionados."
+                : "No hay PQRS activas en este momento."}
+          </p>
         </div>
       )}
 
       {!loading && pqrs.length > 0 && (
         <>
-          {/* Contador */}
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-500">
             {pqrs.length} solicitud{pqrs.length !== 1 ? "es" : ""}
+            {seguimiento ? " en proceso" : ""}
           </p>
 
-          {/* Mobile: Cards */}
-          <div className="space-y-3 md:hidden">
-            {pqrs.map((p) => (
-              <Link key={p.id} href={`/pqrs/${p.id}`}>
-                <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-muted-foreground">
-                          #{p.numero}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className={tipoBadgeColor[p.tipoPqrs]}
-                        >
-                          {tipoLabel[p.tipoPqrs]}
-                        </Badge>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={estadoBadge[p.estado]}
-                      >
-                        {estadoLabel[p.estado]}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-medium line-clamp-2 mb-2">
-                      {p.asunto}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        T{p.bloque}-{p.apto}
-                      </span>
-                      <span>{formatDate(p.fechaRecibido)}</span>
-                    </div>
-                    {p.fechaCierre && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Cerrado: {formatDate(p.fechaCierre)}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <div className="space-y-3">
+            {pqrs.map((p) => {
+              const tc = tipoConfig[p.tipoPqrs];
+              const ec = estadoConfig[p.estado];
+              const TipoIcon = tc?.icon || FileText;
+              const EstadoIcon = ec?.icon || Clock;
 
-          {/* Desktop: Table */}
-          <div className="hidden md:block rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[70px]">#</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Asunto</TableHead>
-                  {!isResidente && <TableHead>Residente</TableHead>}
-                  {!isResidente && <TableHead>Torre</TableHead>}
-                  <TableHead>Recibido</TableHead>
-                  <TableHead>Cierre</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pqrs.map((p) => (
-                  <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>
-                      <Link href={`/pqrs/${p.id}`} className="font-mono text-xs">
-                        {p.numero}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={tipoBadgeColor[p.tipoPqrs]}
+              return (
+                <Link key={p.id} href={`/pqrs/${p.id}`}>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-green-200 transition-all duration-200 group">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tc?.badgeBg || "bg-gray-100"} ${tc?.badgeText || "text-gray-600"}`}
                       >
-                        {tipoLabel[p.tipoPqrs]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[300px]">
-                      <Link
-                        href={`/pqrs/${p.id}`}
-                        className="hover:underline line-clamp-1"
-                      >
-                        {p.asunto}
-                      </Link>
-                    </TableCell>
-                    {!isResidente && (
-                      <TableCell className="text-sm">
-                        {p.nombreResidente}
-                      </TableCell>
-                    )}
-                    {!isResidente && (
-                      <TableCell className="text-sm">
-                        T{p.bloque}-{p.apto}
-                      </TableCell>
-                    )}
-                    <TableCell className="text-xs">
-                      {formatDateTime(p.fechaRecibido)}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {p.fechaCierre ? formatDateTime(p.fechaCierre) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={estadoBadge[p.estado]}
-                      >
-                        {estadoLabel[p.estado]}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        <TipoIcon className="h-6 w-6" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs text-gray-400">
+                            #{p.numero}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${ec?.bg || "bg-gray-100"} ${ec?.text || "text-gray-600"}`}
+                          >
+                            <EstadoIcon className="h-3 w-3" />
+                            {ec?.label || p.estado}
+                          </span>
+                        </div>
+
+                        <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
+                          {p.asunto}
+                        </p>
+
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                          {!isResidente && (
+                            <span>
+                              {p.nombreResidente} · T{p.bloque}-{p.apto}
+                            </span>
+                          )}
+                          <span>{formatDate(p.fechaRecibido)}</span>
+                        </div>
+                      </div>
+
+                      <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-green-600 transition-colors shrink-0 mt-1" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </>
       )}

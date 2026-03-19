@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ReportesView } from "./reportes-view";
 
 export default async function ReportesPage() {
   const session = await auth();
@@ -13,12 +14,5 @@ export default async function ReportesPage() {
     redirect("/pqrs");
   }
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Reportes</h1>
-      <p className="text-muted-foreground">
-        Aquí irán los reportes mensuales y la exportación a Excel.
-      </p>
-    </div>
-  );
+  return <ReportesView />;
 }

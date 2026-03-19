@@ -2,7 +2,11 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PqrsForm } from "./pqrs-form";
 
-export default async function NuevoPqrsPage() {
+interface Props {
+  searchParams: { tipo?: string };
+}
+
+export default async function NuevoPqrsPage({ searchParams }: Props) {
   const session = await auth();
 
   if (!session?.user) {
@@ -14,12 +18,18 @@ export default async function NuevoPqrsPage() {
     redirect("/pqrs");
   }
 
+  const tipoValidos = ["PETICION", "QUEJA", "RECLAMO", "SUGERENCIA"];
+  const tipo = tipoValidos.includes(searchParams.tipo || "")
+    ? searchParams.tipo!
+    : undefined;
+
   return (
     <PqrsForm
       role={session.user.role as "ADMIN" | "RESIDENTE"}
       userName={session.user.name}
       userBloque={session.user.bloque}
       userApto={session.user.apto}
+      initialTipo={tipo}
     />
   );
 }

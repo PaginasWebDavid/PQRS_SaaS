@@ -4,23 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -41,9 +26,14 @@ export default function RegistroPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!form.bloque) {
+      setError("Selecciona tu torre");
+      return;
+    }
+
     setLoading(true);
 
-    // Registrar
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,7 +54,6 @@ export default function RegistroPage() {
       return;
     }
 
-    // Auto-login después de registro
     const result = await signIn("credentials", {
       email: form.email,
       password: form.password,
@@ -74,49 +63,85 @@ export default function RegistroPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Cuenta creada pero hubo un error al iniciar sesión. Intenta iniciar sesión manualmente.");
+      setError("Cuenta creada. Intenta iniciar sesión manualmente.");
     } else {
-      router.push("/dashboard");
+      router.push("/");
       router.refresh();
     }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-muted/40">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Crear cuenta</CardTitle>
-          <CardDescription>
-            Regístrate para radicar tus PQRS en el sistema del conjunto
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-green-950 via-green-900 to-green-800">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <Link href="/">
+            <div className="bg-white rounded-2xl p-3 shadow-xl hover:shadow-2xl transition-shadow">
+              <Image
+                src="/logo.png"
+                alt="Calle 100"
+                width={100}
+                height={100}
+                className="w-20 h-20 object-contain"
+              />
+            </div>
+          </Link>
+        </div>
+
+        {/* Form Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Crear cuenta</h1>
+            <p className="text-gray-500 mt-1">
+              Regístrate para radicar tus PQRS
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo</Label>
-              <Input
+              <label
+                htmlFor="name"
+                className="block text-base font-medium text-gray-700"
+              >
+                Nombre completo
+              </label>
+              <input
                 id="name"
                 type="text"
                 placeholder="Tu nombre completo"
                 value={form.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 required
+                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <Input
+              <label
+                htmlFor="email"
+                className="block text-base font-medium text-gray-700"
+              >
+                Correo electrónico
+              </label>
+              <input
                 id="email"
                 type="email"
                 placeholder="tu@correo.com"
                 value={form.email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 required
+                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
+              <label
+                htmlFor="password"
+                className="block text-base font-medium text-gray-700"
+              >
+                Contraseña
+              </label>
+              <input
                 id="password"
                 type="password"
                 placeholder="Mínimo 6 caracteres"
@@ -124,31 +149,37 @@ export default function RegistroPage() {
                 onChange={(e) => handleChange("password", e.target.value)}
                 required
                 minLength={6}
+                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
               />
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Torre / Bloque</Label>
-                <Select
+                <label className="block text-base font-medium text-gray-700">
+                  Torre / Bloque
+                </label>
+                <select
                   value={form.bloque}
-                  onValueChange={(v) => v && handleChange("bloque", v)}
+                  onChange={(e) => handleChange("bloque", e.target.value)}
                   required
+                  className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        Torre {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">Selecciona</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={String(n)}>
+                      Torre {n}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="apto">Apartamento</Label>
-                <Input
+                <label
+                  htmlFor="apto"
+                  className="block text-base font-medium text-gray-700"
+                >
+                  Apartamento
+                </label>
+                <input
                   id="apto"
                   type="number"
                   placeholder="Ej: 218"
@@ -156,27 +187,47 @@ export default function RegistroPage() {
                   onChange={(e) => handleChange("apto", e.target.value)}
                   required
                   min={1}
+                  className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                 />
               </div>
             </div>
+
             {error && (
-              <p className="text-sm text-red-500 text-center">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
+                {error}
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creando cuenta..." : "Registrarse"}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/auth/login"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
-              Inicia sesión
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Registrarse"
+              )}
+            </button>
+          </form>
+
+          <div className="mt-5 text-center">
+            <p className="text-gray-500">
+              ¿Ya tienes cuenta?{" "}
+              <Link
+                href="/auth/login"
+                className="font-bold text-green-700 hover:text-green-800 hover:underline"
+              >
+                Inicia sesión
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        <p className="text-center text-green-200/50 text-sm mt-6">
+          Parque Residencial Calle 100 P.H.
+        </p>
+      </div>
     </main>
   );
 }

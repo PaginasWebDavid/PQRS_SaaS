@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const estado = searchParams.get("estado");
   const tipo = searchParams.get("tipo");
   const year = searchParams.get("year");
+  const scope = searchParams.get("scope"); // "active" | "historial" | null
 
   // Construir filtros
   const where: Prisma.PqrsWhereInput = {};
@@ -25,6 +26,13 @@ export async function GET(req: NextRequest) {
   // RESIDENTE solo ve sus propias PQRS
   if (session.user.role === "RESIDENTE") {
     where.creadoPorId = session.user.id;
+  }
+
+  // Scope: active = EN_ESPERA + EN_PROGRESO, historial = TERMINADO
+  if (scope === "active") {
+    where.estado = { in: ["EN_ESPERA", "EN_PROGRESO"] };
+  } else if (scope === "historial") {
+    where.estado = "TERMINADO";
   }
 
   if (estado) {

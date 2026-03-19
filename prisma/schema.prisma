@@ -52,6 +52,8 @@ model Pqrs {
   accionTomada                  String?         @db.Text
   estado                        Estado          @default(EN_ESPERA)
   evidenciaCierre               String?         @db.Text
+  evidenciaArchivoUrl           String?
+  evidenciaArchivoNombre        String?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
 

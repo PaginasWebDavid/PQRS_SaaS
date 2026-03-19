@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Estado } from "@prisma/client";
+
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -46,6 +46,46 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  // Auto-transition: when ADMIN opens a PQRS in EN_ESPERA, move to EN_PROGRESO
+  if (session.user.role === "ADMIN" && pqrs.estado === "EN_ESPERA") {
+    const ahora = new Date();
+    const diffDays = Math.ceil(
+      (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    await prisma.pqrs.update({
+      where: { id: params.id },
+      data: {
+        estado: "EN_PROGRESO",
+        fechaPrimerContacto: ahora,
+        tiempoRespuestaPrimerContacto: diffDays,
+        gestionadoPorId: session.user.id,
+      },
+    });
+
+    // Register in historial
+    await prisma.historialPqrs.create({
+      data: {
+        pqrsId: pqrs.id,
+        estadoAntes: "EN_ESPERA",
+        estadoDespues: "EN_PROGRESO",
+        nota: "PQRS en gestión (abierta por administración)",
+      },
+    });
+
+    // Refetch to include the new historial entry
+    const refreshed = await prisma.pqrs.findUnique({
+      where: { id: params.id },
+      include: {
+        creadoPor: { select: { name: true, email: true } },
+        gestionadoPor: { select: { name: true } },
+        historial: { orderBy: { creadoAt: "asc" } },
+      },
+    });
+
+    return NextResponse.json(refreshed);
+  }
+
   return NextResponse.json(pqrs);
 }
 
@@ -72,16 +112,18 @@ export async function PATCH(
     return NextResponse.json({ error: "PQRS no encontrada" }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { estado, accionTomada, evidenciaCierre } = body;
-
-  // Validar transición de estado
-  if (estado && !Object.values(Estado).includes(estado)) {
-    return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
+  if (pqrs.estado === "TERMINADO") {
+    return NextResponse.json(
+      { error: "Esta PQRS ya está cerrada" },
+      { status: 400 }
+    );
   }
 
-  // Si se cierra (TERMINADO), accionTomada y evidenciaCierre son obligatorios
-  if (estado === "TERMINADO") {
+  const body = await req.json();
+  const { accionTomada, evidenciaCierre, evidenciaArchivoUrl, evidenciaArchivoNombre, terminar } = body;
+
+  // If terminar=true, we're closing the PQRS
+  if (terminar) {
     const finalAccion = accionTomada || pqrs.accionTomada;
     const finalEvidencia = evidenciaCierre || pqrs.evidenciaCierre;
 
@@ -93,47 +135,30 @@ export async function PATCH(
     }
   }
 
-  // Construir datos de actualización
+  // Build update data
   const ahora = new Date();
   const updateData: Record<string, unknown> = {};
 
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
+  if (evidenciaArchivoUrl !== undefined) updateData.evidenciaArchivoUrl = evidenciaArchivoUrl;
+  if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
 
-  if (estado && estado !== pqrs.estado) {
-    updateData.estado = estado;
+  if (terminar) {
+    updateData.estado = "TERMINADO";
+    updateData.fechaCierre = ahora;
+    const diffDays = Math.ceil(
+      (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    updateData.tiempoRespuestaCierre = diffDays;
 
-    // Primer contacto: cuando pasa de EN_ESPERA a EN_PROGRESO
-    if (pqrs.estado === "EN_ESPERA" && estado === "EN_PROGRESO") {
-      updateData.fechaPrimerContacto = ahora;
-      // Calcular días hábiles de respuesta
-      const diffDays = Math.ceil(
-        (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      updateData.tiempoRespuestaPrimerContacto = diffDays;
-    }
-
-    // Cierre
-    if (estado === "TERMINADO") {
-      updateData.fechaCierre = ahora;
-      const diffDays = Math.ceil(
-        (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      updateData.tiempoRespuestaCierre = diffDays;
-    }
-
-    // Registrar en historial
+    // Register in historial
     await prisma.historialPqrs.create({
       data: {
         pqrsId: pqrs.id,
         estadoAntes: pqrs.estado,
-        estadoDespues: estado,
-        nota:
-          estado === "EN_PROGRESO"
-            ? "PQRS en gestión"
-            : estado === "TERMINADO"
-            ? "PQRS cerrada"
-            : "Cambio de estado",
+        estadoDespues: "TERMINADO",
+        nota: "PQRS cerrada",
       },
     });
   }
@@ -150,8 +175,8 @@ export async function PATCH(
     },
   });
 
-  // Enviar email al residente cuando se cierra
-  if (estado === "TERMINADO" && updated.creadoPor?.email) {
+  // Send email when closing
+  if (terminar && updated.creadoPor?.email) {
     const fechaRecibido = pqrs.fechaRecibido.toLocaleDateString("es-CO", {
       day: "2-digit", month: "2-digit", year: "numeric",
     });
@@ -176,7 +201,7 @@ export async function PATCH(
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Descripción</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.descripcion}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha recibido</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaRecibido}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaCierre}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL[estado]}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Acción tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Torre ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>

@@ -2,32 +2,75 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+  ClipboardList,
+  Frown,
+  AlertTriangle,
+  Lightbulb,
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
+
+const TIPOS = [
+  {
+    value: "PETICION",
+    label: "Petición",
+    description: "Solicitar información o un servicio",
+    icon: ClipboardList,
+    color: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
+    iconBg: "bg-blue-100 text-blue-600",
+    activeColor: "bg-blue-100 border-blue-500 ring-2 ring-blue-500",
+  },
+  {
+    value: "QUEJA",
+    label: "Queja",
+    description: "Expresar una inconformidad",
+    icon: Frown,
+    color: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300",
+    iconBg: "bg-red-100 text-red-600",
+    activeColor: "bg-red-100 border-red-500 ring-2 ring-red-500",
+  },
+  {
+    value: "RECLAMO",
+    label: "Reclamo",
+    description: "Exigir un derecho o incumplimiento",
+    icon: AlertTriangle,
+    color: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 hover:border-orange-300",
+    iconBg: "bg-orange-100 text-orange-600",
+    activeColor: "bg-orange-100 border-orange-500 ring-2 ring-orange-500",
+  },
+  {
+    value: "SUGERENCIA",
+    label: "Sugerencia",
+    description: "Proponer una mejora",
+    icon: Lightbulb,
+    color: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300",
+    iconBg: "bg-green-100 text-green-600",
+    activeColor: "bg-green-100 border-green-500 ring-2 ring-green-500",
+  },
+];
 
 interface PqrsFormProps {
   role: "ADMIN" | "RESIDENTE";
   userName?: string | null;
   userBloque?: number | null;
   userApto?: number | null;
+  initialTipo?: string;
 }
 
-export function PqrsForm({ role, userName, userBloque, userApto }: PqrsFormProps) {
+export function PqrsForm({
+  role,
+  userName,
+  userBloque,
+  userApto,
+  initialTipo,
+}: PqrsFormProps) {
   const router = useRouter();
   const isAdmin = role === "ADMIN";
 
-  const [tipoPqrs, setTipoPqrs] = useState("");
+  const [tipoPqrs, setTipoPqrs] = useState(initialTipo || "");
+  const [showForm, setShowForm] = useState(!!initialTipo);
   const [asunto, setAsunto] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [nombreResidente, setNombreResidente] = useState("");
@@ -36,14 +79,15 @@ export function PqrsForm({ role, userName, userBloque, userApto }: PqrsFormProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  function selectTipo(tipo: string) {
+    setTipoPqrs(tipo);
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!tipoPqrs) {
-      setError("Selecciona el tipo de solicitud");
-      return;
-    }
     if (!asunto.trim()) {
       setError("El asunto es obligatorio");
       return;
@@ -96,134 +140,233 @@ export function PqrsForm({ role, userName, userBloque, userApto }: PqrsFormProps
     router.refresh();
   }
 
+  const selectedTipo = TIPOS.find((t) => t.value === tipoPqrs);
+
+  // Step 1: Type selection
+  if (!showForm) {
+    return (
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">
+            ¿Qué desea radicar?
+          </h1>
+        </div>
+
+        <p className="text-gray-500 mb-6 ml-[52px]">
+          Seleccione el tipo de solicitud
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          {TIPOS.map((tipo) => (
+            <button
+              key={tipo.value}
+              onClick={() => selectTipo(tipo.value)}
+              className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg ${tipo.color}`}
+            >
+              <div
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center ${tipo.iconBg}`}
+              >
+                <tipo.icon className="h-8 w-8" />
+              </div>
+              <span className="font-bold text-lg">{tipo.label}</span>
+              <span className="text-xs text-center opacity-70 leading-snug">
+                {tipo.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Step 2: Form
   return (
     <div className="max-w-lg mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Nueva PQRS</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Tipo */}
-            <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo de solicitud *</Label>
-              <Select value={tipoPqrs} onValueChange={(v) => v && setTipoPqrs(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PETICION">Petición</SelectItem>
-                  <SelectItem value="QUEJA">Queja</SelectItem>
-                  <SelectItem value="RECLAMO">Reclamo</SelectItem>
-                  <SelectItem value="SUGERENCIA">Sugerencia</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Header with selected type */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => {
+            setShowForm(false);
+            setTipoPqrs("");
+          }}
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            Nueva {selectedTipo?.label}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {selectedTipo?.description}
+          </p>
+        </div>
+        {selectedTipo && (
+          <div
+            className={`ml-auto w-12 h-12 rounded-xl flex items-center justify-center ${selectedTipo.iconBg}`}
+          >
+            <selectedTipo.icon className="h-6 w-6" />
+          </div>
+        )}
+      </div>
 
-            {/* Asunto */}
-            <div className="space-y-2">
-              <Label htmlFor="asunto">Asunto *</Label>
-              <Input
-                id="asunto"
-                placeholder="Resumen breve de la solicitud"
-                value={asunto}
-                onChange={(e) => setAsunto(e.target.value)}
-                maxLength={100}
-              />
-            </div>
+      {/* Form card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Asunto */}
+          <div className="space-y-2">
+            <label
+              htmlFor="asunto"
+              className="block text-base font-medium text-gray-700"
+            >
+              Asunto *
+            </label>
+            <input
+              id="asunto"
+              placeholder="Resumen breve de la solicitud"
+              value={asunto}
+              onChange={(e) => setAsunto(e.target.value)}
+              maxLength={100}
+              className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+            />
+          </div>
 
-            {/* Descripción */}
-            <div className="space-y-2">
-              <Label htmlFor="descripcion">Descripción *</Label>
-              <Textarea
-                id="descripcion"
-                placeholder="Describe tu solicitud con el mayor detalle posible"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={5}
-              />
-            </div>
+          {/* Descripción */}
+          <div className="space-y-2">
+            <label
+              htmlFor="descripcion"
+              className="block text-base font-medium text-gray-700"
+            >
+              Descripción *
+            </label>
+            <textarea
+              id="descripcion"
+              placeholder="Describe tu solicitud con el mayor detalle posible"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              rows={5}
+              className="w-full text-base px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
+            />
+          </div>
 
-            {/* Campos de admin: datos del residente */}
-            {isAdmin && (
-              <>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium text-muted-foreground mb-3">
-                    Datos del residente
-                  </p>
+          {/* Admin: datos del residente */}
+          {isAdmin && (
+            <>
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+                  Datos del residente
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="nombre"
+                  className="block text-base font-medium text-gray-700"
+                >
+                  Nombre del residente *
+                </label>
+                <input
+                  id="nombre"
+                  placeholder="Nombre completo"
+                  value={nombreResidente}
+                  onChange={(e) => setNombreResidente(e.target.value)}
+                  className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="block text-base font-medium text-gray-700">
+                    Torre *
+                  </label>
+                  <select
+                    value={bloque}
+                    onChange={(e) => setBloque(e.target.value)}
+                    className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+                  >
+                    <option value="">Seleccionar</option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={String(n)}>
+                        Torre {n}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nombre">Nombre del residente *</Label>
-                  <Input
-                    id="nombre"
-                    placeholder="Nombre completo"
-                    value={nombreResidente}
-                    onChange={(e) => setNombreResidente(e.target.value)}
+                  <label
+                    htmlFor="apto"
+                    className="block text-base font-medium text-gray-700"
+                  >
+                    Apartamento *
+                  </label>
+                  <input
+                    id="apto"
+                    type="number"
+                    placeholder="Ej: 310"
+                    value={apto}
+                    onChange={(e) => setApto(e.target.value)}
+                    min={1}
+                    className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="torre">Torre *</Label>
-                    <Select value={bloque} onValueChange={(v) => v && setBloque(v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Torre" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            Torre {n}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="apto">Apartamento *</Label>
-                    <Input
-                      id="apto"
-                      type="number"
-                      placeholder="Ej: 310"
-                      value={apto}
-                      onChange={(e) => setApto(e.target.value)}
-                      min={1}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Info del residente (auto) */}
-            {!isAdmin && (
-              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                <p><span className="font-medium">Residente:</span> {userName}</p>
-                <p><span className="font-medium">Ubicación:</span> Torre {userBloque} - Apto {userApto}</p>
               </div>
-            )}
+            </>
+          )}
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => router.back()}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Enviar PQRS
-              </Button>
+          {/* Residente: info automática */}
+          {!isAdmin && (
+            <div className="rounded-xl bg-green-50 border border-green-100 p-4 flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+              <div className="text-sm text-green-800">
+                <p>
+                  <span className="font-medium">Residente:</span> {userName}
+                </p>
+                <p>
+                  <span className="font-medium">Ubicación:</span> Torre{" "}
+                  {userBloque} - Apto {userApto}
+                </p>
+              </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                setTipoPqrs("");
+              }}
+              className="flex-1 h-12 text-base font-medium text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Enviar PQRS"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

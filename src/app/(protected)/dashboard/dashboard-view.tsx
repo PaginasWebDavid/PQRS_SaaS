@@ -1,23 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+  Loader2,
+  FileText,
+  Hourglass,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+  Timer,
+} from "lucide-react";
 
 interface TrimestreStats {
   total: number;
@@ -67,8 +59,8 @@ export function DashboardView() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
     );
   }
@@ -79,68 +71,107 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
-      {/* Header + filtro */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Select value={year} onValueChange={(v) => v && setYear(v)}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {getYears().map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <select
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          {getYears().map((y) => (
+            <option key={y} value={String(y)}>
+              {y}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Tarjetas resumen */}
+      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <SummaryCard label="Total PQRS" value={t.total} />
-        <SummaryCard label="En espera" value={t.enEspera} color="text-yellow-600" />
-        <SummaryCard label="En progreso" value={t.enProgreso} color="text-blue-600" />
-        <SummaryCard label="Terminadas" value={t.terminado} color="text-green-600" />
-        <SummaryCard label="% Completadas" value={`${t.porcentajeCompletadas}%`} color="text-green-600" />
+        <SummaryCard
+          label="Total PQRS"
+          value={t.total}
+          icon={<FileText className="h-5 w-5" />}
+          color="text-gray-900"
+          bg="bg-gray-100"
+        />
+        <SummaryCard
+          label="En espera"
+          value={t.enEspera}
+          icon={<Hourglass className="h-5 w-5" />}
+          color="text-yellow-700"
+          bg="bg-yellow-100"
+        />
+        <SummaryCard
+          label="En progreso"
+          value={t.enProgreso}
+          icon={<Clock className="h-5 w-5" />}
+          color="text-blue-700"
+          bg="bg-blue-100"
+        />
+        <SummaryCard
+          label="Terminadas"
+          value={t.terminado}
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          color="text-green-700"
+          bg="bg-green-100"
+        />
+        <SummaryCard
+          label="% Completadas"
+          value={`${t.porcentajeCompletadas}%`}
+          icon={<TrendingUp className="h-5 w-5" />}
+          color="text-green-700"
+          bg="bg-green-100"
+        />
       </div>
 
-      {/* Tarjetas de tiempo */}
+      {/* Time cards */}
       <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Tiempo prom. respuesta</p>
-            <p className="text-2xl font-bold mt-1">
-              {t.tiempoPromedioRespuesta !== null ? `${t.tiempoPromedioRespuesta} días` : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Tiempo prom. cierre</p>
-            <p className="text-2xl font-bold mt-1">
-              {t.tiempoPromedioCierre !== null ? `${t.tiempoPromedioCierre} días` : "—"}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
+            <Timer className="h-5 w-5" />
+          </div>
+          <p className="text-xs text-gray-500">Tiempo prom. respuesta</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {t.tiempoPromedioRespuesta !== null
+              ? `${t.tiempoPromedioRespuesta} días`
+              : "—"}
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
+          <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+          <p className="text-xs text-gray-500">Tiempo prom. cierre</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {t.tiempoPromedioCierre !== null
+              ? `${t.tiempoPromedioCierre} días`
+              : "—"}
+          </p>
+        </div>
       </div>
 
-      {/* Cuadro de seguimiento por trimestres */}
+      {/* Quarterly tracking table */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Cuadro de seguimiento {year}</h2>
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap min-w-[160px]">Métrica</TableHead>
-                <TableHead className="text-center">Q1</TableHead>
-                <TableHead className="text-center">Q2</TableHead>
-                <TableHead className="text-center">Q3</TableHead>
-                <TableHead className="text-center">Q4</TableHead>
-                <TableHead className="text-center font-bold">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <h2 className="text-lg font-bold text-gray-900 mb-3">
+          Cuadro de seguimiento {year}
+        </h2>
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap min-w-[160px]">
+                  Métrica
+                </th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q1</th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q2</th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q3</th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q4</th>
+                <th className="text-center px-3 py-3 font-bold text-green-800 bg-green-50">Total</th>
+              </tr>
+            </thead>
+            <tbody>
               <MetricRow label="Total PQRS" field="total" data={data} bold />
               <MetricRow label="Peticiones" field="peticion" data={data} />
               <MetricRow label="Quejas" field="queja" data={data} />
@@ -152,19 +183,21 @@ export function DashboardView() {
               <MetricRow label="% Completadas" field="porcentajeCompletadas" data={data} suffix="%" />
               <MetricRow label="Prom. respuesta (días)" field="tiempoPromedioRespuesta" data={data} nullable />
               <MetricRow label="Prom. cierre (días)" field="tiempoPromedioCierre" data={data} nullable />
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Distribución por tipo - cards móvil */}
+      {/* Type distribution */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Distribución por tipo</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-3">
+          Distribución por tipo
+        </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <TypeCard label="Peticiones" value={t.peticion} total={t.total} color="bg-blue-500" />
-          <TypeCard label="Quejas" value={t.queja} total={t.total} color="bg-red-500" />
-          <TypeCard label="Reclamos" value={t.reclamo} total={t.total} color="bg-orange-500" />
-          <TypeCard label="Sugerencias" value={t.sugerencia} total={t.total} color="bg-green-500" />
+          <TypeCard label="Peticiones" value={t.peticion} total={t.total} color="bg-blue-500" bg="bg-blue-50" textColor="text-blue-700" />
+          <TypeCard label="Quejas" value={t.queja} total={t.total} color="bg-red-500" bg="bg-red-50" textColor="text-red-700" />
+          <TypeCard label="Reclamos" value={t.reclamo} total={t.total} color="bg-orange-500" bg="bg-orange-50" textColor="text-orange-700" />
+          <TypeCard label="Sugerencias" value={t.sugerencia} total={t.total} color="bg-green-500" bg="bg-green-50" textColor="text-green-700" />
         </div>
       </div>
     </div>
@@ -174,19 +207,24 @@ export function DashboardView() {
 function SummaryCard({
   label,
   value,
+  icon,
   color,
+  bg,
 }: {
   label: string;
   value: number | string;
-  color?: string;
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
 }) {
   return (
-    <Card>
-      <CardContent className="p-4 text-center">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`text-2xl font-bold mt-1 ${color || ""}`}>{value}</p>
-      </CardContent>
-    </Card>
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+      <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center mx-auto mb-2`}>
+        {icon}
+      </div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+    </div>
   );
 }
 
@@ -195,27 +233,29 @@ function TypeCard({
   value,
   total,
   color,
+  bg,
+  textColor,
 }: {
   label: string;
   value: number;
   total: number;
   color: string;
+  bg: string;
+  textColor: string;
 }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold mt-1">{value}</p>
-        <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-          <div
-            className={`h-full rounded-full ${color}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">{pct}%</p>
-      </CardContent>
-    </Card>
+    <div className={`rounded-2xl border border-gray-100 p-4 ${bg}`}>
+      <p className={`text-xs ${textColor} font-medium`}>{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${textColor}`}>{value}</p>
+      <div className="mt-2 h-2 rounded-full bg-white/60 overflow-hidden">
+        <div
+          className={`h-full rounded-full ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className={`text-xs ${textColor} opacity-70 mt-1`}>{pct}%</p>
+    </div>
   );
 }
 
@@ -243,18 +283,18 @@ function MetricRow({
   }
 
   return (
-    <TableRow>
-      <TableCell className={`whitespace-nowrap ${bold ? "font-semibold" : ""}`}>
+    <tr className="border-b border-gray-50 last:border-0">
+      <td className={`px-4 py-2.5 whitespace-nowrap ${bold ? "font-semibold text-gray-900" : "text-gray-600"}`}>
         {label}
-      </TableCell>
+      </td>
       {quarters.map((q) => (
-        <TableCell key={q} className="text-center">
+        <td key={q} className="text-center px-3 py-2.5 text-gray-700">
           {formatVal(data.trimestres[q][field] as number | null)}
-        </TableCell>
+        </td>
       ))}
-      <TableCell className="text-center font-semibold">
+      <td className="text-center px-3 py-2.5 font-bold text-green-800 bg-green-50/50">
         {formatVal(data.total[field] as number | null)}
-      </TableCell>
-    </TableRow>
+      </td>
+    </tr>
   );
 }
