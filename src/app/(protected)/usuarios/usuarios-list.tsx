@@ -311,7 +311,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
 
                       {u.bloque && (
                         <span className="text-xs text-gray-400">
-                          T{u.bloque}-{u.apto}
+                          B{u.bloque}-{u.apto}
                         </span>
                       )}
                       {u._count.pqrsCreated > 0 && (

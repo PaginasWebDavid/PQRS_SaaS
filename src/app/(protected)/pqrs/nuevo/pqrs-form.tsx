@@ -341,7 +341,7 @@ export function PqrsForm({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <label className="block text-base font-medium text-gray-700">
-                    Torre *
+                    Bloque *
                   </label>
                   <select
                     value={bloque}
@@ -351,7 +351,7 @@ export function PqrsForm({
                     <option value="">Seleccionar</option>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={String(n)}>
-                        Torre {n}
+                        Bloque {n}
                       </option>
                     ))}
                   </select>
@@ -387,7 +387,7 @@ export function PqrsForm({
                   <span className="font-medium">Residente:</span> {userName}
                 </p>
                 <p>
-                  <span className="font-medium">Ubicación:</span> Torre{" "}
+                  <span className="font-medium">Ubicación:</span> Bloque{" "}
                   {userBloque} - Apto {userApto}
                 </p>
               </div>

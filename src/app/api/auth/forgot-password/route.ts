@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
               </a>
             </div>
             <p style="color: #666; font-size: 14px;">Este enlace expira en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo.</p>
-            <p style="color: #999; font-size: 12px;">Conjunto Parque Residencial Calle 100 P.H.</p>
+            <p style="color: #999; font-size: 12px;">Conjunto Parque Residencial Calle 100</p>
           </div>
         `,
       });

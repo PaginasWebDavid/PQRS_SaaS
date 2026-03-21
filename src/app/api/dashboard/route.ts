@@ -82,6 +82,46 @@ export async function GET(req: NextRequest) {
     { nombre: "Terminadas", valor: terminado, color: "#22c55e" },
   ];
 
+  // By trimester
+  const trimestres = [
+    { label: "I TRIM", meses: [0, 1, 2] },
+    { label: "II TRIM", meses: [3, 4, 5] },
+    { label: "III TRIM", meses: [6, 7, 8] },
+    { label: "IV TRIM", meses: [9, 10, 11] },
+  ].map((t) => {
+    const trimData = pqrs.filter((p) => t.meses.includes(p.fechaRecibido.getMonth()));
+    return {
+      label: t.label,
+      total: trimData.length,
+      terminado: trimData.filter((p) => p.estado === "TERMINADO").length,
+      enProgreso: trimData.filter((p) => p.estado === "EN_PROGRESO").length,
+      enEspera: trimData.filter((p) => p.estado === "EN_ESPERA").length,
+    };
+  });
+
+  // By asunto with status breakdown and descriptions
+  const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
+  for (const p of pqrs) {
+    if (!asuntoMap[p.asunto]) {
+      asuntoMap[p.asunto] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
+    }
+    asuntoMap[p.asunto].total++;
+    if (p.estado === "TERMINADO") asuntoMap[p.asunto].terminado++;
+    else if (p.estado === "EN_PROGRESO") asuntoMap[p.asunto].enProgreso++;
+    else asuntoMap[p.asunto].enEspera++;
+    if (p.subAsunto) asuntoMap[p.asunto].descripciones.add(p.subAsunto);
+  }
+  const porAsuntoDetalle = Object.entries(asuntoMap)
+    .map(([asunto, d]) => ({
+      asunto: asunto.toUpperCase(),
+      cantidad: d.total,
+      descripcion: Array.from(d.descripciones).join(", ") || "",
+      terminados: d.terminado,
+      enProgreso: d.enProgreso,
+      enEspera: d.enEspera,
+    }))
+    .sort((a, b) => b.cantidad - a.cantidad);
+
   // Recent PQRS en espera (urgent)
   const pendientes = pqrs
     .filter((p) => p.estado === "EN_ESPERA")
@@ -115,6 +155,8 @@ export async function GET(req: NextRequest) {
     porTipo,
     porAsunto,
     porEstado,
+    trimestres,
+    porAsuntoDetalle,
     pendientes,
   });
 }

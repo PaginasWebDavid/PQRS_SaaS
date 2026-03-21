@@ -350,7 +350,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         <h2 className="text-base font-bold text-gray-900">Información de la solicitud</h2>
 
         <InfoRow label="Residente" value={pqrs.nombreResidente} />
-        <InfoRow label="Ubicación" value={`Torre ${pqrs.bloque} - Apto ${pqrs.apto}`} />
+        <InfoRow label="Ubicación" value={`Bloque ${pqrs.bloque} - Apto ${pqrs.apto}`} />
         <InfoRow label="Asunto" value={pqrs.subAsunto ? `${pqrs.asunto} - ${pqrs.subAsunto}` : pqrs.asunto} />
         <InfoRow label="Fecha recibido" value={fmtDateTime(pqrs.fechaRecibido)} />
         {pqrs.creadoPor && <InfoRow label="Registrado por" value={pqrs.creadoPor.name} />}

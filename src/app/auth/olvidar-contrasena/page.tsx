@@ -139,7 +139,7 @@ export default function OlvidarContrasenaPage() {
         </div>
 
         <p className="text-center text-green-200/50 text-sm mt-6">
-          Parque Residencial Calle 100 P.H.
+          Parque Residencial Calle 100
         </p>
       </div>
     </main>

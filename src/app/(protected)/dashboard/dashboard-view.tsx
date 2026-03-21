@@ -12,6 +12,7 @@ import {
   AlertCircle,
   ChevronRight,
   TrendingUp,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   BarChart,
@@ -43,6 +44,8 @@ interface DashboardData {
   porTipo: { nombre: string; valor: number; color: string }[];
   porAsunto: { nombre: string; valor: number }[];
   porEstado: { nombre: string; valor: number; color: string }[];
+  trimestres: { label: string; total: number; terminado: number; enProgreso: number; enEspera: number }[];
+  porAsuntoDetalle: { asunto: string; cantidad: number; descripcion: string; terminados: number; enProgreso: number; enEspera: number }[];
   pendientes: {
     id: string;
     numero: number;
@@ -92,6 +95,43 @@ export function DashboardView() {
     fetchData();
   }, [fetchData]);
 
+  async function exportDashboardExcel() {
+    if (!data) return;
+    const XLSX = await import("xlsx");
+    const r = data.resumen;
+
+    // Sheet 1: Resumen por trimestre
+    const trimSheet = [
+      [`PQRS - ${data.year}`],
+      [],
+      ["PQRS", "I TRIM", "II TRIM", "III TRIM", "IV TRIM", "TOTAL", "%"],
+      ["Total", ...data.trimestres.map((t) => t.total), r.total, ""],
+      ["Terminado", ...data.trimestres.map((t) => t.terminado), r.terminado, r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%"],
+      ["En Proceso", ...data.trimestres.map((t) => t.enProgreso), r.enProgreso, r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%"],
+      ["En Espera", ...data.trimestres.map((t) => t.enEspera), r.enEspera, r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%"],
+    ];
+
+    // Sheet 2: Detalle por asunto
+    const asuntoSheet = [
+      [`PQRS POR DETALLE DE ${data.year}`],
+      [],
+      ["Cantidad", "Asunto", "Descripción", "Terminados", "En Proceso", "En Espera"],
+      ...data.porAsuntoDetalle.map((a) => [a.cantidad, a.asunto, a.descripcion, a.terminados, a.enProgreso, a.enEspera]),
+      [r.total, "", "", r.terminado, r.enProgreso, r.enEspera],
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(trimSheet);
+    ws1["!cols"] = [{ wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, ws1, "Resumen Trimestral");
+
+    const ws2 = XLSX.utils.aoa_to_sheet(asuntoSheet);
+    ws2["!cols"] = [{ wch: 10 }, { wch: 18 }, { wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws2, "Por Asunto");
+
+    XLSX.writeFile(wb, `Dashboard_PQRS_${data.year}.xlsx`);
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -116,19 +156,29 @@ export function DashboardView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <select
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-        >
+        <div className="flex gap-2">
+          <select
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          >
           {getYears().map((y) => (
             <option key={y} value={String(y)}>
               {y}
             </option>
           ))}
-        </select>
+          </select>
+          <button
+            onClick={exportDashboardExcel}
+            disabled={r.total === 0}
+            className="flex items-center gap-2 h-10 px-4 bg-green-700 text-white font-bold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors text-sm"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -201,6 +251,102 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* Tabla resumen por trimestre */}
+      {r.total > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
+          <div className="p-5 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-900">PQRS - {data.year}</h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-4 py-3 font-bold text-gray-700">PQRS</th>
+                {data.trimestres.map((t) => (
+                  <th key={t.label} className="text-center px-4 py-3 font-bold text-gray-700">{t.label}</th>
+                ))}
+                <th className="text-center px-4 py-3 font-bold text-gray-700">TOTAL</th>
+                <th className="text-center px-4 py-3 font-bold text-gray-700">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-100">
+                <td className="px-4 py-2.5 font-medium text-gray-900">Total</td>
+                {data.trimestres.map((t) => (
+                  <td key={t.label} className="text-center px-4 py-2.5 text-gray-700">{t.total || ""}</td>
+                ))}
+                <td className="text-center px-4 py-2.5 font-bold text-gray-900">{r.total}</td>
+                <td className="text-center px-4 py-2.5 text-gray-500"></td>
+              </tr>
+              <tr className="border-b border-gray-100 bg-green-50">
+                <td className="px-4 py-2.5 font-medium text-green-700">Terminado</td>
+                {data.trimestres.map((t) => (
+                  <td key={t.label} className="text-center px-4 py-2.5 text-green-700">{t.terminado || ""}</td>
+                ))}
+                <td className="text-center px-4 py-2.5 font-bold text-green-700">{r.terminado}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-green-700">{r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%"}</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="px-4 py-2.5 font-medium text-blue-700">En Proceso</td>
+                {data.trimestres.map((t) => (
+                  <td key={t.label} className="text-center px-4 py-2.5 text-blue-700">{t.enProgreso || ""}</td>
+                ))}
+                <td className="text-center px-4 py-2.5 font-bold text-blue-700">{r.enProgreso}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-blue-700">{r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%"}</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2.5 font-medium text-yellow-700">En Espera</td>
+                {data.trimestres.map((t) => (
+                  <td key={t.label} className="text-center px-4 py-2.5 text-yellow-700">{t.enEspera || ""}</td>
+                ))}
+                <td className="text-center px-4 py-2.5 font-bold text-yellow-700">{r.enEspera}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-yellow-700">{r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Tabla detalle por asunto */}
+      {data.porAsuntoDetalle.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
+          <div className="p-5 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-900">PQRS por detalle de {data.year}</h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-center px-4 py-3 font-bold text-gray-700">Cantidad</th>
+                <th className="text-left px-4 py-3 font-bold text-gray-700">Asunto</th>
+                <th className="text-left px-4 py-3 font-bold text-gray-700">Descripción</th>
+                <th className="text-center px-4 py-3 font-bold text-green-700">Terminados</th>
+                <th className="text-center px-4 py-3 font-bold text-blue-700">En Proceso</th>
+                <th className="text-center px-4 py-3 font-bold text-yellow-700">En Espera</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.porAsuntoDetalle.map((a) => (
+                <tr key={a.asunto} className="border-b border-gray-100">
+                  <td className="text-center px-4 py-2.5 font-bold text-gray-900">{a.cantidad}</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{a.asunto}</td>
+                  <td className="px-4 py-2.5 text-gray-600 max-w-[300px] truncate">{a.descripcion}</td>
+                  <td className="text-center px-4 py-2.5 text-green-700">{a.terminados}</td>
+                  <td className="text-center px-4 py-2.5 text-blue-700">{a.enProgreso}</td>
+                  <td className="text-center px-4 py-2.5 text-yellow-700">{a.enEspera}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50 font-bold">
+                <td className="text-center px-4 py-2.5 text-gray-900">{r.total}</td>
+                <td className="px-4 py-2.5 text-gray-900"></td>
+                <td className="px-4 py-2.5 text-gray-900"></td>
+                <td className="text-center px-4 py-2.5 text-green-700">{r.terminado}</td>
+                <td className="text-center px-4 py-2.5 text-blue-700">{r.enProgreso}</td>
+                <td className="text-center px-4 py-2.5 text-yellow-700">{r.enEspera}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Pendientes urgentes */}
       {data.pendientes.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
@@ -220,7 +366,7 @@ export function DashboardView() {
                       <span className="text-sm font-medium text-gray-900 truncate">{p.asunto}</span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {p.nombreResidente} · T{p.bloque}-{p.apto}
+                      {p.nombreResidente} · B{p.bloque}-{p.apto}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">

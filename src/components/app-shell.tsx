@@ -108,7 +108,7 @@ export function AppShell({ children, user }: AppShellProps) {
                   : user.role === "CONSEJO"
                     ? "Consejo"
                     : user.role}
-              {user.bloque ? ` · T${user.bloque}-${user.apto}` : ""}
+              {user.bloque ? ` · B${user.bloque}-${user.apto}` : ""}
             </p>
           </div>
           <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-sm border-2 border-green-600">
@@ -168,7 +168,7 @@ export function AppShell({ children, user }: AppShellProps) {
                 <p className="text-sm text-gray-500">{user.email}</p>
                 {user.bloque && (
                   <p className="text-sm text-green-700 font-medium">
-                    Torre {user.bloque} - Apto {user.apto}
+                    Bloque {user.bloque} - Apto {user.apto}
                   </p>
                 )}
               </div>

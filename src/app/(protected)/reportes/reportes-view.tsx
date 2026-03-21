@@ -103,7 +103,7 @@ export function ReportesView() {
 
     // Sheet 1: Resumen
     const resumenData = [
-      ["REPORTE PQRS - CONJUNTO PARQUE RESIDENCIAL CALLE 100 P.H."],
+      ["REPORTE PQRS - CONJUNTO PARQUE RESIDENCIAL CALLE 100"],
       [`Período: ${month ? MESES[parseInt(month) - 1] + " " : ""}${year}`],
       [],
       ["RESUMEN GENERAL"],
@@ -174,7 +174,7 @@ export function ReportesView() {
     // Title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("CONJUNTO PARQUE RESIDENCIAL CALLE 100 P.H.", 14, 15);
+    doc.text("CONJUNTO PARQUE RESIDENCIAL CALLE 100", 14, 15);
     doc.setFontSize(12);
     doc.text(`Reporte PQRS - ${periodo}`, 14, 23);
 
@@ -440,7 +440,7 @@ export function ReportesView() {
                     <td className="px-4 py-2.5 text-gray-600">#{d.numero}</td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaRecibido}</td>
                     <td className="px-4 py-2.5 text-gray-900">{d.nombreResidente}</td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">T{d.bloque}-{d.apto}</td>
+                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">B{d.bloque}-{d.apto}</td>
                     <td className="px-4 py-2.5 text-gray-600">{d.tipoPqrs}</td>
                     <td className="px-4 py-2.5 text-gray-900 max-w-[200px] truncate">{d.asunto}</td>
                     <td className="px-4 py-2.5">

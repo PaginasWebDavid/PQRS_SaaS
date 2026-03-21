@@ -437,7 +437,7 @@ export function PqrsList({ role }: PqrsListProps) {
                         <div className="flex items-center gap-3 text-xs text-gray-400">
                           {!isResidente && (
                             <span>
-                              {p.nombreResidente} · T{p.bloque}-{p.apto}
+                              {p.nombreResidente} · B{p.bloque}-{p.apto}
                             </span>
                           )}
                           <span>{formatDate(p.fechaRecibido)}</span>

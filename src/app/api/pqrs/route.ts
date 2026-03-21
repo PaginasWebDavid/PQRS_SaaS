@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (finalBloque < 1 || finalBloque > 12) {
-    return NextResponse.json({ error: "Torre debe ser entre 1 y 12" }, { status: 400 });
+    return NextResponse.json({ error: "Bloque debe ser entre 1 y 12" }, { status: 400 });
   }
 
   const ahora = new Date();

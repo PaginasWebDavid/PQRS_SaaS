@@ -166,7 +166,7 @@ export default function RegistroPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-base font-medium text-gray-700">
-                  Torre / Bloque
+                  Bloque
                 </label>
                 <select
                   value={form.bloque}
@@ -177,7 +177,7 @@ export default function RegistroPage() {
                   <option value="">Selecciona</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                     <option key={n} value={String(n)}>
-                      Torre {n}
+                      Bloque {n}
                     </option>
                   ))}
                 </select>
@@ -235,7 +235,7 @@ export default function RegistroPage() {
         </div>
 
         <p className="text-center text-green-200/50 text-sm mt-6">
-          Parque Residencial Calle 100 P.H.
+          Parque Residencial Calle 100
         </p>
       </div>
     </main>

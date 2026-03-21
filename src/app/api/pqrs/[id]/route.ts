@@ -145,10 +145,14 @@ export async function PATCH(
               <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                 <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tipo</td><td style="padding: 8px; border: 1px solid #ddd;">${TIPO_LABEL[pqrs.tipoPqrs]}</td></tr>
                 <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asuntoDisplay}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Torre ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
               </table>
+              <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #374151;">Nota del primer contacto:</p>
+                <p style="margin: 8px 0 0; font-size: 14px; color: #4b5563;">${nota}</p>
+              </div>
               <p style="color: #666; font-size: 14px;">Guarde este número para hacer seguimiento a su solicitud.</p>
-              <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100 P.H.</p>
+              <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
             </div>
           `,
         });
@@ -240,6 +244,17 @@ export async function PATCH(
     });
 
     try {
+      // Build attachments if there's an evidence file
+      const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
+      if (updated.evidenciaArchivoData && updated.evidenciaArchivoNombre) {
+        const base64Data = (updated.evidenciaArchivoData as string).replace(/^data:[^;]+;base64,/, "");
+        attachments.push({
+          filename: updated.evidenciaArchivoNombre,
+          content: Buffer.from(base64Data, "base64"),
+          contentType: updated.evidenciaArchivoTipo || undefined,
+        });
+      }
+
       await sendEmail({
         to: updated.creadoPor.email,
         subject: `PQRS #${pqrs.numero} - ${TIPO_LABEL[pqrs.tipoPqrs]} cerrada`,
@@ -258,11 +273,13 @@ export async function PATCH(
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Acción tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
               ${updated.evidenciaCierre ? `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>` : ""}
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Torre ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
-            <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100 P.H.</p>
+            ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">📎 Se adjunta archivo de evidencia de cierre.</p>` : ""}
+            <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
           </div>
         `,
+        attachments,
       });
     } catch (emailError) {
       console.error("Error enviando email de cierre:", emailError);

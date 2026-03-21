@@ -44,7 +44,7 @@ export default async function Home() {
             Peticiones, Quejas, Reclamos y Sugerencias
           </p>
           <p className="mt-2 text-sm text-green-200/60">
-            Parque Residencial Calle 100 P.H. — Bogotá, Colombia
+            Parque Residencial Calle 100 — Bogotá, Colombia
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className="bg-green-950 text-green-100/60 py-8 px-6 text-center text-sm">
         <p className="font-medium text-green-100/80">
-          Conjunto Parque Residencial Calle 100 P.H.
+          Conjunto Parque Residencial Calle 100
         </p>
         <p className="mt-1">Bogotá, Colombia</p>
         <p className="mt-2 text-green-200/40">

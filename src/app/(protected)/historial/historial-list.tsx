@@ -220,7 +220,7 @@ export function HistorialList() {
 
                         <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
                           <span>
-                            {p.nombreResidente} · T{p.bloque}-{p.apto}
+                            {p.nombreResidente} · B{p.bloque}-{p.apto}
                           </span>
                           <span>{formatDate(p.fechaRecibido)}</span>
                           {p.fechaCierre && (
