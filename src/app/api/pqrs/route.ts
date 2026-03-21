@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const estado = searchParams.get("estado");
   const tipo = searchParams.get("tipo");
+  const asunto = searchParams.get("asunto");
   const year = searchParams.get("year");
   const scope = searchParams.get("scope"); // "active" | "historial" | null
 
@@ -41,6 +42,10 @@ export async function GET(req: NextRequest) {
 
   if (tipo) {
     where.tipoPqrs = tipo as Prisma.EnumTipoPqrsFilter["equals"];
+  }
+
+  if (asunto) {
+    where.asunto = asunto;
   }
 
   if (year) {
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { tipoPqrs, asunto, descripcion, nombreResidente, bloque, apto } = body;
+  const { tipoPqrs, asunto, subAsunto, descripcion, nombreResidente, bloque, apto } = body;
 
   // Validaciones
   if (!tipoPqrs || !asunto || !descripcion) {
@@ -121,6 +126,7 @@ export async function POST(req: NextRequest) {
       nombreResidente: finalNombre,
       tipoPqrs,
       asunto,
+      subAsunto: subAsunto || null,
       descripcion,
       creadoPorId: session.user.id,
     },

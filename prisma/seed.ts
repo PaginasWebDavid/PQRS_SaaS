@@ -4,9 +4,8 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding database...");
+  console.log("Limpiando base de datos...");
 
-  // Limpiar datos existentes
   await prisma.historialPqrs.deleteMany();
   await prisma.pqrs.deleteMany();
   await prisma.session.deleteMany();
@@ -19,6 +18,15 @@ async function main() {
   // Crear usuarios
   const admin = await prisma.user.create({
     data: {
+      email: "admoncallecien@gmail.com",
+      password: hash("REDACTED_HISTORICAL_PASSWORD"),
+      name: "Administración Calle 100",
+      role: Role.ADMIN,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
       email: "d.hernandeza2@uniandes.edu.co",
       password: hash("REDACTED_HISTORICAL_PASSWORD"),
       name: "David Hernández",
@@ -26,16 +34,7 @@ async function main() {
     },
   });
 
-  const asistente = await prisma.user.create({
-    data: {
-      email: "asistente@calle100.com",
-      password: hash("REDACTED_HISTORICAL_PASSWORD"),
-      name: "María García",
-      role: Role.ASISTENTE,
-    },
-  });
-
-  const consejo = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: "consejo@calle100.com",
       password: hash("REDACTED_HISTORICAL_PASSWORD"),
@@ -77,279 +76,234 @@ async function main() {
     },
   });
 
-  console.log("Usuarios creados:", 6);
+  console.log("Usuarios creados: 6");
 
-  // Crear PQRS de prueba
+  // PQRS con los nuevos campos asunto/subAsunto/numeroRadicacion
   const pqrsData = [
+    // EN_ESPERA (3 pendientes)
     {
       medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-01-10"),
-      mes: "Enero",
-      bloque: 5,
-      apto: 310,
-      nombreResidente: "Ana Martínez",
-      tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Filtración de agua en el techo",
-      descripcion: "Filtración de agua en el techo del apartamento, se observa humedad creciente en la esquina del baño principal.",
-      estado: Estado.TERMINADO,
-      accionTomada: "Se realizó inspección con el ingeniero. Se identificó falla en la impermeabilización del piso superior. Se realizó reparación y sellamiento.",
-      fechaPrimerContacto: new Date("2026-01-11"),
-      tiempoRespuestaPrimerContacto: 1,
-      fechaCierre: new Date("2026-01-20"),
-      tiempoRespuestaCierre: 8,
-      evidenciaCierre: "Fotos del antes y después de la reparación. Acta firmada por el residente.",
-      creadoPorId: residente1.id,
-      gestionadoPorId: admin.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-01-15"),
-      mes: "Enero",
-      bloque: 7,
-      apto: 218,
-      nombreResidente: "Luis Pérez",
-      tipoPqrs: TipoPqrs.PETICION,
-      asunto: "Punto de carga para vehículo eléctrico",
-      descripcion: "Solicito la instalación de un punto de carga para vehículo eléctrico en mi parqueadero asignado (P-45).",
-      estado: Estado.EN_PROGRESO,
-      accionTomada: "Se remitió solicitud al Consejo de Administración para aprobación. Se solicitó cotización al proveedor eléctrico del conjunto.",
-      fechaPrimerContacto: new Date("2026-01-16"),
-      tiempoRespuestaPrimerContacto: 1,
-      creadoPorId: residente2.id,
-      gestionadoPorId: asistente.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-02-01"),
-      mes: "Febrero",
-      bloque: 3,
-      apto: 102,
-      nombreResidente: "Pedro Gómez",
-      tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Ruido excesivo del vecino",
-      descripcion: "El vecino del apartamento 103 tiene música a alto volumen después de las 10pm de forma recurrente.",
-      estado: Estado.TERMINADO,
-      accionTomada: "Se envió comunicado al residente del apto 103. Se programó mediación. Se firmó acta de compromiso.",
-      fechaPrimerContacto: new Date("2026-02-03"),
-      tiempoRespuestaPrimerContacto: 2,
-      fechaCierre: new Date("2026-02-10"),
-      tiempoRespuestaCierre: 7,
-      evidenciaCierre: "Acta de compromiso firmada por ambas partes.",
-      gestionadoPorId: admin.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-02-05"),
-      mes: "Febrero",
-      bloque: 12,
-      apto: 512,
-      nombreResidente: "Sandra López",
-      tipoPqrs: TipoPqrs.RECLAMO,
-      asunto: "Humedad en ventana sin atender",
-      descripcion: "Ya reporté hace 3 meses la humedad en mi ventana del cuarto principal y nadie ha venido a revisar. El problema empeoró.",
-      estado: Estado.EN_PROGRESO,
-      accionTomada: "Se programó visita del contratista de ventanas para el 12 de febrero.",
-      fechaPrimerContacto: new Date("2026-02-06"),
-      tiempoRespuestaPrimerContacto: 1,
-      creadoPorId: residente3.id,
-      gestionadoPorId: asistente.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-02-10"),
-      mes: "Febrero",
-      bloque: 1,
-      apto: 401,
-      nombreResidente: "Jorge Ramírez",
-      tipoPqrs: TipoPqrs.SUGERENCIA,
-      asunto: "Más luminarias en parqueadero",
-      descripcion: "Sugiero instalar más luminarias en el parqueadero del sótano 2. Hay zonas muy oscuras.",
-      estado: Estado.EN_ESPERA,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-02-15"),
-      mes: "Febrero",
-      bloque: 8,
-      apto: 605,
-      nombreResidente: "Camila Torres",
-      tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Ascensor fuera de servicio torre 8",
-      descripcion: "El ascensor de la torre 8 lleva 5 días fuera de servicio. Tengo familiar con movilidad reducida en piso 6.",
-      estado: Estado.TERMINADO,
-      accionTomada: "Se contactó empresa de ascensores. Reparación realizada el 17 de febrero.",
-      fechaPrimerContacto: new Date("2026-02-15"),
-      tiempoRespuestaPrimerContacto: 0,
-      fechaCierre: new Date("2026-02-17"),
-      tiempoRespuestaCierre: 2,
-      evidenciaCierre: "Informe técnico de la empresa de ascensores. Ascensor operativo.",
-      gestionadoPorId: admin.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-02-20"),
-      mes: "Febrero",
-      bloque: 5,
-      apto: 310,
-      nombreResidente: "Ana Martínez",
-      tipoPqrs: TipoPqrs.PETICION,
-      asunto: "Copia de acta de asamblea",
-      descripcion: "Solicito copia del acta de la última asamblea general de copropietarios.",
-      estado: Estado.TERMINADO,
-      accionTomada: "Se envió copia digital del acta al correo de la residente.",
-      fechaPrimerContacto: new Date("2026-02-20"),
-      tiempoRespuestaPrimerContacto: 0,
-      fechaCierre: new Date("2026-02-20"),
-      tiempoRespuestaCierre: 0,
-      evidenciaCierre: "Correo enviado con acta adjunta.",
-      creadoPorId: residente1.id,
-      gestionadoPorId: asistente.id,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-01"),
+      fechaRecibido: new Date("2026-03-18"),
       mes: "Marzo",
-      bloque: 10,
-      apto: 203,
-      nombreResidente: "Roberto Silva",
+      bloque: 3, apto: 502,
+      nombreResidente: "María García",
       tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Fuga de agua en área común torre 10",
-      descripcion: "Fuga de agua en el área común del piso 2 de la torre 10, cerca de las escaleras. Piso resbaloso.",
+      asunto: "Humedad",
+      subAsunto: "Humedad Ventana",
+      descripcion: "Se presenta humedad en la ventana del cuarto principal. El agua se filtra cuando llueve y ha generado moho.",
+      estado: Estado.EN_ESPERA,
+      creadoPorId: residente1.id,
+    },
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-03-19"),
+      mes: "Marzo",
+      bloque: 7, apto: 301,
+      nombreResidente: "Carlos López",
+      tipoPqrs: TipoPqrs.PETICION,
+      asunto: "Iluminación",
+      descripcion: "Solicito la instalación de luces LED en el parqueadero del sótano 2. Actualmente muy oscuro.",
+      estado: Estado.EN_ESPERA,
+      creadoPorId: residente2.id,
+    },
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-03-20"),
+      mes: "Marzo",
+      bloque: 1, apto: 204,
+      nombreResidente: "Ana Martínez",
+      tipoPqrs: TipoPqrs.RECLAMO,
+      asunto: "Área común",
+      descripcion: "El salón comunal fue reservado para el sábado pero estaba ocupado por otra reunión no programada.",
+      estado: Estado.EN_ESPERA,
+      creadoPorId: residente3.id,
+    },
+
+    // EN_PROGRESO (2 radicadas)
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-03-10"),
+      mes: "Marzo",
+      bloque: 5, apto: 101,
+      nombreResidente: "Pedro Ramírez",
+      tipoPqrs: TipoPqrs.QUEJA,
+      asunto: "Convivencia",
+      descripcion: "El vecino del apto 102 tiene música a alto volumen después de las 10pm constantemente.",
       estado: Estado.EN_PROGRESO,
-      accionTomada: "Se envió plomero. Tubería rota identificada. Reparación programada.",
-      fechaPrimerContacto: new Date("2026-03-01"),
-      tiempoRespuestaPrimerContacto: 0,
+      fechaPrimerContacto: new Date("2026-03-12"),
+      tiempoRespuestaPrimerContacto: 2,
       gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0004",
+      creadoPorId: residente1.id,
     },
     {
       medio: Medio.PLATAFORMA_WEB,
       fechaRecibido: new Date("2026-03-05"),
       mes: "Marzo",
-      bloque: 2,
-      apto: 708,
-      nombreResidente: "Valentina Ruiz",
-      tipoPqrs: TipoPqrs.RECLAMO,
-      asunto: "Puerta de acceso torre 2 dañada",
-      descripcion: "La puerta de acceso a torre 2 no cierra correctamente. Cualquier persona puede entrar sin llave.",
-      estado: Estado.EN_ESPERA,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-08"),
-      mes: "Marzo",
-      bloque: 6,
-      apto: 415,
-      nombreResidente: "Diego Morales",
-      tipoPqrs: TipoPqrs.SUGERENCIA,
-      asunto: "Sistema de reserva para salón comunal",
-      descripcion: "Propongo implementar sistema de reserva online para el salón comunal.",
-      estado: Estado.EN_ESPERA,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-10"),
-      mes: "Marzo",
-      bloque: 4,
-      apto: 301,
-      nombreResidente: "Laura Castillo",
-      tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Perro suelto sin correa en zona verde",
-      descripcion: "Perro suelto en zona verde sin correa. Ya mordió a otro perro. Dueño es del bloque 4.",
-      estado: Estado.EN_ESPERA,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-12"),
-      mes: "Marzo",
-      bloque: 9,
-      apto: 104,
-      nombreResidente: "Andrés Vargas",
+      bloque: 9, apto: 803,
+      nombreResidente: "Laura Sánchez",
       tipoPqrs: TipoPqrs.PETICION,
-      asunto: "Estado de cuenta de administración",
-      descripcion: "Solicito información sobre estado de cuenta y pagos de administración del último trimestre.",
-      estado: Estado.EN_ESPERA,
+      asunto: "Humedad",
+      subAsunto: "Humedad Sala",
+      descripcion: "Humedad en la pared de la sala que da hacia el pasillo. Requiero inspección técnica.",
+      estado: Estado.EN_PROGRESO,
+      fechaPrimerContacto: new Date("2026-03-06"),
+      tiempoRespuestaPrimerContacto: 1,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0005",
+      creadoPorId: residente2.id,
+    },
+
+    // TERMINADAS (5 cerradas en ene/feb/mar)
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-01-05"),
+      mes: "Enero",
+      bloque: 6, apto: 201,
+      nombreResidente: "Valentina Ruiz",
+      tipoPqrs: TipoPqrs.PETICION,
+      asunto: "Convivencia",
+      descripcion: "Solicito copia del reglamento de propiedad horizontal y actas de las últimas 3 asambleas.",
+      estado: Estado.TERMINADO,
+      fechaPrimerContacto: new Date("2026-01-06"),
+      tiempoRespuestaPrimerContacto: 1,
+      accionTomada: "Se entregaron los documentos solicitados vía email.",
+      evidenciaCierre: "Correo enviado con documentos adjuntos.",
+      fechaCierre: new Date("2026-01-08"),
+      tiempoRespuestaCierre: 3,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0006",
+      creadoPorId: residente3.id,
     },
     {
       medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-14"),
-      mes: "Marzo",
-      bloque: 11,
-      apto: 602,
-      nombreResidente: "Patricia Mendoza",
+      fechaRecibido: new Date("2026-01-15"),
+      mes: "Enero",
+      bloque: 11, apto: 903,
+      nombreResidente: "Diego Torres",
       tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Humedad severa en ventana",
-      descripcion: "Humedad severa en ventana del cuarto principal. Marco oxidado, entra agua cuando llueve.",
-      estado: Estado.EN_ESPERA,
-    },
-    {
-      medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-15"),
-      mes: "Marzo",
-      bloque: 7,
-      apto: 218,
-      nombreResidente: "Luis Pérez",
-      tipoPqrs: TipoPqrs.QUEJA,
-      asunto: "Parqueadero de visitantes ocupado",
-      descripcion: "Parqueadero de visitantes ocupado permanentemente por vehículo de residente. Lleva más de 2 semanas.",
-      estado: Estado.EN_ESPERA,
+      asunto: "Humedad",
+      subAsunto: "Humedad Depósito",
+      descripcion: "Mi depósito en el sótano presenta humedad severa. Los objetos se están dañando.",
+      estado: Estado.TERMINADO,
+      fechaPrimerContacto: new Date("2026-01-16"),
+      tiempoRespuestaPrimerContacto: 1,
+      accionTomada: "Se impermeabilizó el depósito. Se instaló deshumidificador y ventilación.",
+      evidenciaCierre: "Obra de impermeabilización completada. Informe técnico entregado.",
+      fechaCierre: new Date("2026-01-30"),
+      tiempoRespuestaCierre: 15,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0007",
       creadoPorId: residente2.id,
     },
     {
       medio: Medio.PLATAFORMA_WEB,
-      fechaRecibido: new Date("2026-03-16"),
-      mes: "Marzo",
-      bloque: 3,
-      apto: 501,
-      nombreResidente: "Natalia Herrera",
-      tipoPqrs: TipoPqrs.PETICION,
-      asunto: "Autorización de mudanza",
-      descripcion: "Solicito autorización para mudanza el sábado 21 de marzo. Necesito reservar ascensor de carga.",
-      estado: Estado.EN_ESPERA,
+      fechaRecibido: new Date("2026-02-01"),
+      mes: "Febrero",
+      bloque: 2, apto: 401,
+      nombreResidente: "Juan Pérez",
+      tipoPqrs: TipoPqrs.SUGERENCIA,
+      asunto: "Área común",
+      descripcion: "Sugiero instalar bancas en la zona verde cerca de la torre 2.",
+      estado: Estado.TERMINADO,
+      fechaPrimerContacto: new Date("2026-02-02"),
+      tiempoRespuestaPrimerContacto: 1,
+      accionTomada: "Se aprobó instalación de 3 bancas. Obra completada el 15 de febrero.",
+      evidenciaCierre: "Bancas instaladas y verificadas.",
+      fechaCierre: new Date("2026-02-15"),
+      tiempoRespuestaCierre: 14,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0008",
+      creadoPorId: residente1.id,
+    },
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-02-10"),
+      mes: "Febrero",
+      bloque: 4, apto: 602,
+      nombreResidente: "Sofía Hernández",
+      tipoPqrs: TipoPqrs.RECLAMO,
+      asunto: "Iluminación",
+      descripcion: "Las luces del pasillo del piso 6 torre 4 llevan 3 semanas dañadas.",
+      estado: Estado.TERMINADO,
+      fechaPrimerContacto: new Date("2026-02-11"),
+      tiempoRespuestaPrimerContacto: 1,
+      accionTomada: "Se reemplazaron 4 luminarias del pasillo por luces LED nuevas.",
+      evidenciaCierre: "Luminarias reemplazadas. Funcionamiento verificado.",
+      fechaCierre: new Date("2026-02-18"),
+      tiempoRespuestaCierre: 8,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0009",
+      creadoPorId: residente3.id,
+    },
+    {
+      medio: Medio.PLATAFORMA_WEB,
+      fechaRecibido: new Date("2026-01-20"),
+      mes: "Enero",
+      bloque: 8, apto: 704,
+      nombreResidente: "Andrés Morales",
+      tipoPqrs: TipoPqrs.SUGERENCIA,
+      asunto: "Área común",
+      descripcion: "Propongo habilitar espacio de coworking en el salón comunal en las mañanas.",
+      estado: Estado.TERMINADO,
+      fechaPrimerContacto: new Date("2026-01-22"),
+      tiempoRespuestaPrimerContacto: 2,
+      accionTomada: "Aprobado en comité. Se habilitó WiFi y tomas eléctricas en salón comunal.",
+      evidenciaCierre: "Acta de comité. Adecuaciones completadas el 10 de febrero.",
+      fechaCierre: new Date("2026-02-10"),
+      tiempoRespuestaCierre: 21,
+      gestionadoPorId: admin.id,
+      numeroRadicacion: "RAD-2026-0010",
+      creadoPorId: residente1.id,
     },
   ];
 
   for (const data of pqrsData) {
-    await prisma.pqrs.create({ data });
-  }
+    const pqrs = await prisma.pqrs.create({ data });
 
-  console.log("PQRS creados:", pqrsData.length);
-
-  // Crear historial para los que cambiaron de estado
-  const pqrsConHistorial = await prisma.pqrs.findMany({
-    where: { estado: { not: Estado.EN_ESPERA } },
-  });
-
-  for (const pqr of pqrsConHistorial) {
+    // Historial: creación
     await prisma.historialPqrs.create({
       data: {
-        pqrsId: pqr.id,
-        estadoAntes: Estado.EN_ESPERA,
-        estadoDespues: Estado.EN_PROGRESO,
-        nota: "PQRS recibido y en gestión",
-        creadoAt: pqr.fechaPrimerContacto || pqr.fechaRecibido,
+        pqrsId: pqrs.id,
+        estadoDespues: Estado.EN_ESPERA,
+        nota: "PQRS creada",
+        creadoAt: data.fechaRecibido,
       },
     });
 
-    if (pqr.estado === Estado.TERMINADO) {
+    if (data.estado === Estado.EN_PROGRESO || data.estado === Estado.TERMINADO) {
       await prisma.historialPqrs.create({
         data: {
-          pqrsId: pqr.id,
+          pqrsId: pqrs.id,
+          estadoAntes: Estado.EN_ESPERA,
+          estadoDespues: Estado.EN_PROGRESO,
+          nota: `PQRS radicada como ${data.numeroRadicacion}`,
+          creadoAt: data.fechaPrimerContacto || data.fechaRecibido,
+        },
+      });
+    }
+
+    if (data.estado === Estado.TERMINADO) {
+      await prisma.historialPqrs.create({
+        data: {
+          pqrsId: pqrs.id,
           estadoAntes: Estado.EN_PROGRESO,
           estadoDespues: Estado.TERMINADO,
-          nota: "PQRS resuelto y cerrado",
-          creadoAt: pqr.fechaCierre || pqr.fechaRecibido,
+          nota: "PQRS cerrada",
+          creadoAt: data.fechaCierre || data.fechaRecibido,
         },
       });
     }
   }
 
-  console.log("Historial creado para", pqrsConHistorial.length, "PQRS");
-  console.log("\nSeed completado!");
-  console.log("\nUsuarios de prueba:");
-  console.log("  ADMIN:      d.hernandeza2@uniandes.edu.co / REDACTED_HISTORICAL_PASSWORD");
-  console.log("  ASISTENTE:  asistente@calle100.com / REDACTED_HISTORICAL_PASSWORD");
-  console.log("  CONSEJO:    consejo@calle100.com / REDACTED_HISTORICAL_PASSWORD");
-  console.log("  RESIDENTE:  residente1@calle100.com / REDACTED_HISTORICAL_PASSWORD");
+  console.log(`${pqrsData.length} PQRS creadas con historial.`);
+  console.log("\n--- Credenciales ---");
+  console.log("ADMIN:     admoncallecien@gmail.com / REDACTED_HISTORICAL_PASSWORD");
+  console.log("ADMIN:     d.hernandeza2@uniandes.edu.co / REDACTED_HISTORICAL_PASSWORD");
+  console.log("CONSEJO:   consejo@calle100.com / REDACTED_HISTORICAL_PASSWORD");
+  console.log("RESIDENTE: residente1@calle100.com / REDACTED_HISTORICAL_PASSWORD");
+  console.log("RESIDENTE: residente2@calle100.com / REDACTED_HISTORICAL_PASSWORD");
+  console.log("RESIDENTE: residente3@calle100.com / REDACTED_HISTORICAL_PASSWORD");
 }
 
 main()

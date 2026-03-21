@@ -51,6 +51,20 @@ const TIPOS = [
   },
 ];
 
+const ASUNTOS = [
+  "Área común",
+  "Convivencia",
+  "Humedad",
+  "Iluminación",
+];
+
+const SUB_ASUNTOS_HUMEDAD = [
+  "Humedad Ventana",
+  "Humedad Sala",
+  "Humedad Depósito",
+  "Humedad Área Común",
+];
+
 interface PqrsFormProps {
   role: "ADMIN" | "RESIDENTE";
   userName?: string | null;
@@ -72,6 +86,7 @@ export function PqrsForm({
   const [tipoPqrs, setTipoPqrs] = useState(initialTipo || "");
   const [showForm, setShowForm] = useState(!!initialTipo);
   const [asunto, setAsunto] = useState("");
+  const [subAsunto, setSubAsunto] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [nombreResidente, setNombreResidente] = useState("");
   const [bloque, setBloque] = useState("");
@@ -88,8 +103,12 @@ export function PqrsForm({
     e.preventDefault();
     setError("");
 
-    if (!asunto.trim()) {
-      setError("El asunto es obligatorio");
+    if (!asunto) {
+      setError("Debe seleccionar un asunto");
+      return;
+    }
+    if (asunto === "Humedad" && !subAsunto) {
+      setError("Debe seleccionar el tipo de humedad");
       return;
     }
     if (!descripcion.trim()) {
@@ -113,9 +132,13 @@ export function PqrsForm({
 
     const body: Record<string, string> = {
       tipoPqrs,
-      asunto: asunto.trim(),
+      asunto,
       descripcion: descripcion.trim(),
     };
+
+    if (subAsunto) {
+      body.subAsunto = subAsunto;
+    }
 
     if (isAdmin) {
       body.nombreResidente = nombreResidente.trim();
@@ -219,7 +242,7 @@ export function PqrsForm({
       {/* Form card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Asunto */}
+          {/* Asunto - Dropdown */}
           <div className="space-y-2">
             <label
               htmlFor="asunto"
@@ -227,15 +250,50 @@ export function PqrsForm({
             >
               Asunto *
             </label>
-            <input
+            <select
               id="asunto"
-              placeholder="Resumen breve de la solicitud"
               value={asunto}
-              onChange={(e) => setAsunto(e.target.value)}
-              maxLength={100}
-              className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
-            />
+              onChange={(e) => {
+                setAsunto(e.target.value);
+                if (e.target.value !== "Humedad") {
+                  setSubAsunto("");
+                }
+              }}
+              className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+            >
+              <option value="">Seleccionar asunto</option>
+              {ASUNTOS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* Sub-asunto for Humedad */}
+          {asunto === "Humedad" && (
+            <div className="space-y-2">
+              <label
+                htmlFor="subAsunto"
+                className="block text-base font-medium text-gray-700"
+              >
+                Tipo de humedad *
+              </label>
+              <select
+                id="subAsunto"
+                value={subAsunto}
+                onChange={(e) => setSubAsunto(e.target.value)}
+                className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+              >
+                <option value="">Seleccionar tipo</option>
+                {SUB_ASUNTOS_HUMEDAD.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Descripción */}
           <div className="space-y-2">

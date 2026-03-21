@@ -18,7 +18,8 @@
       "Bash(npm run:*)",
       "Bash(find . -maxdepth 3 -type f \\\\\\(-name *.md -o -name *.txt -o -name README* \\\\\\) ! -path ./node_modules/*)",
       "Bash(git log:*)",
-      "Read(//c/Users/d.hernandeza2/.claude/projects/**)"
+      "Read(//c/Users/d.hernandeza2/.claude/projects/**)",
+      "Bash(vercel --yes)"
     ],
     "additionalDirectories": [
       "C:\\Users\\d.hernandeza2\\Documents\\pqrs-calle-100-temp",

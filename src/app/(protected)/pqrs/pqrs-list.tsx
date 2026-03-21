@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
@@ -129,34 +130,60 @@ interface PqrsListProps {
 }
 
 export function PqrsList({ role }: PqrsListProps) {
+  const searchParams = useSearchParams();
+  const estadoFromUrl = searchParams.get("estado") || "";
+
   const [pqrs, setPqrs] = useState<Pqrs[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipo, setTipo] = useState("");
+  const [asuntoFilter, setAsuntoFilter] = useState("");
   const [year, setYear] = useState("");
+  const [estadoFilter, setEstadoFilter] = useState(estadoFromUrl);
   const [seguimiento, setSeguimiento] = useState(false);
 
   const isResidente = role === "RESIDENTE";
   const canCreate = !isResidente && role === "ADMIN";
 
+  const [error, setError] = useState("");
+
+  // Sync estado filter when URL changes
+  useEffect(() => {
+    if (estadoFromUrl) {
+      setEstadoFilter(estadoFromUrl);
+    }
+  }, [estadoFromUrl]);
+
   const fetchPqrs = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    // For non-residents, only show active (EN_ESPERA + EN_PROGRESO)
-    if (!isResidente) {
-      params.set("scope", "active");
-    }
-    if (tipo) params.set("tipo", tipo);
-    if (year) params.set("year", year);
-    // Seguimiento: only EN_PROGRESO for residents
-    if (isResidente && seguimiento) {
-      params.set("estado", "EN_PROGRESO");
-    }
+    setError("");
+    try {
+      const params = new URLSearchParams();
 
-    const res = await fetch(`/api/pqrs?${params.toString()}`);
-    const data = await res.json();
-    setPqrs(data);
-    setLoading(false);
-  }, [tipo, year, isResidente, seguimiento]);
+      // If a specific estado filter is set, use it directly (no scope)
+      if (estadoFilter && estadoFilter !== "todos") {
+        params.set("estado", estadoFilter);
+      } else if (!estadoFilter && !isResidente) {
+        // Default: non-residents see active only
+        params.set("scope", "active");
+      }
+
+      if (tipo) params.set("tipo", tipo);
+      if (asuntoFilter) params.set("asunto", asuntoFilter);
+      if (year) params.set("year", year);
+      if (isResidente && seguimiento) {
+        params.set("estado", "EN_PROGRESO");
+      }
+
+      const res = await fetch(`/api/pqrs?${params.toString()}`);
+      if (!res.ok) throw new Error("Error al cargar PQRS");
+      const data = await res.json();
+      setPqrs(data);
+    } catch {
+      setError("No se pudieron cargar las PQRS.");
+    } finally {
+      setLoading(false);
+    }
+  }, [tipo, asuntoFilter, year, isResidente, seguimiento, estadoFilter]);
 
   useEffect(() => {
     fetchPqrs();
@@ -244,7 +271,17 @@ export function PqrsList({ role }: PqrsListProps) {
       {/* Non-resident header */}
       {!isResidente && (
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">PQRS Activas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {estadoFilter === "EN_ESPERA"
+              ? "PQRS En Espera"
+              : estadoFilter === "EN_PROGRESO"
+                ? "PQRS En Progreso"
+                : estadoFilter === "TERMINADO"
+                  ? "PQRS Terminadas"
+                  : estadoFilter === "todos"
+                    ? "Todas las PQRS"
+                    : "PQRS Activas"}
+          </h1>
           {canCreate && (
             <Link
               href="/pqrs/nuevo"
@@ -259,6 +296,20 @@ export function PqrsList({ role }: PqrsListProps) {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
+        {!isResidente && (
+          <select
+            value={estadoFilter}
+            onChange={(e) => setEstadoFilter(e.target.value)}
+            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          >
+            <option value="">Activas</option>
+            <option value="todos">Todas</option>
+            <option value="EN_ESPERA">En espera</option>
+            <option value="EN_PROGRESO">En progreso</option>
+            <option value="TERMINADO">Terminadas</option>
+          </select>
+        )}
+
         <select
           value={year}
           onChange={(e) => setYear(e.target.value)}
@@ -284,11 +335,25 @@ export function PqrsList({ role }: PqrsListProps) {
           <option value="SUGERENCIA">Sugerencia</option>
         </select>
 
-        {(year || tipo) && (
+        <select
+          value={asuntoFilter}
+          onChange={(e) => setAsuntoFilter(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          <option value="">Asunto</option>
+          <option value="Área común">Área común</option>
+          <option value="Convivencia">Convivencia</option>
+          <option value="Humedad">Humedad</option>
+          <option value="Iluminación">Iluminación</option>
+        </select>
+
+        {(year || tipo || asuntoFilter || estadoFilter) && (
           <button
             onClick={() => {
               setYear("");
               setTipo("");
+              setAsuntoFilter("");
+              setEstadoFilter("");
             }}
             className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
           >
@@ -296,6 +361,14 @@ export function PqrsList({ role }: PqrsListProps) {
           </button>
         )}
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="text-center py-16">
+          <p className="text-red-600">{error}</p>
+          <button onClick={fetchPqrs} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (

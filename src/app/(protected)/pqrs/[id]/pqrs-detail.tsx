@@ -31,12 +31,16 @@ interface Pqrs {
   nombreResidente: string;
   tipoPqrs: string;
   asunto: string;
+  subAsunto: string | null;
   descripcion: string;
   estado: string;
+  numeroRadicacion: string | null;
+  notaPrimerContacto: string | null;
   accionTomada: string | null;
   evidenciaCierre: string | null;
-  evidenciaArchivoUrl: string | null;
+  evidenciaArchivoData: string | null;
   evidenciaArchivoNombre: string | null;
+  evidenciaArchivoTipo: string | null;
   fechaPrimerContacto: string | null;
   tiempoRespuestaPrimerContacto: number | null;
   fechaCierre: string | null;
@@ -108,10 +112,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [notaPrimerContacto, setNotaPrimerContacto] = useState("");
+  const [registrandoContacto, setRegistrandoContacto] = useState(false);
+
   const [accionTomada, setAccionTomada] = useState("");
   const [evidenciaCierre, setEvidenciaCierre] = useState("");
-  const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
+  const [archivoData, setArchivoData] = useState<string | null>(null);
   const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
+  const [archivoTipo, setArchivoTipo] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const fetchPqrs = useCallback(async () => {
@@ -125,8 +133,9 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     setPqrs(data);
     setAccionTomada(data.accionTomada || "");
     setEvidenciaCierre(data.evidenciaCierre || "");
-    setArchivoUrl(data.evidenciaArchivoUrl || null);
+    setArchivoData(data.evidenciaArchivoData || null);
     setArchivoNombre(data.evidenciaArchivoNombre || null);
+    setArchivoTipo(data.evidenciaArchivoTipo || null);
     setLoading(false);
   }, [pqrsId]);
 
@@ -138,8 +147,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError("El archivo no puede superar 5MB");
+    if (file.size > 2 * 1024 * 1024) {
+      setError("El archivo no puede superar 2MB");
       return;
     }
 
@@ -159,9 +168,46 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     }
 
     const data = await res.json();
-    setArchivoUrl(data.url);
+    setArchivoData(data.data);
     setArchivoNombre(data.nombre);
+    setArchivoTipo(data.tipo);
     setUploading(false);
+  }
+
+  async function handlePrimerContacto() {
+    setError("");
+    setSuccess("");
+
+    const nota = notaPrimerContacto.trim();
+    if (!nota) {
+      setError("Debe escribir una nota de primer contacto");
+      return;
+    }
+
+    setRegistrandoContacto(true);
+
+    const res = await fetch(`/api/pqrs/${pqrsId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        primerContacto: true,
+        notaPrimerContacto: nota,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Error al registrar primer contacto");
+      setRegistrandoContacto(false);
+      return;
+    }
+
+    const updated = await res.json();
+    setPqrs(updated);
+    setAccionTomada(updated.accionTomada || "");
+    setEvidenciaCierre(updated.evidenciaCierre || "");
+    setSuccess("Primer contacto registrado.");
+    setRegistrandoContacto(false);
   }
 
   async function handleSave() {
@@ -175,8 +221,9 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       body: JSON.stringify({
         accionTomada: accionTomada.trim() || null,
         evidenciaCierre: evidenciaCierre.trim() || null,
-        evidenciaArchivoUrl: archivoUrl,
+        evidenciaArchivoData: archivoData,
         evidenciaArchivoNombre: archivoNombre,
+        evidenciaArchivoTipo: archivoTipo,
       }),
     });
 
@@ -198,14 +245,9 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     setSuccess("");
 
     const finalAccion = accionTomada.trim();
-    const finalEvidencia = evidenciaCierre.trim();
 
     if (!finalAccion) {
       setError("Debe completar la acción tomada antes de cerrar la PQRS");
-      return;
-    }
-    if (!finalEvidencia) {
-      setError("Debe completar la evidencia de cierre antes de cerrar la PQRS");
       return;
     }
 
@@ -216,9 +258,10 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         accionTomada: finalAccion,
-        evidenciaCierre: finalEvidencia,
-        evidenciaArchivoUrl: archivoUrl,
+        evidenciaCierre: evidenciaCierre.trim() || null,
+        evidenciaArchivoData: archivoData,
         evidenciaArchivoNombre: archivoNombre,
+        evidenciaArchivoTipo: archivoTipo,
         terminar: true,
       }),
     });
@@ -286,9 +329,21 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               {ec?.label || pqrs.estado}
             </span>
           </div>
-          <h1 className="text-lg font-bold text-gray-900 mt-1">{pqrs.asunto}</h1>
+          <h1 className="text-lg font-bold text-gray-900 mt-1">
+            {pqrs.subAsunto ? `${pqrs.asunto} - ${pqrs.subAsunto}` : pqrs.asunto}
+          </h1>
         </div>
       </div>
+
+      {/* Radicación banner */}
+      {pqrs.numeroRadicacion && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-green-600 font-medium">N° de radicación</p>
+            <p className="text-lg font-bold text-green-800">{pqrs.numeroRadicacion}</p>
+          </div>
+        </div>
+      )}
 
       {/* Info card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
@@ -296,6 +351,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
         <InfoRow label="Residente" value={pqrs.nombreResidente} />
         <InfoRow label="Ubicación" value={`Torre ${pqrs.bloque} - Apto ${pqrs.apto}`} />
+        <InfoRow label="Asunto" value={pqrs.subAsunto ? `${pqrs.asunto} - ${pqrs.subAsunto}` : pqrs.asunto} />
         <InfoRow label="Fecha recibido" value={fmtDateTime(pqrs.fechaRecibido)} />
         {pqrs.creadoPor && <InfoRow label="Registrado por" value={pqrs.creadoPor.name} />}
 
@@ -321,6 +377,12 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             value={`${fmtDateTime(pqrs.fechaPrimerContacto)} (${pqrs.tiempoRespuestaPrimerContacto} día${pqrs.tiempoRespuestaPrimerContacto !== 1 ? "s" : ""})`}
           />
         )}
+        {pqrs.notaPrimerContacto && (
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-1">Nota de primer contacto</p>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.notaPrimerContacto}</p>
+          </div>
+        )}
         {pqrs.fechaCierre && (
           <InfoRow
             label="Fecha cierre"
@@ -331,154 +393,209 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
         <div className="border-t border-gray-100" />
 
-        {/* Acción tomada */}
-        {isAdmin && !isTerminado ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Acción tomada <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              placeholder="Describa las acciones realizadas"
-              value={accionTomada}
-              onChange={(e) => setAccionTomada(e.target.value)}
-              rows={3}
-              className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
-            />
-          </div>
-        ) : pqrs.accionTomada ? (
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
-          </div>
-        ) : null}
+        {/* === EN_ESPERA: Primer contacto form === */}
+        {isAdmin && pqrs.estado === "EN_ESPERA" && (
+          <>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Primer contacto <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                placeholder="Escriba la nota de primer contacto..."
+                value={notaPrimerContacto}
+                onChange={(e) => setNotaPrimerContacto(e.target.value)}
+                rows={3}
+                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+              />
+            </div>
 
-        {/* Evidencia de cierre (texto) */}
-        {isAdmin && !isTerminado ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Evidencia de cierre <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              placeholder="Describa la evidencia del cierre"
-              value={evidenciaCierre}
-              onChange={(e) => setEvidenciaCierre(e.target.value)}
-              rows={3}
-              className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
-            />
-          </div>
-        ) : pqrs.evidenciaCierre ? (
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Evidencia de cierre</p>
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.evidenciaCierre}</p>
-          </div>
-        ) : null}
-
-        {/* Evidencia archivo (upload) */}
-        {isAdmin && !isTerminado ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Archivo de evidencia
-            </label>
-
-            {archivoUrl ? (
-              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
-                <FileDown className="h-5 w-5 text-green-600 shrink-0" />
-                <span className="text-sm text-green-800 truncate flex-1">
-                  {archivoNombre}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setArchivoUrl(null);
-                    setArchivoNombre(null);
-                  }}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+            {/* Messages */}
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full flex items-center justify-center gap-2 h-12 text-sm font-medium text-gray-600 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-all"
-              >
-                {uploading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Upload className="h-5 w-5" />
-                )}
-                {uploading ? "Subiendo..." : "Subir archivo (máx. 5MB)"}
-              </button>
+            )}
+            {success && (
+              <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
+                {success}
+              </div>
             )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept="image/*,.pdf,.doc,.docx"
-              onChange={handleUpload}
-            />
-          </div>
-        ) : pqrs.evidenciaArchivoUrl ? (
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Archivo de evidencia</p>
-            <a
-              href={pqrs.evidenciaArchivoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-green-700 hover:text-green-800 bg-green-50 border border-green-200 rounded-xl px-4 py-2 transition-colors"
-            >
-              <FileDown className="h-4 w-4" />
-              {pqrs.evidenciaArchivoNombre || "Descargar archivo"}
-            </a>
-          </div>
-        ) : null}
-
-        {/* Messages */}
-        {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
-            {success.includes("notificación") && <Mail className="h-4 w-4" />}
-            {success}
-          </div>
-        )}
-
-        {/* Action buttons */}
-        {isAdmin && !isTerminado && (
-          <div className="flex gap-3 pt-2">
             <button
-              onClick={handleSave}
-              disabled={saving || terminating}
-              className="flex-1 h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              onClick={handlePrimerContacto}
+              disabled={registrandoContacto}
+              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
-              {saving ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Save className="h-5 w-5" />
-              )}
-              Guardar
-            </button>
-
-            <button
-              onClick={handleTerminar}
-              disabled={saving || terminating}
-              className="flex-1 h-12 text-base font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {terminating ? (
+              {registrandoContacto ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <CheckCircle2 className="h-5 w-5" />
               )}
-              Terminar
+              Registrar primer contacto
             </button>
-          </div>
+          </>
+        )}
+
+        {/* === EN_PROGRESO: Acción tomada + Evidencia de cierre === */}
+        {pqrs.estado === "EN_PROGRESO" && isAdmin && (
+          <>
+            {/* Acción tomada */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Acción tomada <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                placeholder="Describa las acciones realizadas"
+                value={accionTomada}
+                onChange={(e) => setAccionTomada(e.target.value)}
+                rows={3}
+                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+              />
+            </div>
+
+            {/* Evidencia de cierre (texto + archivo juntos) */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Evidencia de cierre
+              </label>
+              <textarea
+                placeholder="Describa la evidencia del cierre (opcional)"
+                value={evidenciaCierre}
+                onChange={(e) => setEvidenciaCierre(e.target.value)}
+                rows={3}
+                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+              />
+
+              {archivoData ? (
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
+                  <FileDown className="h-5 w-5 text-green-600 shrink-0" />
+                  <span className="text-sm text-green-800 truncate flex-1">
+                    {archivoNombre}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArchivoData(null);
+                      setArchivoNombre(null);
+                      setArchivoTipo(null);
+                    }}
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full flex items-center justify-center gap-2 h-12 text-sm font-medium text-gray-600 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-all"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5" />
+                  )}
+                  {uploading ? "Subiendo..." : "Subir archivo (máx. 2MB)"}
+                </button>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={handleUpload}
+              />
+            </div>
+
+            {/* Messages */}
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
+                {success.includes("notificación") && <Mail className="h-4 w-4" />}
+                {success}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || terminating}
+                className="flex-1 h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5" />
+                )}
+                Guardar
+              </button>
+
+              <button
+                onClick={handleTerminar}
+                disabled={saving || terminating}
+                className="flex-1 h-12 text-base font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {terminating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" />
+                )}
+                Terminar
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* === EN_PROGRESO: Read-only for non-admin === */}
+        {pqrs.estado === "EN_PROGRESO" && !isAdmin && (
+          <>
+            {pqrs.accionTomada && (
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* === TERMINADO: Everything read-only === */}
+        {isTerminado && (
+          <>
+            {pqrs.accionTomada && (
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
+              </div>
+            )}
+
+            {(pqrs.evidenciaCierre || pqrs.evidenciaArchivoData) && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-500">Evidencia de cierre</p>
+                {pqrs.evidenciaCierre && (
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.evidenciaCierre}</p>
+                )}
+                {pqrs.evidenciaArchivoData && (
+                  <a
+                    href={`/api/pqrs/${pqrs.id}/evidencia`}
+                    download={pqrs.evidenciaArchivoNombre || "evidencia"}
+                    className="inline-flex items-center gap-2 text-sm text-green-700 hover:text-green-800 bg-green-50 border border-green-200 rounded-xl px-4 py-2 transition-colors"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    {pqrs.evidenciaArchivoNombre || "Descargar archivo"}
+                  </a>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

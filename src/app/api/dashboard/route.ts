@@ -2,39 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-interface TrimestreStats {
-  total: number;
-  enEspera: number;
-  enProgreso: number;
-  terminado: number;
-  porcentajeCompletadas: number;
-  peticion: number;
-  queja: number;
-  reclamo: number;
-  sugerencia: number;
-  tiempoPromedioRespuesta: number | null;
-  tiempoPromedioCierre: number | null;
-}
-
-function emptyStats(): TrimestreStats {
-  return {
-    total: 0,
-    enEspera: 0,
-    enProgreso: 0,
-    terminado: 0,
-    porcentajeCompletadas: 0,
-    peticion: 0,
-    queja: 0,
-    reclamo: 0,
-    sugerencia: 0,
-    tiempoPromedioRespuesta: null,
-    tiempoPromedioCierre: null,
-  };
-}
-
-function getQuarter(date: Date): number {
-  return Math.floor(date.getMonth() / 3) + 1;
-}
+const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -58,69 +26,95 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Inicializar stats por trimestre
-  const trimestres: Record<string, TrimestreStats> = {
-    Q1: emptyStats(),
-    Q2: emptyStats(),
-    Q3: emptyStats(),
-    Q4: emptyStats(),
-  };
-  const total = emptyStats();
+  // Summary
+  const total = pqrs.length;
+  const enEspera = pqrs.filter((p) => p.estado === "EN_ESPERA").length;
+  const enProgreso = pqrs.filter((p) => p.estado === "EN_PROGRESO").length;
+  const terminado = pqrs.filter((p) => p.estado === "TERMINADO").length;
+  const porcentajeCompletadas = total > 0 ? Math.round((terminado / total) * 100) : 0;
 
-  // Acumuladores para promedios
-  const tiemposRespuesta: Record<string, number[]> = { Q1: [], Q2: [], Q3: [], Q4: [] };
-  const tiemposCierre: Record<string, number[]> = { Q1: [], Q2: [], Q3: [], Q4: [] };
-  const tiemposRespuestaTotal: number[] = [];
-  const tiemposCierreTotal: number[] = [];
+  // Time averages
+  const tiemposRespuesta = pqrs
+    .filter((p) => p.tiempoRespuestaPrimerContacto !== null)
+    .map((p) => p.tiempoRespuestaPrimerContacto!);
+  const tiemposCierre = pqrs
+    .filter((p) => p.tiempoRespuestaCierre !== null)
+    .map((p) => p.tiempoRespuestaCierre!);
 
+  const tiempoPromedioRespuesta = tiemposRespuesta.length > 0
+    ? Math.round((tiemposRespuesta.reduce((a, b) => a + b, 0) / tiemposRespuesta.length) * 10) / 10
+    : null;
+  const tiempoPromedioCierre = tiemposCierre.length > 0
+    ? Math.round((tiemposCierre.reduce((a, b) => a + b, 0) / tiemposCierre.length) * 10) / 10
+    : null;
+
+  // Monthly breakdown (for line chart)
+  const porMes = MESES_CORTO.map((mes, i) => {
+    const mesData = pqrs.filter((p) => p.fechaRecibido.getMonth() === i);
+    return {
+      mes,
+      total: mesData.length,
+      terminadas: mesData.filter((p) => p.estado === "TERMINADO").length,
+    };
+  });
+
+  // By tipo (for bar chart)
+  const porTipo = [
+    { nombre: "Peticiones", valor: pqrs.filter((p) => p.tipoPqrs === "PETICION").length, color: "#3b82f6" },
+    { nombre: "Quejas", valor: pqrs.filter((p) => p.tipoPqrs === "QUEJA").length, color: "#ef4444" },
+    { nombre: "Reclamos", valor: pqrs.filter((p) => p.tipoPqrs === "RECLAMO").length, color: "#f97316" },
+    { nombre: "Sugerencias", valor: pqrs.filter((p) => p.tipoPqrs === "SUGERENCIA").length, color: "#22c55e" },
+  ];
+
+  // By asunto (for bar chart)
+  const asuntoCounts: Record<string, number> = {};
   for (const p of pqrs) {
-    const q = `Q${getQuarter(p.fechaRecibido)}`;
-    const stats = trimestres[q];
-
-    stats.total++;
-    total.total++;
-
-    // Por estado
-    if (p.estado === "EN_ESPERA") { stats.enEspera++; total.enEspera++; }
-    if (p.estado === "EN_PROGRESO") { stats.enProgreso++; total.enProgreso++; }
-    if (p.estado === "TERMINADO") { stats.terminado++; total.terminado++; }
-
-    // Por tipo
-    if (p.tipoPqrs === "PETICION") { stats.peticion++; total.peticion++; }
-    if (p.tipoPqrs === "QUEJA") { stats.queja++; total.queja++; }
-    if (p.tipoPqrs === "RECLAMO") { stats.reclamo++; total.reclamo++; }
-    if (p.tipoPqrs === "SUGERENCIA") { stats.sugerencia++; total.sugerencia++; }
-
-    // Tiempos
-    if (p.tiempoRespuestaPrimerContacto !== null) {
-      tiemposRespuesta[q].push(p.tiempoRespuestaPrimerContacto);
-      tiemposRespuestaTotal.push(p.tiempoRespuestaPrimerContacto);
-    }
-    if (p.tiempoRespuestaCierre !== null) {
-      tiemposCierre[q].push(p.tiempoRespuestaCierre);
-      tiemposCierreTotal.push(p.tiempoRespuestaCierre);
-    }
+    asuntoCounts[p.asunto] = (asuntoCounts[p.asunto] || 0) + 1;
   }
+  const porAsunto = Object.entries(asuntoCounts)
+    .map(([nombre, valor]) => ({ nombre, valor }))
+    .sort((a, b) => b.valor - a.valor);
 
-  // Calcular porcentajes y promedios
-  for (const q of ["Q1", "Q2", "Q3", "Q4"]) {
-    const s = trimestres[q];
-    s.porcentajeCompletadas = s.total > 0 ? Math.round((s.terminado / s.total) * 100) : 0;
-    s.tiempoPromedioRespuesta = tiemposRespuesta[q].length > 0
-      ? Math.round((tiemposRespuesta[q].reduce((a, b) => a + b, 0) / tiemposRespuesta[q].length) * 10) / 10
-      : null;
-    s.tiempoPromedioCierre = tiemposCierre[q].length > 0
-      ? Math.round((tiemposCierre[q].reduce((a, b) => a + b, 0) / tiemposCierre[q].length) * 10) / 10
-      : null;
-  }
+  // By estado (for pie chart)
+  const porEstado = [
+    { nombre: "En espera", valor: enEspera, color: "#eab308" },
+    { nombre: "En progreso", valor: enProgreso, color: "#3b82f6" },
+    { nombre: "Terminadas", valor: terminado, color: "#22c55e" },
+  ];
 
-  total.porcentajeCompletadas = total.total > 0 ? Math.round((total.terminado / total.total) * 100) : 0;
-  total.tiempoPromedioRespuesta = tiemposRespuestaTotal.length > 0
-    ? Math.round((tiemposRespuestaTotal.reduce((a, b) => a + b, 0) / tiemposRespuestaTotal.length) * 10) / 10
-    : null;
-  total.tiempoPromedioCierre = tiemposCierreTotal.length > 0
-    ? Math.round((tiemposCierreTotal.reduce((a, b) => a + b, 0) / tiemposCierreTotal.length) * 10) / 10
-    : null;
+  // Recent PQRS en espera (urgent)
+  const pendientes = pqrs
+    .filter((p) => p.estado === "EN_ESPERA")
+    .sort((a, b) => a.fechaRecibido.getTime() - b.fechaRecibido.getTime())
+    .slice(0, 5)
+    .map((p) => ({
+      id: p.id,
+      numero: p.numero,
+      asunto: p.subAsunto ? `${p.asunto} - ${p.subAsunto}` : p.asunto,
+      tipoPqrs: p.tipoPqrs,
+      nombreResidente: p.nombreResidente,
+      bloque: p.bloque,
+      apto: p.apto,
+      diasEspera: Math.ceil(
+        (Date.now() - p.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    }));
 
-  return NextResponse.json({ year, trimestres, total });
+  return NextResponse.json({
+    year,
+    resumen: {
+      total,
+      enEspera,
+      enProgreso,
+      terminado,
+      porcentajeCompletadas,
+      tiempoPromedioRespuesta,
+      tiempoPromedioCierre,
+    },
+    porMes,
+    porTipo,
+    porAsunto,
+    porEstado,
+    pendientes,
+  });
 }

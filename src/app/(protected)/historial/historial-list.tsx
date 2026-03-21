@@ -64,20 +64,31 @@ export function HistorialList() {
   const [pqrs, setPqrs] = useState<Pqrs[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipo, setTipo] = useState("");
+  const [asuntoFilter, setAsuntoFilter] = useState("");
   const [year, setYear] = useState("");
+
+  const [error, setError] = useState("");
 
   const fetchPqrs = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    params.set("scope", "historial");
-    if (tipo) params.set("tipo", tipo);
-    if (year) params.set("year", year);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("scope", "historial");
+      if (tipo) params.set("tipo", tipo);
+      if (asuntoFilter) params.set("asunto", asuntoFilter);
+      if (year) params.set("year", year);
 
-    const res = await fetch(`/api/pqrs?${params.toString()}`);
-    const data = await res.json();
-    setPqrs(data);
-    setLoading(false);
-  }, [tipo, year]);
+      const res = await fetch(`/api/pqrs?${params.toString()}`);
+      if (!res.ok) throw new Error("Error al cargar historial");
+      const data = await res.json();
+      setPqrs(data);
+    } catch {
+      setError("No se pudo cargar el historial.");
+    } finally {
+      setLoading(false);
+    }
+  }, [tipo, asuntoFilter, year]);
 
   useEffect(() => {
     fetchPqrs();
@@ -120,11 +131,24 @@ export function HistorialList() {
           <option value="SUGERENCIA">Sugerencia</option>
         </select>
 
-        {(year || tipo) && (
+        <select
+          value={asuntoFilter}
+          onChange={(e) => setAsuntoFilter(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          <option value="">Asunto</option>
+          <option value="Área común">Área común</option>
+          <option value="Convivencia">Convivencia</option>
+          <option value="Humedad">Humedad</option>
+          <option value="Iluminación">Iluminación</option>
+        </select>
+
+        {(year || tipo || asuntoFilter) && (
           <button
             onClick={() => {
               setYear("");
               setTipo("");
+              setAsuntoFilter("");
             }}
             className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
           >
@@ -132,6 +156,14 @@ export function HistorialList() {
           </button>
         )}
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="text-center py-16">
+          <p className="text-red-600">{error}</p>
+          <button onClick={fetchPqrs} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (

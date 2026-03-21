@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   LogOut,
+  Lock,
   FileText,
   LayoutDashboard,
   Users,
@@ -204,7 +205,15 @@ export function AppShell({ children, user }: AppShellProps) {
           </div>
 
           {/* Sidebar footer */}
-          <div className="border-t p-4">
+          <div className="border-t p-4 space-y-1">
+            <Link
+              href="/cambiar-contrasena"
+              onClick={() => setSidebarOpen(false)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <Lock className="h-5 w-5" />
+              Cambiar contraseña
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/auth/login" })}
               className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-red-600 hover:bg-red-50 transition-colors"

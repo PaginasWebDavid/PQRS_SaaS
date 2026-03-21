@@ -1,34 +1,58 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Loader2,
   FileText,
   Hourglass,
   Clock,
   CheckCircle2,
-  TrendingUp,
   Timer,
+  AlertCircle,
+  ChevronRight,
+  TrendingUp,
 } from "lucide-react";
-
-interface TrimestreStats {
-  total: number;
-  enEspera: number;
-  enProgreso: number;
-  terminado: number;
-  porcentajeCompletadas: number;
-  peticion: number;
-  queja: number;
-  reclamo: number;
-  sugerencia: number;
-  tiempoPromedioRespuesta: number | null;
-  tiempoPromedioCierre: number | null;
-}
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 interface DashboardData {
   year: number;
-  trimestres: Record<string, TrimestreStats>;
-  total: TrimestreStats;
+  resumen: {
+    total: number;
+    enEspera: number;
+    enProgreso: number;
+    terminado: number;
+    porcentajeCompletadas: number;
+    tiempoPromedioRespuesta: number | null;
+    tiempoPromedioCierre: number | null;
+  };
+  porMes: { mes: string; total: number; terminadas: number }[];
+  porTipo: { nombre: string; valor: number; color: string }[];
+  porAsunto: { nombre: string; valor: number }[];
+  porEstado: { nombre: string; valor: number; color: string }[];
+  pendientes: {
+    id: string;
+    numero: number;
+    asunto: string;
+    tipoPqrs: string;
+    nombreResidente: string;
+    bloque: number;
+    apto: number;
+    diasEspera: number;
+  }[];
 }
 
 function getYears() {
@@ -40,17 +64,28 @@ function getYears() {
   return years;
 }
 
+const ASUNTO_COLORS = ["#15803d", "#22c55e", "#86efac", "#bbf7d0"];
+
 export function DashboardView() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
 
+  const [error, setError] = useState("");
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/dashboard?year=${year}`);
-    const json = await res.json();
-    setData(json);
-    setLoading(false);
+    setError("");
+    try {
+      const res = await fetch(`/api/dashboard?year=${year}`);
+      if (!res.ok) throw new Error("Error al cargar datos");
+      const json = await res.json();
+      setData(json);
+    } catch {
+      setError("No se pudieron cargar los datos del dashboard.");
+    } finally {
+      setLoading(false);
+    }
   }, [year]);
 
   useEffect(() => {
@@ -65,9 +100,18 @@ export function DashboardView() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-600">{error}</p>
+        <button onClick={fetchData} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+      </div>
+    );
+  }
+
   if (!data) return null;
 
-  const t = data.total;
+  const r = data.resumen;
 
   return (
     <div className="space-y-6">
@@ -88,118 +132,249 @@ export function DashboardView() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <SummaryCard
-          label="Total PQRS"
-          value={t.total}
-          icon={<FileText className="h-5 w-5" />}
-          color="text-gray-900"
-          bg="bg-gray-100"
-        />
-        <SummaryCard
-          label="En espera"
-          value={t.enEspera}
-          icon={<Hourglass className="h-5 w-5" />}
-          color="text-yellow-700"
-          bg="bg-yellow-100"
-        />
-        <SummaryCard
-          label="En progreso"
-          value={t.enProgreso}
-          icon={<Clock className="h-5 w-5" />}
-          color="text-blue-700"
-          bg="bg-blue-100"
-        />
-        <SummaryCard
-          label="Terminadas"
-          value={t.terminado}
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          color="text-green-700"
-          bg="bg-green-100"
-        />
-        <SummaryCard
-          label="% Completadas"
-          value={`${t.porcentajeCompletadas}%`}
-          icon={<TrendingUp className="h-5 w-5" />}
-          color="text-green-700"
-          bg="bg-green-100"
-        />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Link href="/pqrs?estado=todos">
+          <SummaryCard
+            label="Total PQRS"
+            value={r.total}
+            icon={<FileText className="h-5 w-5" />}
+            color="text-gray-900"
+            bg="bg-gray-100"
+          />
+        </Link>
+        <Link href="/pqrs?estado=EN_ESPERA">
+          <SummaryCard
+            label="En espera"
+            value={r.enEspera}
+            icon={<Hourglass className="h-5 w-5" />}
+            color="text-yellow-700"
+            bg="bg-yellow-100"
+            alert={r.enEspera > 0}
+          />
+        </Link>
+        <Link href="/pqrs?estado=EN_PROGRESO">
+          <SummaryCard
+            label="En progreso"
+            value={r.enProgreso}
+            icon={<Clock className="h-5 w-5" />}
+            color="text-blue-700"
+            bg="bg-blue-100"
+          />
+        </Link>
+        <Link href="/pqrs?estado=TERMINADO">
+          <SummaryCard
+            label="Terminadas"
+            value={r.terminado}
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            color="text-green-700"
+            bg="bg-green-100"
+          />
+        </Link>
       </div>
 
-      {/* Time cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
+      {/* Metrics row */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+          <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <p className="text-xs text-gray-500">Completadas</p>
+          <p className="text-2xl font-bold text-green-700 mt-1">{r.porcentajeCompletadas}%</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
           <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
             <Timer className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500">Tiempo prom. respuesta</p>
+          <p className="text-xs text-gray-500">Prom. respuesta</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
-            {t.tiempoPromedioRespuesta !== null
-              ? `${t.tiempoPromedioRespuesta} días`
-              : "—"}
+            {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "—"}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
           <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
             <CheckCircle2 className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500">Tiempo prom. cierre</p>
+          <p className="text-xs text-gray-500">Prom. cierre</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
-            {t.tiempoPromedioCierre !== null
-              ? `${t.tiempoPromedioCierre} días`
-              : "—"}
+            {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "—"}
           </p>
         </div>
       </div>
 
-      {/* Quarterly tracking table */}
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">
-          Cuadro de seguimiento {year}
+      {/* Pendientes urgentes */}
+      {data.pendientes.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600" />
+            <h2 className="text-base font-bold text-yellow-800">
+              PQRS pendientes de gestión
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {data.pendientes.map((p) => (
+              <Link key={p.id} href={`/pqrs/${p.id}`}>
+                <div className="flex items-center justify-between bg-white rounded-xl p-3 hover:shadow-sm transition-all group">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-gray-400">#{p.numero}</span>
+                      <span className="text-sm font-medium text-gray-900 truncate">{p.asunto}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {p.nombreResidente} · T{p.bloque}-{p.apto}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                      p.diasEspera > 5 ? "bg-red-100 text-red-700" :
+                      p.diasEspera > 2 ? "bg-yellow-100 text-yellow-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {p.diasEspera}d
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-green-600" />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Charts row 1: Tendencia mensual */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <h2 className="text-base font-bold text-gray-900 mb-4">
+          Tendencia mensual
         </h2>
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap min-w-[160px]">
-                  Métrica
-                </th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q1</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q2</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q3</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-700">Q4</th>
-                <th className="text-center px-3 py-3 font-bold text-green-800 bg-green-50">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <MetricRow label="Total PQRS" field="total" data={data} bold />
-              <MetricRow label="Peticiones" field="peticion" data={data} />
-              <MetricRow label="Quejas" field="queja" data={data} />
-              <MetricRow label="Reclamos" field="reclamo" data={data} />
-              <MetricRow label="Sugerencias" field="sugerencia" data={data} />
-              <MetricRow label="En espera" field="enEspera" data={data} />
-              <MetricRow label="En progreso" field="enProgreso" data={data} />
-              <MetricRow label="Terminadas" field="terminado" data={data} />
-              <MetricRow label="% Completadas" field="porcentajeCompletadas" data={data} suffix="%" />
-              <MetricRow label="Prom. respuesta (días)" field="tiempoPromedioRespuesta" data={data} nullable />
-              <MetricRow label="Prom. cierre (días)" field="tiempoPromedioCierre" data={data} nullable />
-            </tbody>
-          </table>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data.porMes}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="total"
+                name="Recibidas"
+                stroke="#15803d"
+                strokeWidth={2.5}
+                dot={{ fill: "#15803d", r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="terminadas"
+                name="Terminadas"
+                stroke="#86efac"
+                strokeWidth={2}
+                dot={{ fill: "#86efac", r: 3 }}
+                strokeDasharray="5 5"
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Type distribution */}
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">
-          Distribución por tipo
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <TypeCard label="Peticiones" value={t.peticion} total={t.total} color="bg-blue-500" bg="bg-blue-50" textColor="text-blue-700" />
-          <TypeCard label="Quejas" value={t.queja} total={t.total} color="bg-red-500" bg="bg-red-50" textColor="text-red-700" />
-          <TypeCard label="Reclamos" value={t.reclamo} total={t.total} color="bg-orange-500" bg="bg-orange-50" textColor="text-orange-700" />
-          <TypeCard label="Sugerencias" value={t.sugerencia} total={t.total} color="bg-green-500" bg="bg-green-50" textColor="text-green-700" />
+      {/* Charts row 2: Tipo + Estado */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* By tipo */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-base font-bold text-gray-900 mb-4">
+            Por tipo
+          </h2>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.porTipo} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+                <YAxis type="category" dataKey="nombre" tick={{ fontSize: 12 }} width={85} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb" }}
+                />
+                <Bar dataKey="valor" name="Cantidad" radius={[0, 6, 6, 0]}>
+                  {data.porTipo.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* By estado - donut */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-base font-bold text-gray-900 mb-4">
+            Por estado
+          </h2>
+          {r.total > 0 ? (
+            <div className="h-52 flex items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.porEstado.filter((e) => e.valor > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="valor"
+                  >
+                    {data.porEstado
+                      .filter((e) => e.valor > 0)
+                      .map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 shrink-0">
+                {data.porEstado.map((e) => (
+                  <div key={e.nombre} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: e.color }} />
+                    <span className="text-xs text-gray-600">{e.nombre}</span>
+                    <span className="text-xs font-bold text-gray-900">{e.valor}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">
+              Sin datos
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Chart row 3: By asunto */}
+      {data.porAsunto.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-base font-bold text-gray-900 mb-4">
+            Por asunto
+          </h2>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.porAsunto}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb" }}
+                />
+                <Bar dataKey="valor" name="Cantidad" radius={[6, 6, 0, 0]}>
+                  {data.porAsunto.map((_, i) => (
+                    <Cell key={i} fill={ASUNTO_COLORS[i % ASUNTO_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -210,91 +385,22 @@ function SummaryCard({
   icon,
   color,
   bg,
+  alert,
 }: {
   label: string;
   value: number | string;
   icon: React.ReactNode;
   color: string;
   bg: string;
+  alert?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+    <div className={`bg-white rounded-2xl border ${alert ? "border-yellow-300 shadow-sm shadow-yellow-100" : "border-gray-100"} p-4 text-center hover:shadow-md hover:border-green-200 transition-all cursor-pointer`}>
       <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center mx-auto mb-2`}>
         {icon}
       </div>
       <p className="text-xs text-gray-500">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
     </div>
-  );
-}
-
-function TypeCard({
-  label,
-  value,
-  total,
-  color,
-  bg,
-  textColor,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-  bg: string;
-  textColor: string;
-}) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  return (
-    <div className={`rounded-2xl border border-gray-100 p-4 ${bg}`}>
-      <p className={`text-xs ${textColor} font-medium`}>{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${textColor}`}>{value}</p>
-      <div className="mt-2 h-2 rounded-full bg-white/60 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className={`text-xs ${textColor} opacity-70 mt-1`}>{pct}%</p>
-    </div>
-  );
-}
-
-function MetricRow({
-  label,
-  field,
-  data,
-  bold,
-  suffix,
-  nullable,
-}: {
-  label: string;
-  field: keyof TrimestreStats;
-  data: DashboardData;
-  bold?: boolean;
-  suffix?: string;
-  nullable?: boolean;
-}) {
-  const quarters = ["Q1", "Q2", "Q3", "Q4"];
-
-  function formatVal(val: number | null): string {
-    if (nullable && val === null) return "—";
-    if (val === null) return "0";
-    return `${val}${suffix || ""}`;
-  }
-
-  return (
-    <tr className="border-b border-gray-50 last:border-0">
-      <td className={`px-4 py-2.5 whitespace-nowrap ${bold ? "font-semibold text-gray-900" : "text-gray-600"}`}>
-        {label}
-      </td>
-      {quarters.map((q) => (
-        <td key={q} className="text-center px-3 py-2.5 text-gray-700">
-          {formatVal(data.trimestres[q][field] as number | null)}
-        </td>
-      ))}
-      <td className="text-center px-3 py-2.5 font-bold text-green-800 bg-green-50/50">
-        {formatVal(data.total[field] as number | null)}
-      </td>
-    </tr>
   );
 }

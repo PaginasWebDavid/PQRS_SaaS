@@ -72,14 +72,23 @@ export function ReportesView() {
   const [month, setMonth] = useState("");
   const [exporting, setExporting] = useState(false);
 
+  const [error, setError] = useState("");
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ year });
-    if (month) params.set("month", month);
-    const res = await fetch(`/api/reportes?${params.toString()}`);
-    const json = await res.json();
-    setData(json);
-    setLoading(false);
+    setError("");
+    try {
+      const params = new URLSearchParams({ year });
+      if (month) params.set("month", month);
+      const res = await fetch(`/api/reportes?${params.toString()}`);
+      if (!res.ok) throw new Error("Error al cargar reportes");
+      const json = await res.json();
+      setData(json);
+    } catch {
+      setError("No se pudieron cargar los reportes.");
+    } finally {
+      setLoading(false);
+    }
   }, [year, month]);
 
   useEffect(() => {
@@ -245,6 +254,15 @@ export function ReportesView() {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-600">{error}</p>
+        <button onClick={fetchData} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
       </div>
     );
   }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -19,20 +18,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
   }
 
-  // Max 5MB
-  if (file.size > 5 * 1024 * 1024) {
+  // Max 2MB for base64 DB storage
+  if (file.size > 2 * 1024 * 1024) {
     return NextResponse.json(
-      { error: "El archivo no puede superar 5MB" },
+      { error: "El archivo no puede superar 2MB" },
       { status: 400 }
     );
   }
 
-  const blob = await put(`evidencias/${Date.now()}-${file.name}`, file, {
-    access: "public",
-  });
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const base64 = buffer.toString("base64");
 
   return NextResponse.json({
-    url: blob.url,
+    data: base64,
     nombre: file.name,
+    tipo: file.type,
   });
 }

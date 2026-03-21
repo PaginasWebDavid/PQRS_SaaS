@@ -44,16 +44,20 @@ model Pqrs {
   nombreResidente               String
   tipoPqrs                      TipoPqrs
   asunto                        String
+  subAsunto                     String?
   descripcion                   String          @db.Text
+  numeroRadicacion              String?         @unique
 
   // Gestión por asistente/admin
   fechaPrimerContacto           DateTime?
   tiempoRespuestaPrimerContacto Int?
+  notaPrimerContacto            String?         @db.Text
   accionTomada                  String?         @db.Text
   estado                        Estado          @default(EN_ESPERA)
   evidenciaCierre               String?         @db.Text
-  evidenciaArchivoUrl           String?
+  evidenciaArchivoData          String?         @db.Text
   evidenciaArchivoNombre        String?
+  evidenciaArchivoTipo          String?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
 

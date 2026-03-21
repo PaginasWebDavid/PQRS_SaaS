@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from "@/lib/email";
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: "En espera",
@@ -46,46 +43,6 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  // Auto-transition: when ADMIN opens a PQRS in EN_ESPERA, move to EN_PROGRESO
-  if (session.user.role === "ADMIN" && pqrs.estado === "EN_ESPERA") {
-    const ahora = new Date();
-    const diffDays = Math.ceil(
-      (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    await prisma.pqrs.update({
-      where: { id: params.id },
-      data: {
-        estado: "EN_PROGRESO",
-        fechaPrimerContacto: ahora,
-        tiempoRespuestaPrimerContacto: diffDays,
-        gestionadoPorId: session.user.id,
-      },
-    });
-
-    // Register in historial
-    await prisma.historialPqrs.create({
-      data: {
-        pqrsId: pqrs.id,
-        estadoAntes: "EN_ESPERA",
-        estadoDespues: "EN_PROGRESO",
-        nota: "PQRS en gestión (abierta por administración)",
-      },
-    });
-
-    // Refetch to include the new historial entry
-    const refreshed = await prisma.pqrs.findUnique({
-      where: { id: params.id },
-      include: {
-        creadoPor: { select: { name: true, email: true } },
-        gestionadoPor: { select: { name: true } },
-        historial: { orderBy: { creadoAt: "asc" } },
-      },
-    });
-
-    return NextResponse.json(refreshed);
-  }
-
   return NextResponse.json(pqrs);
 }
 
@@ -112,6 +69,98 @@ export async function PATCH(
     return NextResponse.json({ error: "PQRS no encontrada" }, { status: 404 });
   }
 
+  const body = await req.json();
+
+  // --- Primer contacto: EN_ESPERA → EN_PROGRESO (sin email) ---
+  if (body.primerContacto) {
+    if (pqrs.estado !== "EN_ESPERA") {
+      return NextResponse.json(
+        { error: "El primer contacto ya fue registrado" },
+        { status: 400 }
+      );
+    }
+
+    const nota = (body.notaPrimerContacto || "").trim();
+    if (!nota) {
+      return NextResponse.json(
+        { error: "Debe escribir una nota de primer contacto" },
+        { status: 400 }
+      );
+    }
+
+    const ahora = new Date();
+    const diffDays = Math.ceil(
+      (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Generate radicación number: RAD-YYYY-NNNN
+    const yearStr = ahora.getFullYear().toString();
+    const numPadded = String(pqrs.numero).padStart(4, "0");
+    const numeroRadicacion = `RAD-${yearStr}-${numPadded}`;
+
+    await prisma.historialPqrs.create({
+      data: {
+        pqrsId: pqrs.id,
+        estadoAntes: "EN_ESPERA",
+        estadoDespues: "EN_PROGRESO",
+        nota: `Primer contacto: ${nota}`,
+      },
+    });
+
+    const updated = await prisma.pqrs.update({
+      where: { id: params.id },
+      data: {
+        estado: "EN_PROGRESO",
+        fechaPrimerContacto: ahora,
+        tiempoRespuestaPrimerContacto: diffDays,
+        notaPrimerContacto: nota,
+        gestionadoPorId: session.user.id,
+        numeroRadicacion,
+      },
+      include: {
+        creadoPor: { select: { name: true, email: true } },
+        gestionadoPor: { select: { name: true } },
+        historial: { orderBy: { creadoAt: "asc" } },
+      },
+    });
+
+    // Send radicación email to resident
+    if (pqrs.creadoPor?.email) {
+      const asuntoDisplay = pqrs.subAsunto
+        ? `${pqrs.asunto} - ${pqrs.subAsunto}`
+        : pqrs.asunto;
+      try {
+        await sendEmail({
+          to: pqrs.creadoPor.email,
+          subject: `Su ${TIPO_LABEL[pqrs.tipoPqrs]} ha sido radicada - ${numeroRadicacion}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #15803d;">Su solicitud ha sido radicada</h2>
+              <p>Estimado/a <strong>${pqrs.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
+              <p>Le informamos que su ${TIPO_LABEL[pqrs.tipoPqrs].toLowerCase()} ha sido recibida y está siendo gestionada.</p>
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="margin: 0; font-size: 14px; color: #166534;">N° de radicación</p>
+                <p style="margin: 4px 0 0; font-size: 24px; font-weight: bold; color: #15803d;">${numeroRadicacion}</p>
+              </div>
+              <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tipo</td><td style="padding: 8px; border: 1px solid #ddd;">${TIPO_LABEL[pqrs.tipoPqrs]}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asuntoDisplay}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Torre ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+              </table>
+              <p style="color: #666; font-size: 14px;">Guarde este número para hacer seguimiento a su solicitud.</p>
+              <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100 P.H.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Error enviando email de radicación:", emailError);
+      }
+    }
+
+    return NextResponse.json(updated);
+  }
+
+  // --- Guardar / Terminar: solo en EN_PROGRESO ---
   if (pqrs.estado === "TERMINADO") {
     return NextResponse.json(
       { error: "Esta PQRS ya está cerrada" },
@@ -119,17 +168,22 @@ export async function PATCH(
     );
   }
 
-  const body = await req.json();
-  const { accionTomada, evidenciaCierre, evidenciaArchivoUrl, evidenciaArchivoNombre, terminar } = body;
+  if (pqrs.estado === "EN_ESPERA") {
+    return NextResponse.json(
+      { error: "Debe registrar el primer contacto antes de gestionar la PQRS" },
+      { status: 400 }
+    );
+  }
+
+  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar } = body;
 
   // If terminar=true, we're closing the PQRS
   if (terminar) {
     const finalAccion = accionTomada || pqrs.accionTomada;
-    const finalEvidencia = evidenciaCierre || pqrs.evidenciaCierre;
 
-    if (!finalAccion || !finalEvidencia) {
+    if (!finalAccion) {
       return NextResponse.json(
-        { error: "Para cerrar la PQRS debe completar la acción tomada y la evidencia de cierre" },
+        { error: "Para cerrar la PQRS debe completar la acción tomada" },
         { status: 400 }
       );
     }
@@ -141,8 +195,9 @@ export async function PATCH(
 
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
-  if (evidenciaArchivoUrl !== undefined) updateData.evidenciaArchivoUrl = evidenciaArchivoUrl;
+  if (evidenciaArchivoData !== undefined) updateData.evidenciaArchivoData = evidenciaArchivoData;
   if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
+  if (evidenciaArchivoTipo !== undefined) updateData.evidenciaArchivoTipo = evidenciaArchivoTipo;
 
   if (terminar) {
     updateData.estado = "TERMINADO";
@@ -175,7 +230,7 @@ export async function PATCH(
     },
   });
 
-  // Send email when closing
+  // Send email only when closing
   if (terminar && updated.creadoPor?.email) {
     const fechaRecibido = pqrs.fechaRecibido.toLocaleDateString("es-CO", {
       day: "2-digit", month: "2-digit", year: "numeric",
@@ -185,8 +240,7 @@ export async function PATCH(
     });
 
     try {
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+      await sendEmail({
         to: updated.creadoPor.email,
         subject: `PQRS #${pqrs.numero} - ${TIPO_LABEL[pqrs.tipoPqrs]} cerrada`,
         html: `
@@ -203,7 +257,7 @@ export async function PATCH(
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaCierre}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Acción tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>
+              ${updated.evidenciaCierre ? `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>` : ""}
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Torre ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
             <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100 P.H.</p>
