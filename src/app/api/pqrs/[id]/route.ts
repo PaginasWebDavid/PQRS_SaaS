@@ -152,7 +152,7 @@ export async function PATCH(
                 <p style="margin: 8px 0 0; font-size: 14px; color: #4b5563;">${nota}</p>
               </div>
               <p style="color: #666; font-size: 14px;">Guarde este número para hacer seguimiento a su solicitud.</p>
-              <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
+              <p style="color: #666; font-size: 14px;">Conjunto Parque Calle 100</p>
             </div>
           `,
         });
@@ -276,7 +276,7 @@ export async function PATCH(
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
             ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">📎 Se adjunta archivo de evidencia de cierre.</p>` : ""}
-            <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
+            <p style="color: #666; font-size: 14px;">Conjunto Parque Calle 100</p>
           </div>
         `,
         attachments,

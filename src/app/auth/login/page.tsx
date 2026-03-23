@@ -149,7 +149,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-green-200/50 text-sm mt-6">
-          Parque Residencial Calle 100
+          Conjunto Parque Calle 100
         </p>
       </div>
     </main>

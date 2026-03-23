@@ -97,39 +97,119 @@ export function DashboardView() {
 
   async function exportDashboardExcel() {
     if (!data) return;
-    const XLSX = await import("xlsx");
+    const ExcelJS = await import("exceljs");
+    const { COLORS, FONT_TITLE, FONT_HEADER, FONT_BODY, FONT_BOLD, BORDER_THIN, FILL_HEADER, FILL_TOTAL, FILL_GREEN_LIGHT, FILL_BLUE_LIGHT, FILL_YELLOW_LIGHT, ALIGN_CENTER, ALIGN_LEFT } = await import("@/lib/excel-styles");
     const r = data.resumen;
 
-    // Sheet 1: Resumen por trimestre
-    const trimSheet = [
-      [`PQRS - ${data.year}`],
-      [],
-      ["PQRS", "I TRIM", "II TRIM", "III TRIM", "IV TRIM", "TOTAL", "%"],
-      ["Total", ...data.trimestres.map((t) => t.total), r.total, ""],
-      ["Terminado", ...data.trimestres.map((t) => t.terminado), r.terminado, r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%"],
-      ["En Proceso", ...data.trimestres.map((t) => t.enProgreso), r.enProgreso, r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%"],
-      ["En Espera", ...data.trimestres.map((t) => t.enEspera), r.enEspera, r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%"],
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Conjunto Parque Calle 100";
+
+    // ── Sheet 1: Resumen Trimestral ──
+    const ws1 = wb.addWorksheet("Resumen Trimestral");
+    ws1.columns = [
+      { width: 16 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 10 },
     ];
 
-    // Sheet 2: Detalle por asunto
-    const asuntoSheet = [
-      [`PQRS POR DETALLE DE ${data.year}`],
-      [],
-      ["Cantidad", "Asunto", "Descripción", "Terminados", "En Proceso", "En Espera"],
-      ...data.porAsuntoDetalle.map((a) => [a.cantidad, a.asunto, a.descripcion, a.terminados, a.enProgreso, a.enEspera]),
-      [r.total, "", "", r.terminado, r.enProgreso, r.enEspera],
+    // Title
+    ws1.mergeCells("A1:G1");
+    const titleCell1 = ws1.getCell("A1");
+    titleCell1.value = `CONJUNTO PARQUE CALLE 100 — PQRS ${data.year}`;
+    titleCell1.font = FONT_TITLE;
+    titleCell1.alignment = ALIGN_LEFT;
+    ws1.getRow(1).height = 30;
+
+    // Header row
+    const headers1 = ["PQRS", "I TRIM", "II TRIM", "III TRIM", "IV TRIM", "TOTAL", "%"];
+    const headerRow1 = ws1.addRow(headers1);
+    headerRow1.eachCell((cell) => {
+      cell.font = FONT_HEADER;
+      cell.fill = FILL_HEADER;
+      cell.border = BORDER_THIN;
+      cell.alignment = ALIGN_CENTER;
+    });
+    headerRow1.getCell(1).alignment = ALIGN_LEFT;
+    headerRow1.height = 22;
+
+    // Data rows
+    const rows1 = [
+      { label: "Total", values: data.trimestres.map((t) => t.total), total: r.total, pct: "" },
+      { label: "Terminado", values: data.trimestres.map((t) => t.terminado), total: r.terminado, pct: r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%" },
+      { label: "En Proceso", values: data.trimestres.map((t) => t.enProgreso), total: r.enProgreso, pct: r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%" },
+      { label: "En Espera", values: data.trimestres.map((t) => t.enEspera), total: r.enEspera, pct: r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%" },
     ];
 
-    const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.aoa_to_sheet(trimSheet);
-    ws1["!cols"] = [{ wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 8 }];
-    XLSX.utils.book_append_sheet(wb, ws1, "Resumen Trimestral");
+    const rowFills = [null, FILL_GREEN_LIGHT, FILL_BLUE_LIGHT, FILL_YELLOW_LIGHT];
+    const rowFontColors = [COLORS.black, COLORS.green, COLORS.blue, COLORS.yellow];
 
-    const ws2 = XLSX.utils.aoa_to_sheet(asuntoSheet);
-    ws2["!cols"] = [{ wch: 10 }, { wch: 18 }, { wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, ws2, "Por Asunto");
+    rows1.forEach((row, i) => {
+      const r1 = ws1.addRow([row.label, ...row.values, row.total, row.pct]);
+      r1.eachCell((cell, col) => {
+        cell.font = col === 1 ? { ...FONT_BOLD, color: { argb: rowFontColors[i] } } : { ...FONT_BODY, color: { argb: rowFontColors[i] } };
+        cell.border = BORDER_THIN;
+        cell.alignment = col === 1 ? ALIGN_LEFT : ALIGN_CENTER;
+        if (rowFills[i]) cell.fill = rowFills[i]!;
+      });
+      // Bold total and pct columns
+      r1.getCell(6).font = { ...FONT_BOLD, color: { argb: rowFontColors[i] } };
+      r1.getCell(7).font = { ...FONT_BOLD, color: { argb: rowFontColors[i] } };
+    });
 
-    XLSX.writeFile(wb, `Dashboard_PQRS_${data.year}.xlsx`);
+    // ── Sheet 2: Por Asunto ──
+    const ws2 = wb.addWorksheet("Por Asunto");
+    ws2.columns = [
+      { width: 12 }, { width: 20 }, { width: 50 }, { width: 14 }, { width: 14 }, { width: 14 },
+    ];
+
+    ws2.mergeCells("A1:F1");
+    const titleCell2 = ws2.getCell("A1");
+    titleCell2.value = `PQRS POR DETALLE — ${data.year}`;
+    titleCell2.font = FONT_TITLE;
+    titleCell2.alignment = ALIGN_LEFT;
+    ws2.getRow(1).height = 30;
+
+    const headers2 = ["Cantidad", "Asunto", "Descripción", "Terminados", "En Proceso", "En Espera"];
+    const headerRow2 = ws2.addRow(headers2);
+    headerRow2.eachCell((cell) => {
+      cell.font = FONT_HEADER;
+      cell.fill = FILL_HEADER;
+      cell.border = BORDER_THIN;
+      cell.alignment = ALIGN_CENTER;
+    });
+    headerRow2.getCell(2).alignment = ALIGN_LEFT;
+    headerRow2.getCell(3).alignment = ALIGN_LEFT;
+    headerRow2.height = 22;
+
+    data.porAsuntoDetalle.forEach((a) => {
+      const row = ws2.addRow([a.cantidad, a.asunto, a.descripcion, a.terminados, a.enProgreso, a.enEspera]);
+      row.eachCell((cell, col) => {
+        cell.font = FONT_BODY;
+        cell.border = BORDER_THIN;
+        cell.alignment = col <= 1 ? ALIGN_CENTER : col <= 3 ? ALIGN_LEFT : ALIGN_CENTER;
+      });
+      row.getCell(1).font = FONT_BOLD;
+      row.getCell(4).font = { ...FONT_BODY, color: { argb: COLORS.green } };
+      row.getCell(5).font = { ...FONT_BODY, color: { argb: COLORS.blue } };
+      row.getCell(6).font = { ...FONT_BODY, color: { argb: COLORS.yellow } };
+    });
+
+    // Total row
+    const totalRow2 = ws2.addRow([r.total, "", "", r.terminado, r.enProgreso, r.enEspera]);
+    totalRow2.eachCell((cell, col) => {
+      cell.font = FONT_BOLD;
+      cell.fill = FILL_TOTAL;
+      cell.border = BORDER_THIN;
+      cell.alignment = col <= 3 ? (col === 1 ? ALIGN_CENTER : ALIGN_LEFT) : ALIGN_CENTER;
+    });
+
+    // Download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Dashboard_PQRS_${data.year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading) {

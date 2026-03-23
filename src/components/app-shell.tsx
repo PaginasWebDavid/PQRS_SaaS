@@ -91,7 +91,7 @@ export function AppShell({ children, user }: AppShellProps) {
             />
           </div>
           <span className="font-bold text-white text-sm sm:text-base">
-            PQRS Calle 100
+            Conjunto Parque Calle 100
           </span>
         </div>
 
