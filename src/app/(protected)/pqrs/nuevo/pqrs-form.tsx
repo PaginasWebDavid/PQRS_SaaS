@@ -53,6 +53,7 @@ const TIPOS = [
 
 const ASUNTOS = [
   "Área común",
+  "Contabilidad",
   "Convivencia",
   "Humedad",
   "Iluminación",

@@ -16,13 +16,30 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl;
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
+  const monthParam = searchParams.get("month");
+  const month = monthParam ? parseInt(monthParam) : null;
+  const search = searchParams.get("search")?.trim() || "";
+
+  let dateGte: Date;
+  let dateLt: Date;
+  if (month && month >= 1 && month <= 12) {
+    dateGte = new Date(year, month - 1, 1);
+    dateLt = new Date(year, month, 1);
+  } else {
+    dateGte = new Date(`${year}-01-01`);
+    dateLt = new Date(`${year + 1}-01-01`);
+  }
 
   const pqrs = await prisma.pqrs.findMany({
     where: {
-      fechaRecibido: {
-        gte: new Date(`${year}-01-01`),
-        lt: new Date(`${year + 1}-01-01`),
-      },
+      fechaRecibido: { gte: dateGte, lt: dateLt },
+      ...(search ? {
+        OR: [
+          { numero: !isNaN(Number(search)) ? Number(search) : undefined },
+          { bloque: !isNaN(Number(search)) ? Number(search) : undefined },
+          { nombreResidente: { contains: search, mode: "insensitive" as const } },
+        ].filter((c) => Object.values(c)[0] !== undefined),
+      } : {}),
     },
   });
 

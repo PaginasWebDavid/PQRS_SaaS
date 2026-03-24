@@ -95,159 +95,11 @@ export function ReportesView() {
     fetchData();
   }, [fetchData]);
 
-  async function exportExcel() {
+  function exportExcel() {
     if (!data) return;
-    setExporting(true);
-
-    const ExcelJS = await import("exceljs");
-    const { COLORS, FONT_TITLE, FONT_SUBTITLE, FONT_HEADER, FONT_BODY, FONT_BOLD, BORDER_THIN, FILL_HEADER, FILL_GREEN_LIGHT, FILL_BLUE_LIGHT, FILL_YELLOW_LIGHT, ALIGN_CENTER, ALIGN_LEFT } = await import("@/lib/excel-styles");
-
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "Conjunto Parque Calle 100";
-    const periodo = month ? `${MESES[parseInt(month) - 1]} ${year}` : `Año ${year}`;
-    const r = data.resumen;
-
-    // ── Sheet 1: Resumen ──
-    const ws1 = wb.addWorksheet("Resumen");
-    ws1.columns = [{ width: 30 }, { width: 16 }];
-
-    ws1.mergeCells("A1:B1");
-    const t1 = ws1.getCell("A1");
-    t1.value = "REPORTE PQRS — CONJUNTO PARQUE CALLE 100";
-    t1.font = FONT_TITLE;
-    ws1.getRow(1).height = 30;
-
-    ws1.mergeCells("A2:B2");
-    ws1.getCell("A2").value = `Período: ${periodo}`;
-    ws1.getCell("A2").font = FONT_SUBTITLE;
-
-    // Helper to add a section
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function addSection(ws: any, title: string, rows: [string, string | number][]) {
-      ws.addRow([]);
-      const titleRow = ws.addRow([title]);
-      titleRow.getCell(1).font = { ...FONT_BOLD, size: 11, color: { argb: COLORS.green } };
-      ws.mergeCells(`A${titleRow.number}:B${titleRow.number}`);
-
-      rows.forEach(([label, value]) => {
-        const row = ws.addRow([label, value]);
-        row.getCell(1).font = FONT_BODY;
-        row.getCell(2).font = FONT_BOLD;
-        row.getCell(2).alignment = ALIGN_CENTER;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        row.eachCell((cell: any) => { cell.border = BORDER_THIN; });
-      });
-    }
-
-    addSection(ws1, "RESUMEN GENERAL", [
-      ["Total PQRS", r.total],
-      ["Peticiones", r.byTipo.peticion],
-      ["Quejas", r.byTipo.queja],
-      ["Reclamos", r.byTipo.reclamo],
-      ["Sugerencias", r.byTipo.sugerencia],
-    ]);
-
-    addSection(ws1, "ESTADO ACTUAL", [
-      ["En espera", r.byEstado.enEspera],
-      ["En progreso", r.byEstado.enProgreso],
-      ["Terminadas", r.byEstado.terminado],
-      ["% Completadas", `${r.porcentajeCompletadas}%`],
-    ]);
-
-    addSection(ws1, "TIEMPOS PROMEDIO", [
-      ["Primer contacto (días)", r.tiempoPromedioRespuesta ?? "N/A"],
-      ["Cierre (días)", r.tiempoPromedioCierre ?? "N/A"],
-    ]);
-
-    addSection(ws1, "TRANSICIONES DE ESTADO", [
-      ["En espera → En progreso", data.transiciones.espera_a_progreso],
-      ["En progreso → Terminado", data.transiciones.progreso_a_terminado],
-    ]);
-
-    // ── Sheet 2: Seguimiento PQRS (detalle) ──
-    const ws2 = wb.addWorksheet("Seguimiento PQRS");
-    ws2.columns = [
-      { width: 10 }, { width: 14 }, { width: 16 }, { width: 12 },
-      { width: 10 }, { width: 10 }, { width: 22 }, { width: 14 },
-      { width: 18 }, { width: 35 }, { width: 18 }, { width: 14 },
-      { width: 35 }, { width: 14 }, { width: 30 }, { width: 16 }, { width: 14 },
-    ];
-
-    ws2.mergeCells("A1:Q1");
-    const t2 = ws2.getCell("A1");
-    t2.value = `SEGUIMIENTO PQRS — ${periodo}`;
-    t2.font = FONT_TITLE;
-    ws2.getRow(1).height = 30;
-
-    const detalleHeaders = [
-      "N° PQRS", "Medio", "Fecha Recibido", "Mes", "Bloque", "Apto",
-      "Nombre", "Asunto", "Descripción",
-      "Fecha Primer Contacto", "Tiempo Resp.",
-      "Acción Tomada", "Estado", "Evidencia Cierre",
-      "Fecha Cierre", "Tiempo Cierre",
-    ];
-
-    const headerRow = ws2.addRow(detalleHeaders);
-    headerRow.height = 28;
-    headerRow.eachCell((cell) => {
-      cell.font = FONT_HEADER;
-      cell.fill = FILL_HEADER;
-      cell.border = BORDER_THIN;
-      cell.alignment = { ...ALIGN_CENTER, wrapText: true };
-    });
-
-    // Estado fill colors
-    const estadoFills: Record<string, typeof FILL_GREEN_LIGHT> = {
-      "Terminado": FILL_GREEN_LIGHT,
-      "En progreso": FILL_BLUE_LIGHT,
-      "En espera": FILL_YELLOW_LIGHT,
-    };
-    const estadoFontColors: Record<string, string> = {
-      "Terminado": COLORS.green,
-      "En progreso": COLORS.blue,
-      "En espera": COLORS.yellow,
-    };
-
-    data.detalle.forEach((d) => {
-      const row = ws2.addRow([
-        d.numero, d.medio, d.fechaRecibido, d.mes,
-        d.bloque, d.apto,
-        d.nombreResidente, d.asunto, d.descripcion,
-        d.fechaPrimerContacto || "", d.tiempoRespuestaPrimerContacto || "",
-        d.accionTomada || "", d.estado, d.evidenciaCierre || "",
-        d.fechaCierre || "", d.tiempoRespuestaCierre || "",
-      ]);
-      row.eachCell((cell, col) => {
-        cell.font = FONT_BODY;
-        cell.border = BORDER_THIN;
-        cell.alignment = [1, 4, 5, 6, 11, 16].includes(col) ? ALIGN_CENTER : { ...ALIGN_LEFT, wrapText: true, vertical: "middle" as const };
-      });
-      // Color-code estado column (13)
-      const estadoCell = row.getCell(13);
-      if (estadoFills[d.estado]) {
-        estadoCell.fill = estadoFills[d.estado];
-        estadoCell.font = { ...FONT_BOLD, color: { argb: estadoFontColors[d.estado] } };
-      }
-      estadoCell.alignment = ALIGN_CENTER;
-    });
-
-    // Auto-filter on header row
-    ws2.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2 + data.detalle.length, column: 16 } };
-
-    // Freeze header row
-    ws2.views = [{ state: "frozen", ySplit: 2 }];
-
-    // Download
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `PQRS_${month ? MESES[parseInt(month) - 1] + "_" : ""}${year}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    setExporting(false);
+    const params = new URLSearchParams({ year });
+    if (month) params.set("month", month);
+    window.open(`/api/reportes/excel?${params.toString()}`, "_blank");
   }
 
   async function exportPDF() {
@@ -263,7 +115,7 @@ export function ReportesView() {
     // Title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("CONJUNTO PARQUE CALLE 100", 14, 15);
+    doc.text("CONJUNTO PARQUE RESIDENCIAL CALLE 100", 14, 15);
     doc.setFontSize(12);
     doc.text(`Reporte PQRS - ${periodo}`, 14, 23);
 

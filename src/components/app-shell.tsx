@@ -80,18 +80,18 @@ export function AppShell({ children, user }: AppShellProps) {
           <Menu className="h-6 w-6" />
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="bg-white rounded-lg p-0.5 hidden sm:block">
+        <div className="flex items-center gap-3">
+          <div className="bg-white rounded-lg p-1">
             <Image
               src="/logo.png"
               alt="Logo"
-              width={32}
-              height={32}
-              className="w-8 h-8 object-contain"
+              width={44}
+              height={44}
+              className="w-11 h-11 object-contain"
             />
           </div>
           <span className="font-bold text-white text-sm sm:text-base">
-            Conjunto Parque Calle 100
+            Conjunto Parque Residencial Calle 100
           </span>
         </div>
 

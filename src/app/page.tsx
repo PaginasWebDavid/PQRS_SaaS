@@ -25,7 +25,7 @@ export default async function Home() {
           <div className="bg-white rounded-3xl p-5 shadow-2xl shadow-black/30">
             <Image
               src="/logo.png"
-              alt="Conjunto Parque Calle 100"
+              alt="Conjunto Parque Residencial Calle 100"
               width={220}
               height={220}
               className="w-44 h-44 sm:w-56 sm:h-56 object-contain"
@@ -44,7 +44,7 @@ export default async function Home() {
             Peticiones, Quejas, Reclamos y Sugerencias
           </p>
           <p className="mt-2 text-sm text-green-200/60">
-            Conjunto Parque Calle 100 — Bogotá, Colombia
+            Conjunto Parque Residencial Calle 100 — Bogotá, Colombia
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className="bg-green-950 text-green-100/60 py-8 px-6 text-center text-sm">
         <p className="font-medium text-green-100/80">
-          Conjunto Conjunto Parque Calle 100
+          Conjunto Parque Residencial Calle 100
         </p>
         <p className="mt-1">Bogotá, Colombia</p>
         <p className="mt-2 text-green-200/40">

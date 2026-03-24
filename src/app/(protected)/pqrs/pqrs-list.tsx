@@ -342,6 +342,7 @@ export function PqrsList({ role }: PqrsListProps) {
         >
           <option value="">Asunto</option>
           <option value="Área común">Área común</option>
+          <option value="Contabilidad">Contabilidad</option>
           <option value="Convivencia">Convivencia</option>
           <option value="Humedad">Humedad</option>
           <option value="Iluminación">Iluminación</option>

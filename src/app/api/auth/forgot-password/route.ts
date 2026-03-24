@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendEmail({
         to: email,
-        subject: "Restablecer contraseña - Conjunto Parque Calle 100",
+        subject: "Restablecer contraseña - Conjunto Parque Residencial Calle 100",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #1a1a1a;">Restablecer contraseña</h2>
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
               </a>
             </div>
             <p style="color: #666; font-size: 14px;">Este enlace expira en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo.</p>
-            <p style="color: #999; font-size: 12px;">Conjunto Parque Calle 100</p>
+            <p style="color: #999; font-size: 12px;">Conjunto Parque Residencial Calle 100</p>
           </div>
         `,
       });

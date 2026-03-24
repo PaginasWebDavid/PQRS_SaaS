@@ -13,6 +13,7 @@ import {
   ChevronRight,
   TrendingUp,
   FileSpreadsheet,
+  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -67,12 +68,20 @@ function getYears() {
   return years;
 }
 
-const ASUNTO_COLORS = ["#15803d", "#22c55e", "#86efac", "#bbf7d0"];
+const ASUNTO_COLORS = ["#15803d", "#22c55e", "#86efac", "#bbf7d0", "#166534"];
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
 
 export function DashboardView() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [month, setMonth] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   const [error, setError] = useState("");
 
@@ -80,7 +89,10 @@ export function DashboardView() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/dashboard?year=${year}`);
+      const params = new URLSearchParams({ year });
+      if (month) params.set("month", month);
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/dashboard?${params.toString()}`);
       if (!res.ok) throw new Error("Error al cargar datos");
       const json = await res.json();
       setData(json);
@@ -89,127 +101,15 @@ export function DashboardView() {
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, month, search]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  async function exportDashboardExcel() {
+  function exportDashboardExcel() {
     if (!data) return;
-    const ExcelJS = await import("exceljs");
-    const { COLORS, FONT_TITLE, FONT_HEADER, FONT_BODY, FONT_BOLD, BORDER_THIN, FILL_HEADER, FILL_TOTAL, FILL_GREEN_LIGHT, FILL_BLUE_LIGHT, FILL_YELLOW_LIGHT, ALIGN_CENTER, ALIGN_LEFT } = await import("@/lib/excel-styles");
-    const r = data.resumen;
-
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "Conjunto Parque Calle 100";
-
-    // ── Sheet 1: Resumen Trimestral ──
-    const ws1 = wb.addWorksheet("Resumen Trimestral");
-    ws1.columns = [
-      { width: 16 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 10 },
-    ];
-
-    // Title
-    ws1.mergeCells("A1:G1");
-    const titleCell1 = ws1.getCell("A1");
-    titleCell1.value = `CONJUNTO PARQUE CALLE 100 — PQRS ${data.year}`;
-    titleCell1.font = FONT_TITLE;
-    titleCell1.alignment = ALIGN_LEFT;
-    ws1.getRow(1).height = 30;
-
-    // Header row
-    const headers1 = ["PQRS", "I TRIM", "II TRIM", "III TRIM", "IV TRIM", "TOTAL", "%"];
-    const headerRow1 = ws1.addRow(headers1);
-    headerRow1.eachCell((cell) => {
-      cell.font = FONT_HEADER;
-      cell.fill = FILL_HEADER;
-      cell.border = BORDER_THIN;
-      cell.alignment = ALIGN_CENTER;
-    });
-    headerRow1.getCell(1).alignment = ALIGN_LEFT;
-    headerRow1.height = 22;
-
-    // Data rows
-    const rows1 = [
-      { label: "Total", values: data.trimestres.map((t) => t.total), total: r.total, pct: "" },
-      { label: "Terminado", values: data.trimestres.map((t) => t.terminado), total: r.terminado, pct: r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%" },
-      { label: "En Proceso", values: data.trimestres.map((t) => t.enProgreso), total: r.enProgreso, pct: r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%" },
-      { label: "En Espera", values: data.trimestres.map((t) => t.enEspera), total: r.enEspera, pct: r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%" },
-    ];
-
-    const rowFills = [null, FILL_GREEN_LIGHT, FILL_BLUE_LIGHT, FILL_YELLOW_LIGHT];
-    const rowFontColors = [COLORS.black, COLORS.green, COLORS.blue, COLORS.yellow];
-
-    rows1.forEach((row, i) => {
-      const r1 = ws1.addRow([row.label, ...row.values, row.total, row.pct]);
-      r1.eachCell((cell, col) => {
-        cell.font = col === 1 ? { ...FONT_BOLD, color: { argb: rowFontColors[i] } } : { ...FONT_BODY, color: { argb: rowFontColors[i] } };
-        cell.border = BORDER_THIN;
-        cell.alignment = col === 1 ? ALIGN_LEFT : ALIGN_CENTER;
-        if (rowFills[i]) cell.fill = rowFills[i]!;
-      });
-      // Bold total and pct columns
-      r1.getCell(6).font = { ...FONT_BOLD, color: { argb: rowFontColors[i] } };
-      r1.getCell(7).font = { ...FONT_BOLD, color: { argb: rowFontColors[i] } };
-    });
-
-    // ── Sheet 2: Por Asunto ──
-    const ws2 = wb.addWorksheet("Por Asunto");
-    ws2.columns = [
-      { width: 12 }, { width: 20 }, { width: 50 }, { width: 14 }, { width: 14 }, { width: 14 },
-    ];
-
-    ws2.mergeCells("A1:F1");
-    const titleCell2 = ws2.getCell("A1");
-    titleCell2.value = `PQRS POR DETALLE — ${data.year}`;
-    titleCell2.font = FONT_TITLE;
-    titleCell2.alignment = ALIGN_LEFT;
-    ws2.getRow(1).height = 30;
-
-    const headers2 = ["Cantidad", "Asunto", "Descripción", "Terminados", "En Proceso", "En Espera"];
-    const headerRow2 = ws2.addRow(headers2);
-    headerRow2.eachCell((cell) => {
-      cell.font = FONT_HEADER;
-      cell.fill = FILL_HEADER;
-      cell.border = BORDER_THIN;
-      cell.alignment = ALIGN_CENTER;
-    });
-    headerRow2.getCell(2).alignment = ALIGN_LEFT;
-    headerRow2.getCell(3).alignment = ALIGN_LEFT;
-    headerRow2.height = 22;
-
-    data.porAsuntoDetalle.forEach((a) => {
-      const row = ws2.addRow([a.cantidad, a.asunto, a.descripcion, a.terminados, a.enProgreso, a.enEspera]);
-      row.eachCell((cell, col) => {
-        cell.font = FONT_BODY;
-        cell.border = BORDER_THIN;
-        cell.alignment = col <= 1 ? ALIGN_CENTER : col <= 3 ? ALIGN_LEFT : ALIGN_CENTER;
-      });
-      row.getCell(1).font = FONT_BOLD;
-      row.getCell(4).font = { ...FONT_BODY, color: { argb: COLORS.green } };
-      row.getCell(5).font = { ...FONT_BODY, color: { argb: COLORS.blue } };
-      row.getCell(6).font = { ...FONT_BODY, color: { argb: COLORS.yellow } };
-    });
-
-    // Total row
-    const totalRow2 = ws2.addRow([r.total, "", "", r.terminado, r.enProgreso, r.enEspera]);
-    totalRow2.eachCell((cell, col) => {
-      cell.font = FONT_BOLD;
-      cell.fill = FILL_TOTAL;
-      cell.border = BORDER_THIN;
-      cell.alignment = col <= 3 ? (col === 1 ? ALIGN_CENTER : ALIGN_LEFT) : ALIGN_CENTER;
-    });
-
-    // Download
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Dashboard_PQRS_${data.year}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
+    window.open(`/api/dashboard/excel?year=${year}`, "_blank");
   }
 
   if (loading) {
@@ -237,18 +137,33 @@ export function DashboardView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="flex gap-2">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Dashboard
+          {month ? ` — ${MESES[parseInt(month) - 1]}` : ""} {year}
+        </h1>
+        <div className="flex gap-2 flex-wrap">
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
             className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           >
-          {getYears().map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
-          ))}
+            {getYears().map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <select
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          >
+            <option value="">Todo el año</option>
+            {MESES.map((m, i) => (
+              <option key={i} value={String(i + 1)}>
+                {m}
+              </option>
+            ))}
           </select>
           <button
             onClick={exportDashboardExcel}
@@ -260,6 +175,38 @@ export function DashboardView() {
           </button>
         </div>
       </div>
+
+      {/* Search bar */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setSearch(searchInput.trim());
+        }}
+        className="flex gap-2"
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por N° PQRS, bloque o nombre..."
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              if (!e.target.value.trim()) setSearch("");
+            }}
+            className="w-full h-10 text-sm pl-10 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          />
+        </div>
+        {search && (
+          <button
+            type="button"
+            onClick={() => { setSearchInput(""); setSearch(""); }}
+            className="h-10 px-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            Limpiar
+          </button>
+        )}
+      </form>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

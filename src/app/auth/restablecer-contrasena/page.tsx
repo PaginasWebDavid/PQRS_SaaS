@@ -216,7 +216,7 @@ function RestablecerForm() {
         </div>
 
         <p className="text-center text-green-200/50 text-sm mt-6">
-          Conjunto Parque Calle 100
+          Conjunto Parque Residencial Calle 100
         </p>
       </div>
     </main>
