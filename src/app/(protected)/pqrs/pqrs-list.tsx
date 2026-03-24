@@ -140,6 +140,9 @@ export function PqrsList({ role }: PqrsListProps) {
   const [year, setYear] = useState("");
   const [estadoFilter, setEstadoFilter] = useState(estadoFromUrl);
   const [seguimiento, setSeguimiento] = useState(false);
+  const [searchBloque, setSearchBloque] = useState("");
+  const [searchApto, setSearchApto] = useState("");
+  const [searchNumero, setSearchNumero] = useState("");
 
   const isResidente = role === "RESIDENTE";
   const canCreate = !isResidente && role === "ADMIN";
@@ -170,6 +173,9 @@ export function PqrsList({ role }: PqrsListProps) {
       if (tipo) params.set("tipo", tipo);
       if (asuntoFilter) params.set("asunto", asuntoFilter);
       if (year) params.set("year", year);
+      if (searchBloque) params.set("bloque", searchBloque);
+      if (searchApto) params.set("apto", searchApto);
+      if (searchNumero) params.set("numero", searchNumero);
       if (isResidente && seguimiento) {
         params.set("estado", "EN_PROGRESO");
       }
@@ -183,7 +189,7 @@ export function PqrsList({ role }: PqrsListProps) {
     } finally {
       setLoading(false);
     }
-  }, [tipo, asuntoFilter, year, isResidente, seguimiento, estadoFilter]);
+  }, [tipo, asuntoFilter, year, isResidente, seguimiento, estadoFilter, searchBloque, searchApto, searchNumero]);
 
   useEffect(() => {
     fetchPqrs();
@@ -294,6 +300,33 @@ export function PqrsList({ role }: PqrsListProps) {
         </div>
       )}
 
+      {/* Search */}
+      {!isResidente && (
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="number"
+            placeholder="N° PQRS"
+            value={searchNumero}
+            onChange={(e) => setSearchNumero(e.target.value)}
+            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          />
+          <input
+            type="number"
+            placeholder="Bloque"
+            value={searchBloque}
+            onChange={(e) => setSearchBloque(e.target.value)}
+            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          />
+          <input
+            type="number"
+            placeholder="Apto"
+            value={searchApto}
+            onChange={(e) => setSearchApto(e.target.value)}
+            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          />
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         {!isResidente && (
@@ -348,13 +381,16 @@ export function PqrsList({ role }: PqrsListProps) {
           <option value="Iluminación">Iluminación</option>
         </select>
 
-        {(year || tipo || asuntoFilter || estadoFilter) && (
+        {(year || tipo || asuntoFilter || estadoFilter || searchBloque || searchApto || searchNumero) && (
           <button
             onClick={() => {
               setYear("");
               setTipo("");
               setAsuntoFilter("");
               setEstadoFilter("");
+              setSearchBloque("");
+              setSearchApto("");
+              setSearchNumero("");
             }}
             className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
           >

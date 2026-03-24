@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
   const asunto = searchParams.get("asunto");
   const year = searchParams.get("year");
   const scope = searchParams.get("scope"); // "active" | "historial" | null
+  const searchBloque = searchParams.get("bloque");
+  const searchApto = searchParams.get("apto");
+  const searchNumero = searchParams.get("numero");
 
   // Construir filtros
   const where: Prisma.PqrsWhereInput = {};
@@ -54,6 +57,18 @@ export async function GET(req: NextRequest) {
       gte: new Date(`${yearNum}-01-01`),
       lt: new Date(`${yearNum + 1}-01-01`),
     };
+  }
+
+  if (searchBloque) {
+    where.bloque = parseInt(searchBloque);
+  }
+
+  if (searchApto) {
+    where.apto = parseInt(searchApto);
+  }
+
+  if (searchNumero) {
+    where.numero = parseInt(searchNumero);
   }
 
   const pqrs = await prisma.pqrs.findMany({

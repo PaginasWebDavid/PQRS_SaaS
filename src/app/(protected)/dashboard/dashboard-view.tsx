@@ -13,7 +13,6 @@ import {
   ChevronRight,
   TrendingUp,
   FileSpreadsheet,
-  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -80,8 +79,6 @@ export function DashboardView() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [month, setMonth] = useState("");
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
 
   const [error, setError] = useState("");
 
@@ -91,7 +88,6 @@ export function DashboardView() {
     try {
       const params = new URLSearchParams({ year });
       if (month) params.set("month", month);
-      if (search) params.set("search", search);
       const res = await fetch(`/api/dashboard?${params.toString()}`);
       if (!res.ok) throw new Error("Error al cargar datos");
       const json = await res.json();
@@ -101,7 +97,7 @@ export function DashboardView() {
     } finally {
       setLoading(false);
     }
-  }, [year, month, search]);
+  }, [year, month]);
 
   useEffect(() => {
     fetchData();
@@ -175,38 +171,6 @@ export function DashboardView() {
           </button>
         </div>
       </div>
-
-      {/* Search bar */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSearch(searchInput.trim());
-        }}
-        className="flex gap-2"
-      >
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por N° PQRS, bloque o nombre..."
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-              if (!e.target.value.trim()) setSearch("");
-            }}
-            className="w-full h-10 text-sm pl-10 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-          />
-        </div>
-        {search && (
-          <button
-            type="button"
-            onClick={() => { setSearchInput(""); setSearch(""); }}
-            className="h-10 px-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            Limpiar
-          </button>
-        )}
-      </form>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
