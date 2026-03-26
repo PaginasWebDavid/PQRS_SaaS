@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
   const monthParam = searchParams.get("month");
   const month = monthParam ? parseInt(monthParam) : null;
-  const search = searchParams.get("search")?.trim() || "";
 
   let dateGte: Date;
   let dateLt: Date;
@@ -33,13 +32,6 @@ export async function GET(req: NextRequest) {
   const pqrs = await prisma.pqrs.findMany({
     where: {
       fechaRecibido: { gte: dateGte, lt: dateLt },
-      ...(search ? {
-        OR: [
-          { numero: !isNaN(Number(search)) ? Number(search) : undefined },
-          { bloque: !isNaN(Number(search)) ? Number(search) : undefined },
-          { nombreResidente: { contains: search, mode: "insensitive" as const } },
-        ].filter((c) => Object.values(c)[0] !== undefined),
-      } : {}),
     },
   });
 
@@ -75,18 +67,11 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // By tipo (for bar chart)
-  const porTipo = [
-    { nombre: "Peticiones", valor: pqrs.filter((p) => p.tipoPqrs === "PETICION").length, color: "#3b82f6" },
-    { nombre: "Quejas", valor: pqrs.filter((p) => p.tipoPqrs === "QUEJA").length, color: "#ef4444" },
-    { nombre: "Reclamos", valor: pqrs.filter((p) => p.tipoPqrs === "RECLAMO").length, color: "#f97316" },
-    { nombre: "Sugerencias", valor: pqrs.filter((p) => p.tipoPqrs === "SUGERENCIA").length, color: "#22c55e" },
-  ];
-
   // By asunto (for bar chart)
   const asuntoCounts: Record<string, number> = {};
   for (const p of pqrs) {
-    asuntoCounts[p.asunto] = (asuntoCounts[p.asunto] || 0) + 1;
+    const key = p.asunto || "Sin asunto";
+    asuntoCounts[key] = (asuntoCounts[key] || 0) + 1;
   }
   const porAsunto = Object.entries(asuntoCounts)
     .map(([nombre, valor]) => ({ nombre, valor }))
@@ -95,7 +80,7 @@ export async function GET(req: NextRequest) {
   // By estado (for pie chart)
   const porEstado = [
     { nombre: "En espera", valor: enEspera, color: "#eab308" },
-    { nombre: "En progreso", valor: enProgreso, color: "#3b82f6" },
+    { nombre: "En proceso", valor: enProgreso, color: "#3b82f6" },
     { nombre: "Terminadas", valor: terminado, color: "#22c55e" },
   ];
 
@@ -119,14 +104,15 @@ export async function GET(req: NextRequest) {
   // By asunto with status breakdown and descriptions
   const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
   for (const p of pqrs) {
-    if (!asuntoMap[p.asunto]) {
-      asuntoMap[p.asunto] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
+    const key = p.asunto || "Sin asunto";
+    if (!asuntoMap[key]) {
+      asuntoMap[key] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
     }
-    asuntoMap[p.asunto].total++;
-    if (p.estado === "TERMINADO") asuntoMap[p.asunto].terminado++;
-    else if (p.estado === "EN_PROGRESO") asuntoMap[p.asunto].enProgreso++;
-    else asuntoMap[p.asunto].enEspera++;
-    if (p.subAsunto) asuntoMap[p.asunto].descripciones.add(p.subAsunto);
+    asuntoMap[key].total++;
+    if (p.estado === "TERMINADO") asuntoMap[key].terminado++;
+    else if (p.estado === "EN_PROGRESO") asuntoMap[key].enProgreso++;
+    else asuntoMap[key].enEspera++;
+    if (p.subAsunto) asuntoMap[key].descripciones.add(p.subAsunto);
   }
   const porAsuntoDetalle = Object.entries(asuntoMap)
     .map(([asunto, d]) => ({
@@ -139,22 +125,37 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => b.cantidad - a.cantidad);
 
-  // Recent PQRS en espera (urgent)
+  // PQRS en espera (urgent)
   const pendientes = pqrs
     .filter((p) => p.estado === "EN_ESPERA")
     .sort((a, b) => a.fechaRecibido.getTime() - b.fechaRecibido.getTime())
-    .slice(0, 5)
     .map((p) => ({
       id: p.id,
       numero: p.numero,
-      asunto: p.subAsunto ? `${p.asunto} - ${p.subAsunto}` : p.asunto,
-      tipoPqrs: p.tipoPqrs,
+      asunto: p.asunto || "Sin asunto",
       nombreResidente: p.nombreResidente,
       bloque: p.bloque,
       apto: p.apto,
       diasEspera: Math.ceil(
         (Date.now() - p.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
       ),
+    }));
+
+  // PQRS en proceso (new section)
+  const pendientesEnProceso = pqrs
+    .filter((p) => p.estado === "EN_PROGRESO")
+    .sort((a, b) => a.fechaRecibido.getTime() - b.fechaRecibido.getTime())
+    .map((p) => ({
+      id: p.id,
+      numero: p.numero,
+      asunto: p.asunto || "Sin asunto",
+      nombreResidente: p.nombreResidente,
+      bloque: p.bloque,
+      apto: p.apto,
+      diasEnProceso: Math.ceil(
+        (Date.now() - (p.fechaPrimerContacto || p.fechaRecibido).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+      faseActual: p.faseActual,
     }));
 
   return NextResponse.json({
@@ -169,11 +170,11 @@ export async function GET(req: NextRequest) {
       tiempoPromedioCierre,
     },
     porMes,
-    porTipo,
     porAsunto,
     porEstado,
     trimestres,
     porAsuntoDetalle,
     pendientes,
+    pendientesEnProceso,
   });
 }

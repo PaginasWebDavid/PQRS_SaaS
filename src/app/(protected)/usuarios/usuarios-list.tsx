@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   Users,
@@ -12,6 +13,10 @@ import {
   Trash2,
   ChevronDown,
   FileText,
+  ArrowLeft,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 
 interface UserData {
@@ -74,12 +79,16 @@ function formatDate(dateStr: string) {
 }
 
 export function UsuariosList({ currentUserId }: { currentUserId: string }) {
+  const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLocationId, setEditLocationId] = useState<string | null>(null);
+  const [editBloque, setEditBloque] = useState("");
+  const [editApto, setEditApto] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -125,6 +134,39 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
     setEditingId(null);
   }
 
+  async function handleLocationSave(userId: string) {
+    setSaving(true);
+    setError("");
+    const bloque = editBloque ? parseInt(editBloque) : null;
+    const apto = editApto ? parseInt(editApto) : null;
+
+    if (bloque !== null && (bloque < 1 || bloque > 12)) {
+      setError("Bloque debe ser entre 1 y 12");
+      setSaving(false);
+      return;
+    }
+    if (apto !== null && (apto < 1 || apto > 999)) {
+      setError("Apto debe ser entre 1 y 999");
+      setSaving(false);
+      return;
+    }
+
+    const res = await fetch(`/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bloque, apto }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Error al actualizar ubicación");
+    } else {
+      await fetchUsers();
+    }
+    setSaving(false);
+    setEditLocationId(null);
+  }
+
   async function handleDelete(userId: string) {
     setSaving(true);
     setError("");
@@ -151,6 +193,12 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
           <Users className="h-5 w-5 text-green-700" />
         </div>
@@ -235,6 +283,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
             const rc = roleConfig[u.role] || roleConfig.RESIDENTE;
             const RoleIcon = rc.icon;
             const isCurrentUser = u.id === currentUserId;
+            const isConsejo = u.role === "CONSEJO";
 
             return (
               <div
@@ -242,6 +291,8 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                 className={`bg-white rounded-2xl border p-4 transition-all ${
                   isCurrentUser
                     ? "border-green-300 bg-green-50/30"
+                    : isConsejo
+                    ? "border-blue-200 bg-blue-50/20"
                     : "border-gray-100"
                 }`}
               >
@@ -262,6 +313,11 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                       {isCurrentUser && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
                           Tú
+                        </span>
+                      )}
+                      {isConsejo && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          Solo lectura
                         </span>
                       )}
                     </div>
@@ -293,27 +349,78 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                       ) : (
                         <button
                           onClick={() =>
-                            !isCurrentUser && setEditingId(u.id)
+                            !isCurrentUser && !isConsejo && setEditingId(u.id)
                           }
-                          disabled={isCurrentUser}
+                          disabled={isCurrentUser || isConsejo}
                           className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg ${rc.bg} ${rc.text} ${rc.border} border ${
-                            isCurrentUser
+                            isCurrentUser || isConsejo
                               ? "cursor-default"
                               : "hover:opacity-80 cursor-pointer"
                           }`}
                         >
                           {rc.label}
-                          {!isCurrentUser && (
+                          {!isCurrentUser && !isConsejo && (
                             <ChevronDown className="h-3 w-3" />
                           )}
                         </button>
                       )}
 
-                      {u.bloque && (
-                        <span className="text-xs text-gray-400">
-                          B{u.bloque}-{u.apto}
-                        </span>
+                      {/* Location: display or edit */}
+                      {editLocationId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">B</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={editBloque}
+                            onChange={(e) => setEditBloque(e.target.value)}
+                            className="w-12 h-7 text-xs px-1 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-green-600"
+                            placeholder="—"
+                          />
+                          <span className="text-xs text-gray-500">Apto</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={999}
+                            value={editApto}
+                            onChange={(e) => setEditApto(e.target.value)}
+                            className="w-14 h-7 text-xs px-1 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-green-600"
+                            placeholder="—"
+                          />
+                          <button
+                            onClick={() => handleLocationSave(u.id)}
+                            disabled={saving}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-green-600 hover:bg-green-50 transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditLocationId(null)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditLocationId(u.id);
+                            setEditBloque(u.bloque ? String(u.bloque) : "");
+                            setEditApto(u.apto ? String(u.apto) : "");
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Editar ubicación"
+                        >
+                          {u.bloque ? (
+                            <span>B{u.bloque}-{u.apto}</span>
+                          ) : (
+                            <span className="text-gray-300">Sin ubicación</span>
+                          )}
+                          <Pencil className="h-3 w-3" />
+                        </button>
                       )}
+
                       {u._count.pqrsCreated > 0 && (
                         <span className="inline-flex items-center gap-1 text-xs text-gray-400">
                           <FileText className="h-3 w-3" />
@@ -326,8 +433,8 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                     </div>
                   </div>
 
-                  {/* Delete */}
-                  {!isCurrentUser && (
+                  {/* Delete - not for current user or CONSEJO */}
+                  {!isCurrentUser && !isConsejo && (
                     <div className="shrink-0">
                       {deleteConfirm === u.id ? (
                         <div className="flex items-center gap-1">

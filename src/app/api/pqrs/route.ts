@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma, TipoPqrs } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl;
   const estado = searchParams.get("estado");
-  const tipo = searchParams.get("tipo");
   const asunto = searchParams.get("asunto");
   const year = searchParams.get("year");
   const scope = searchParams.get("scope"); // "active" | "historial" | null
@@ -41,10 +40,6 @@ export async function GET(req: NextRequest) {
 
   if (estado) {
     where.estado = estado as Prisma.EnumEstadoFilter["equals"];
-  }
-
-  if (tipo) {
-    where.tipoPqrs = tipo as Prisma.EnumTipoPqrsFilter["equals"];
   }
 
   if (asunto) {
@@ -96,31 +91,27 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { tipoPqrs, asunto, subAsunto, descripcion, nombreResidente, bloque, apto } = body;
+  const { asunto, descripcion, nombreResidente, bloque, apto } = body;
 
-  // Validaciones
-  if (!tipoPqrs || !asunto || !descripcion) {
+  // Validaciones - solo descripcion es obligatoria
+  if (!descripcion) {
     return NextResponse.json(
-      { error: "Tipo, asunto y descripción son obligatorios" },
+      { error: "La descripcion es obligatoria" },
       { status: 400 }
     );
-  }
-
-  if (!Object.values(TipoPqrs).includes(tipoPqrs)) {
-    return NextResponse.json({ error: "Tipo de PQRS inválido" }, { status: 400 });
   }
 
   const isAdmin = session.user.role === "ADMIN";
 
   // ADMIN crea a nombre de un residente (manual)
-  // RESIDENTE usa sus datos de sesión
+  // RESIDENTE usa sus datos de sesion
   const finalNombre = isAdmin ? nombreResidente : session.user.name;
   const finalBloque = isAdmin ? parseInt(bloque) : session.user.bloque;
   const finalApto = isAdmin ? parseInt(apto) : session.user.apto;
 
   if (!finalNombre || !finalBloque || !finalApto) {
     return NextResponse.json(
-      { error: "Nombre, torre y apartamento son obligatorios" },
+      { error: "Nombre, bloque y apartamento son obligatorios" },
       { status: 400 }
     );
   }
@@ -139,9 +130,7 @@ export async function POST(req: NextRequest) {
       bloque: finalBloque,
       apto: finalApto,
       nombreResidente: finalNombre,
-      tipoPqrs,
-      asunto,
-      subAsunto: subAsunto || null,
+      asunto: asunto || null,
       descripcion,
       creadoPorId: session.user.id,
     },
@@ -152,7 +141,7 @@ export async function POST(req: NextRequest) {
     data: {
       pqrsId: pqrs.id,
       estadoDespues: "EN_ESPERA",
-      nota: `PQRS creada por ${isAdmin ? "administración" : "residente"}`,
+      nota: `PQRS creada por ${isAdmin ? "administracion" : "residente"}`,
     },
   });
 

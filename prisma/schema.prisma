@@ -9,21 +9,22 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          Role      @default(RESIDENTE)
-  bloque        Int?
-  apto          Int?
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  pqrsCreated   Pqrs[]    @relation("CreatedBy")
-  pqrsManaged   Pqrs[]    @relation("ManagedBy")
-  sessions      Session[]
-  accounts      Account[]
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password              String
+  name                  String
+  role                  Role      @default(RESIDENTE)
+  bloque                Int?
+  apto                  Int?
+  haCorregidoUbicacion  Boolean   @default(false)
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  pqrsCreated           Pqrs[]    @relation("CreatedBy")
+  pqrsManaged           Pqrs[]    @relation("ManagedBy")
+  sessions              Session[]
+  accounts              Account[]
 }
 
 enum Role {
@@ -42,8 +43,8 @@ model Pqrs {
   bloque                        Int
   apto                          Int
   nombreResidente               String
-  tipoPqrs                      TipoPqrs
-  asunto                        String
+  tipoPqrs                      TipoPqrs?
+  asunto                        String?
   subAsunto                     String?
   descripcion                   String          @db.Text
   numeroRadicacion              String?         @unique
@@ -60,6 +61,15 @@ model Pqrs {
   evidenciaArchivoTipo          String?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
+
+  // Fases de gestión (solo admin, no visible para residente)
+  faseActual                    Int?            // 1-5, null = sin fase asignada
+  faseTipo                      String?         // "INSUMOS" (Fase II) o "PROVEEDOR" (Fase III)
+  fase1Inicio                   DateTime?       // Inspección de Campo
+  fase2Inicio                   DateTime?       // Adquisición de insumos
+  fase3Inicio                   DateTime?       // Firma contrato proveedor
+  fase4Inicio                   DateTime?       // Ejecución
+  fase5Inicio                   DateTime?       // Terminado
 
   // Metadata
   createdAt       DateTime  @default(now())

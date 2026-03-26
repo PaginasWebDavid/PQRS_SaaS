@@ -1,28 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
   FileText,
   Loader2,
-  ClipboardList,
-  Frown,
-  AlertTriangle,
-  Lightbulb,
   ChevronRight,
   Clock,
   Hourglass,
   CheckCircle2,
   Eye,
+  ArrowLeft,
 } from "lucide-react";
 
 interface Pqrs {
   id: string;
   numero: number;
-  tipoPqrs: string;
-  asunto: string;
+  tipoPqrs: string | null;
+  asunto: string | null;
   descripcion: string;
   estado: string;
   fechaRecibido: string;
@@ -32,45 +29,16 @@ interface Pqrs {
   creadoPor: { name: string } | null;
 }
 
-const tipoConfig: Record<
-  string,
-  {
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badgeBg: string;
-    badgeText: string;
-    value: string;
-  }
-> = {
-  PETICION: {
-    label: "Petición",
-    icon: ClipboardList,
-    badgeBg: "bg-blue-100",
-    badgeText: "text-blue-700",
-    value: "PETICION",
-  },
-  QUEJA: {
-    label: "Queja",
-    icon: Frown,
-    badgeBg: "bg-red-100",
-    badgeText: "text-red-700",
-    value: "QUEJA",
-  },
-  RECLAMO: {
-    label: "Reclamo",
-    icon: AlertTriangle,
-    badgeBg: "bg-orange-100",
-    badgeText: "text-orange-700",
-    value: "RECLAMO",
-  },
-  SUGERENCIA: {
-    label: "Sugerencia",
-    icon: Lightbulb,
-    badgeBg: "bg-green-100",
-    badgeText: "text-green-700",
-    value: "SUGERENCIA",
-  },
-};
+const ASUNTOS = [
+  "AREA COMUN",
+  "CONTABILIDAD",
+  "CONVIVENCIA",
+  "HUMEDAD/CUBIERTA",
+  "HUMEDAD/DEPOSITO",
+  "HUMEDAD/VENTANAS",
+  "HUMEDAD/FACHADA",
+  "HUMEDAD/GARAJE",
+];
 
 const estadoConfig: Record<
   string,
@@ -88,7 +56,7 @@ const estadoConfig: Record<
     text: "text-yellow-700",
   },
   EN_PROGRESO: {
-    label: "En progreso",
+    label: "En proceso",
     icon: Clock,
     bg: "bg-blue-100",
     text: "text-blue-700",
@@ -112,30 +80,23 @@ function formatDate(dateStr: string) {
 function getYears() {
   const current = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = current; y >= 2021; y--) {
+  for (let y = current; y >= 2026; y--) {
     years.push(y);
   }
   return years;
 }
-
-const tipoList = [
-  tipoConfig.PETICION,
-  tipoConfig.QUEJA,
-  tipoConfig.RECLAMO,
-  tipoConfig.SUGERENCIA,
-];
 
 interface PqrsListProps {
   role: string;
 }
 
 export function PqrsList({ role }: PqrsListProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const estadoFromUrl = searchParams.get("estado") || "";
 
   const [pqrs, setPqrs] = useState<Pqrs[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tipo, setTipo] = useState("");
   const [asuntoFilter, setAsuntoFilter] = useState("");
   const [year, setYear] = useState("");
   const [estadoFilter, setEstadoFilter] = useState(estadoFromUrl);
@@ -170,7 +131,6 @@ export function PqrsList({ role }: PqrsListProps) {
         params.set("scope", "active");
       }
 
-      if (tipo) params.set("tipo", tipo);
       if (asuntoFilter) params.set("asunto", asuntoFilter);
       if (year) params.set("year", year);
       if (searchBloque) params.set("bloque", searchBloque);
@@ -189,35 +149,34 @@ export function PqrsList({ role }: PqrsListProps) {
     } finally {
       setLoading(false);
     }
-  }, [tipo, asuntoFilter, year, isResidente, seguimiento, estadoFilter, searchBloque, searchApto, searchNumero]);
+  }, [asuntoFilter, year, isResidente, seguimiento, estadoFilter, searchBloque, searchApto, searchNumero]);
 
   useEffect(() => {
     fetchPqrs();
   }, [fetchPqrs]);
 
   // Empty state for resident (no PQRS at all)
-  if (!loading && pqrs.length === 0 && isResidente && !tipo && !year && !seguimiento) {
+  if (!loading && pqrs.length === 0 && isResidente && !year && !seguimiento) {
     return (
       <div className="space-y-6">
-        {/* Type icons for creating */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Mis PQRS</h1>
-          <p className="text-gray-500 mb-4">Selecciona el tipo de solicitud que deseas crear:</p>
-          <div className="grid grid-cols-4 gap-3">
-            {tipoList.map((t) => {
-              const Icon = t.icon;
-              return (
-                <Link
-                  key={t.value}
-                  href={`/pqrs/nuevo?tipo=${t.value}`}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-transparent ${t.badgeBg} hover:border-current ${t.badgeText} transition-all hover:shadow-md`}
-                >
-                  <Icon className="h-8 w-8" />
-                  <span className="text-xs font-bold text-center">{t.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+        <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
+
+        {/* Two action buttons: CREAR PQRS + MIS PQRS */}
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/pqrs/nuevo"
+            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-transparent bg-green-50 hover:border-green-400 text-green-700 transition-all hover:shadow-md"
+          >
+            <Plus className="h-8 w-8" />
+            <span className="text-sm font-bold text-center">CREAR PQRS</span>
+          </Link>
+          <button
+            onClick={() => setSeguimiento(true)}
+            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-transparent bg-blue-50 hover:border-blue-400 text-blue-700 transition-all hover:shadow-md"
+          >
+            <FileText className="h-8 w-8" />
+            <span className="text-sm font-bold text-center">MIS PQRS</span>
+          </button>
         </div>
 
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -225,10 +184,10 @@ export function PqrsList({ role }: PqrsListProps) {
             <FileText className="h-10 w-10 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            No tienes solicitudes aún
+            No tienes solicitudes aun
           </h2>
           <p className="text-gray-500 max-w-sm">
-            Selecciona un tipo arriba para crear tu primera solicitud
+            Presiona &quot;Crear PQRS&quot; para crear tu primera solicitud
           </p>
         </div>
       </div>
@@ -237,51 +196,49 @@ export function PqrsList({ role }: PqrsListProps) {
 
   return (
     <div className="space-y-4">
-      {/* Resident: 4 type icons + Seguimiento */}
+      {/* Resident: two action buttons + Seguimiento */}
       {isResidente && (
         <>
           <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
 
-          {/* 4x1 type icons */}
-          <div className="grid grid-cols-4 gap-2">
-            {tipoList.map((t) => {
-              const Icon = t.icon;
-              return (
-                <Link
-                  key={t.value}
-                  href={`/pqrs/nuevo?tipo=${t.value}`}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-transparent ${t.badgeBg} hover:border-current ${t.badgeText} transition-all hover:shadow-md`}
-                >
-                  <Icon className="h-7 w-7" />
-                  <span className="text-[11px] font-bold text-center leading-tight">{t.label}</span>
-                </Link>
-              );
-            })}
+          {/* Two action buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/pqrs/nuevo"
+              className="flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-transparent bg-green-50 hover:border-green-400 text-green-700 transition-all hover:shadow-md"
+            >
+              <Plus className="h-7 w-7" />
+              <span className="text-xs font-bold text-center">CREAR PQRS</span>
+            </Link>
+            <button
+              onClick={() => setSeguimiento(!seguimiento)}
+              className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                seguimiento
+                  ? "border-blue-400 bg-blue-100 text-blue-800"
+                  : "border-transparent bg-blue-50 hover:border-blue-400 text-blue-700"
+              }`}
+            >
+              <Eye className="h-7 w-7" />
+              <span className="text-xs font-bold text-center">MIS PQRS</span>
+            </button>
           </div>
-
-          {/* Seguimiento button */}
-          <button
-            onClick={() => setSeguimiento(!seguimiento)}
-            className={`inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-xl transition-colors text-sm ${
-              seguimiento
-                ? "bg-green-800 text-white"
-                : "bg-green-700 text-white hover:bg-green-800"
-            }`}
-          >
-            <Eye className="h-4 w-4" />
-            {seguimiento ? "Ver todas" : "Seguimiento"}
-          </button>
         </>
       )}
 
       {/* Non-resident header */}
       {!isResidente && (
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">
             {estadoFilter === "EN_ESPERA"
               ? "PQRS En Espera"
               : estadoFilter === "EN_PROGRESO"
-                ? "PQRS En Progreso"
+                ? "PQRS En Proceso"
                 : estadoFilter === "TERMINADO"
                   ? "PQRS Terminadas"
                   : estadoFilter === "todos"
@@ -314,14 +271,25 @@ export function PqrsList({ role }: PqrsListProps) {
             type="number"
             placeholder="Bloque"
             value={searchBloque}
-            onChange={(e) => setSearchBloque(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "" || (parseInt(val) >= 1 && parseInt(val) <= 12)) {
+                setSearchBloque(val);
+              }
+            }}
+            min={1}
+            max={12}
             className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           />
           <input
-            type="number"
+            type="text"
             placeholder="Apto"
             value={searchApto}
-            onChange={(e) => setSearchApto(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+              setSearchApto(val);
+            }}
+            maxLength={3}
             className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           />
         </div>
@@ -338,7 +306,7 @@ export function PqrsList({ role }: PqrsListProps) {
             <option value="">Activas</option>
             <option value="todos">Todas</option>
             <option value="EN_ESPERA">En espera</option>
-            <option value="EN_PROGRESO">En progreso</option>
+            <option value="EN_PROGRESO">En proceso</option>
             <option value="TERMINADO">Terminadas</option>
           </select>
         )}
@@ -357,35 +325,22 @@ export function PqrsList({ role }: PqrsListProps) {
         </select>
 
         <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-        >
-          <option value="">Tipo</option>
-          <option value="PETICION">Petición</option>
-          <option value="QUEJA">Queja</option>
-          <option value="RECLAMO">Reclamo</option>
-          <option value="SUGERENCIA">Sugerencia</option>
-        </select>
-
-        <select
           value={asuntoFilter}
           onChange={(e) => setAsuntoFilter(e.target.value)}
           className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
         >
           <option value="">Asunto</option>
-          <option value="Área común">Área común</option>
-          <option value="Contabilidad">Contabilidad</option>
-          <option value="Convivencia">Convivencia</option>
-          <option value="Humedad">Humedad</option>
-          <option value="Iluminación">Iluminación</option>
+          {ASUNTOS.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
         </select>
 
-        {(year || tipo || asuntoFilter || estadoFilter || searchBloque || searchApto || searchNumero) && (
+        {(year || asuntoFilter || estadoFilter || searchBloque || searchApto || searchNumero) && (
           <button
             onClick={() => {
               setYear("");
-              setTipo("");
               setAsuntoFilter("");
               setEstadoFilter("");
               setSearchBloque("");
@@ -439,21 +394,13 @@ export function PqrsList({ role }: PqrsListProps) {
 
           <div className="space-y-3">
             {pqrs.map((p) => {
-              const tc = tipoConfig[p.tipoPqrs];
               const ec = estadoConfig[p.estado];
-              const TipoIcon = tc?.icon || FileText;
               const EstadoIcon = ec?.icon || Clock;
 
               return (
                 <Link key={p.id} href={`/pqrs/${p.id}`}>
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-green-200 transition-all duration-200 group">
                     <div className="flex items-start gap-3">
-                      <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tc?.badgeBg || "bg-gray-100"} ${tc?.badgeText || "text-gray-600"}`}
-                      >
-                        <TipoIcon className="h-6 w-6" />
-                      </div>
-
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-mono text-xs text-gray-400">
@@ -468,7 +415,7 @@ export function PqrsList({ role }: PqrsListProps) {
                         </div>
 
                         <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
-                          {p.asunto}
+                          {p.asunto || p.descripcion.substring(0, 80)}
                         </p>
 
                         <div className="flex items-center gap-3 text-xs text-gray-400">

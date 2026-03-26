@@ -29,7 +29,7 @@ interface NavItem {
 
 const navByRole: Record<Role, NavItem[]> = {
   ADMIN: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
     { href: "/pqrs", label: "PQRS", icon: FileText },
     { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
     { href: "/historial", label: "Historial PQRS", icon: History },
@@ -37,19 +37,19 @@ const navByRole: Record<Role, NavItem[]> = {
     { href: "/usuarios", label: "Usuarios", icon: Users },
   ],
   ASISTENTE: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
     { href: "/pqrs", label: "PQRS", icon: FileText },
     { href: "/historial", label: "Historial PQRS", icon: History },
   ],
   CONSEJO: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
     { href: "/pqrs", label: "PQRS", icon: FileText },
     { href: "/historial", label: "Historial PQRS", icon: History },
     { href: "/reportes", label: "Reportes", icon: BarChart3 },
   ],
   RESIDENTE: [
     { href: "/pqrs", label: "Mis PQRS", icon: FileText },
-    { href: "/pqrs/nuevo", label: "Nueva Solicitud", icon: Plus },
+    { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
   ],
 };
 

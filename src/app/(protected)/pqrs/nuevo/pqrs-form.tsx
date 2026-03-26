@@ -3,91 +3,40 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ClipboardList,
-  Frown,
-  AlertTriangle,
-  Lightbulb,
   ArrowLeft,
   Loader2,
   CheckCircle2,
+  FileText,
 } from "lucide-react";
-
-const TIPOS = [
-  {
-    value: "PETICION",
-    label: "Petición",
-    description: "Solicitar información o un servicio",
-    icon: ClipboardList,
-    color: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
-    iconBg: "bg-blue-100 text-blue-600",
-    activeColor: "bg-blue-100 border-blue-500 ring-2 ring-blue-500",
-  },
-  {
-    value: "QUEJA",
-    label: "Queja",
-    description: "Expresar una inconformidad",
-    icon: Frown,
-    color: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300",
-    iconBg: "bg-red-100 text-red-600",
-    activeColor: "bg-red-100 border-red-500 ring-2 ring-red-500",
-  },
-  {
-    value: "RECLAMO",
-    label: "Reclamo",
-    description: "Exigir un derecho o incumplimiento",
-    icon: AlertTriangle,
-    color: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 hover:border-orange-300",
-    iconBg: "bg-orange-100 text-orange-600",
-    activeColor: "bg-orange-100 border-orange-500 ring-2 ring-orange-500",
-  },
-  {
-    value: "SUGERENCIA",
-    label: "Sugerencia",
-    description: "Proponer una mejora",
-    icon: Lightbulb,
-    color: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300",
-    iconBg: "bg-green-100 text-green-600",
-    activeColor: "bg-green-100 border-green-500 ring-2 ring-green-500",
-  },
-];
-
-const ASUNTOS = [
-  "Área común",
-  "Contabilidad",
-  "Convivencia",
-  "Humedad",
-  "Iluminación",
-];
-
-const SUB_ASUNTOS_HUMEDAD = [
-  "Humedad Ventana",
-  "Humedad Sala",
-  "Humedad Depósito",
-  "Humedad Área Común",
-];
 
 interface PqrsFormProps {
   role: "ADMIN" | "RESIDENTE";
   userName?: string | null;
   userBloque?: number | null;
   userApto?: number | null;
-  initialTipo?: string;
 }
+
+const ASUNTOS = [
+  "AREA COMUN",
+  "CONTABILIDAD",
+  "CONVIVENCIA",
+  "HUMEDAD/CUBIERTA",
+  "HUMEDAD/DEPOSITO",
+  "HUMEDAD/VENTANAS",
+  "HUMEDAD/FACHADA",
+  "HUMEDAD/GARAJE",
+];
 
 export function PqrsForm({
   role,
   userName,
   userBloque,
   userApto,
-  initialTipo,
 }: PqrsFormProps) {
   const router = useRouter();
   const isAdmin = role === "ADMIN";
 
-  const [tipoPqrs, setTipoPqrs] = useState(initialTipo || "");
-  const [showForm, setShowForm] = useState(!!initialTipo);
   const [asunto, setAsunto] = useState("");
-  const [subAsunto, setSubAsunto] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [nombreResidente, setNombreResidente] = useState("");
   const [bloque, setBloque] = useState("");
@@ -95,25 +44,12 @@ export function PqrsForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function selectTipo(tipo: string) {
-    setTipoPqrs(tipo);
-    setShowForm(true);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!asunto) {
-      setError("Debe seleccionar un asunto");
-      return;
-    }
-    if (asunto === "Humedad" && !subAsunto) {
-      setError("Debe seleccionar el tipo de humedad");
-      return;
-    }
     if (!descripcion.trim()) {
-      setError("La descripción es obligatoria");
+      setError("La descripcion es obligatoria");
       return;
     }
     if (isAdmin && !nombreResidente.trim()) {
@@ -121,24 +57,27 @@ export function PqrsForm({
       return;
     }
     if (isAdmin && !bloque) {
-      setError("La torre es obligatoria");
+      setError("El bloque es obligatorio");
       return;
     }
     if (isAdmin && !apto) {
       setError("El apartamento es obligatorio");
       return;
     }
+    if (isAdmin && apto && apto.length !== 3) {
+      setError("El apartamento debe tener exactamente 3 digitos");
+      return;
+    }
 
     setLoading(true);
 
     const body: Record<string, string> = {
-      tipoPqrs,
-      asunto,
       descripcion: descripcion.trim(),
     };
 
-    if (subAsunto) {
-      body.subAsunto = subAsunto;
+    // Admin can set asunto at creation (optional, can also set later)
+    if (isAdmin && asunto) {
+      body.asunto = asunto;
     }
 
     if (isAdmin) {
@@ -164,145 +103,39 @@ export function PqrsForm({
     router.refresh();
   }
 
-  const selectedTipo = TIPOS.find((t) => t.value === tipoPqrs);
-
-  // Step 1: Type selection
-  if (!showForm) {
-    return (
-      <div className="max-w-lg mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">
-            ¿Qué desea radicar?
-          </h1>
-        </div>
-
-        <p className="text-gray-500 mb-6 ml-[52px]">
-          Seleccione el tipo de solicitud
-        </p>
-
-        <div className="grid grid-cols-2 gap-4">
-          {TIPOS.map((tipo) => (
-            <button
-              key={tipo.value}
-              onClick={() => selectTipo(tipo.value)}
-              className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg ${tipo.color}`}
-            >
-              <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center ${tipo.iconBg}`}
-              >
-                <tipo.icon className="h-8 w-8" />
-              </div>
-              <span className="font-bold text-lg">{tipo.label}</span>
-              <span className="text-xs text-center opacity-70 leading-snug">
-                {tipo.description}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Step 2: Form
   return (
     <div className="max-w-lg mx-auto">
-      {/* Header with selected type */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => {
-            setShowForm(false);
-            setTipoPqrs("");
-          }}
+          onClick={() => router.back()}
           className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
           <h1 className="text-xl font-bold text-gray-900">
-            Nueva {selectedTipo?.label}
+            Nuevo PQRS
           </h1>
           <p className="text-sm text-gray-500">
-            {selectedTipo?.description}
+            Describe tu solicitud
           </p>
         </div>
-        {selectedTipo && (
-          <div
-            className={`ml-auto w-12 h-12 rounded-xl flex items-center justify-center ${selectedTipo.iconBg}`}
-          >
-            <selectedTipo.icon className="h-6 w-6" />
-          </div>
-        )}
+        <div className="ml-auto w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600">
+          <FileText className="h-6 w-6" />
+        </div>
       </div>
 
       {/* Form card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Asunto - Dropdown */}
-          <div className="space-y-2">
-            <label
-              htmlFor="asunto"
-              className="block text-base font-medium text-gray-700"
-            >
-              Asunto *
-            </label>
-            <select
-              id="asunto"
-              value={asunto}
-              onChange={(e) => {
-                setAsunto(e.target.value);
-                if (e.target.value !== "Humedad") {
-                  setSubAsunto("");
-                }
-              }}
-              className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
-            >
-              <option value="">Seleccionar asunto</option>
-              {ASUNTOS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sub-asunto for Humedad */}
-          {asunto === "Humedad" && (
-            <div className="space-y-2">
-              <label
-                htmlFor="subAsunto"
-                className="block text-base font-medium text-gray-700"
-              >
-                Tipo de humedad *
-              </label>
-              <select
-                id="subAsunto"
-                value={subAsunto}
-                onChange={(e) => setSubAsunto(e.target.value)}
-                className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
-              >
-                <option value="">Seleccionar tipo</option>
-                {SUB_ASUNTOS_HUMEDAD.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Descripción */}
+          {/* Descripcion */}
           <div className="space-y-2">
             <label
               htmlFor="descripcion"
               className="block text-base font-medium text-gray-700"
             >
-              Descripción *
+              Descripcion *
             </label>
             <textarea
               id="descripcion"
@@ -313,6 +146,31 @@ export function PqrsForm({
               className="w-full text-base px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
             />
           </div>
+
+          {/* Admin: Asunto (optional at creation, can assign later in EN_ESPERA) */}
+          {isAdmin && (
+            <div className="space-y-2">
+              <label
+                htmlFor="asunto"
+                className="block text-base font-medium text-gray-700"
+              >
+                Asunto (opcional)
+              </label>
+              <select
+                id="asunto"
+                value={asunto}
+                onChange={(e) => setAsunto(e.target.value)}
+                className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+              >
+                <option value="">Seleccionar asunto</option>
+                {ASUNTOS.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Admin: datos del residente */}
           {isAdmin && (
@@ -367,11 +225,14 @@ export function PqrsForm({
                   </label>
                   <input
                     id="apto"
-                    type="number"
+                    type="text"
                     placeholder="Ej: 310"
                     value={apto}
-                    onChange={(e) => setApto(e.target.value)}
-                    min={1}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                      setApto(val);
+                    }}
+                    maxLength={3}
                     className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                   />
                 </div>
@@ -379,7 +240,7 @@ export function PqrsForm({
             </>
           )}
 
-          {/* Residente: info automática */}
+          {/* Residente: info automatica */}
           {!isAdmin && (
             <div className="rounded-xl bg-green-50 border border-green-100 p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
@@ -388,7 +249,7 @@ export function PqrsForm({
                   <span className="font-medium">Residente:</span> {userName}
                 </p>
                 <p>
-                  <span className="font-medium">Ubicación:</span> Bloque{" "}
+                  <span className="font-medium">Ubicacion:</span> Bloque{" "}
                   {userBloque} - Apto {userApto}
                 </p>
               </div>
@@ -404,10 +265,7 @@ export function PqrsForm({
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={() => {
-                setShowForm(false);
-                setTipoPqrs("");
-              }}
+              onClick={() => router.back()}
               className="flex-1 h-12 text-base font-medium text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancelar

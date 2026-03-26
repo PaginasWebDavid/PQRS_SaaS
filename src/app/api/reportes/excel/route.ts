@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
-const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: "En espera", EN_PROGRESO: "En progreso", TERMINADO: "Terminado" };
+const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: "En espera", EN_PROGRESO: "En proceso", TERMINADO: "Terminado" };
+const FASE_LABEL: Record<number, string> = { 1: "Fase I", 2: "Fase II", 3: "Fase III", 4: "Fase IV", 5: "Fase V" };
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const GREEN = "15803D";
@@ -61,15 +62,13 @@ export async function GET(req: NextRequest) {
 
   // Resumen stats
   const total = pqrs.length;
-  const byTipo = { peticion: 0, queja: 0, reclamo: 0, sugerencia: 0 };
+  const byAsunto: Record<string, number> = {};
   const byEstado = { enEspera: 0, enProgreso: 0, terminado: 0 };
   let sumResp = 0, cntResp = 0, sumCierre = 0, cntCierre = 0;
 
   for (const p of pqrs) {
-    if (p.tipoPqrs === "PETICION") byTipo.peticion++;
-    if (p.tipoPqrs === "QUEJA") byTipo.queja++;
-    if (p.tipoPqrs === "RECLAMO") byTipo.reclamo++;
-    if (p.tipoPqrs === "SUGERENCIA") byTipo.sugerencia++;
+    const asuntoKey = p.asunto || "Sin asunto";
+    byAsunto[asuntoKey] = (byAsunto[asuntoKey] || 0) + 1;
     if (p.estado === "EN_ESPERA") byEstado.enEspera++;
     if (p.estado === "EN_PROGRESO") byEstado.enProgreso++;
     if (p.estado === "TERMINADO") byEstado.terminado++;
@@ -109,14 +108,16 @@ export async function GET(req: NextRequest) {
 
   addSection("RESUMEN GENERAL", [
     ["Total PQRS", total],
-    ["Peticiones", byTipo.peticion],
-    ["Quejas", byTipo.queja],
-    ["Reclamos", byTipo.reclamo],
-    ["Sugerencias", byTipo.sugerencia],
   ]);
+
+  const asuntoRows: [string, number][] = Object.entries(byAsunto)
+    .sort((a, b) => b[1] - a[1])
+    .map(([asunto, count]) => [asunto, count]);
+  addSection("DISTRIBUCIÓN POR ASUNTO", asuntoRows);
+
   addSection("ESTADO ACTUAL", [
     ["En espera", byEstado.enEspera],
-    ["En progreso", byEstado.enProgreso],
+    ["En proceso", byEstado.enProgreso],
     ["Terminadas", byEstado.terminado],
     ["% Completadas", total > 0 ? `${Math.round((byEstado.terminado / total) * 100)}%` : "0%"],
   ]);
@@ -128,61 +129,79 @@ export async function GET(req: NextRequest) {
   // Sheet 2: Seguimiento PQRS
   const ws2 = wb.addWorksheet("Seguimiento PQRS");
   ws2.columns = [
-    { width: 10 }, { width: 14 }, { width: 16 }, { width: 12 },
-    { width: 10 }, { width: 10 }, { width: 22 }, { width: 14 },
-    { width: 18 }, { width: 35 }, { width: 18 }, { width: 14 },
-    { width: 35 }, { width: 14 }, { width: 30 }, { width: 16 }, { width: 14 },
+    { width: 14 }, { width: 14 }, { width: 10 },
+    { width: 10 }, { width: 22 }, { width: 18 },
+    { width: 35 }, { width: 18 }, { width: 14 },
+    { width: 35 }, { width: 14 }, { width: 30 },
+    { width: 16 }, { width: 14 }, { width: 14 },
   ];
 
-  ws2.mergeCells("A1:Q1");
+  ws2.mergeCells("A1:O1");
   ws2.getCell("A1").value = `SEGUIMIENTO PQRS — ${periodo}`;
   ws2.getCell("A1").font = { name: "Calibri", size: 14, bold: true, color: { argb: GREEN } };
   ws2.getRow(1).height = 30;
 
-  const headers = ["N° PQRS", "Medio", "Fecha Recibido", "Mes", "Bloque", "Apto", "Nombre", "Asunto", "Descripción", "Fecha Primer Contacto", "Tiempo Resp.", "Acción Tomada", "Estado", "Evidencia Cierre", "Fecha Cierre", "Tiempo Cierre"];
+  const headers = [
+    "N° PQRS", "Fecha Recibido", "Bloque", "Apto", "Nombre",
+    "Asunto", "Descripción", "Estado",
+    "Fecha Primer Contacto", "Tiempo Resp.", "Acción Tomada",
+    "Evidencia Cierre", "Fecha de cierre", "Tiempo Cierre", "Días Apertura",
+  ];
   const hRow = ws2.addRow(headers);
   hRow.height = 28;
   hRow.eachCell((cell) => { cell.font = hdrFont; cell.fill = hdrFill; cell.border = brd; cell.alignment = { ...ctr, wrapText: true }; });
 
-  const estadoFills: Record<string, string> = { "En espera": YELLOW_LIGHT, "En progreso": BLUE_LIGHT, "Terminado": GREEN_LIGHT };
-  const estadoColors: Record<string, string> = { "En espera": YELLOW, "En progreso": BLUE, "Terminado": GREEN };
+  const estadoFills: Record<string, string> = { "En espera": YELLOW_LIGHT, "En proceso": BLUE_LIGHT, "Terminado": GREEN_LIGHT };
+  const estadoColors: Record<string, string> = { "En espera": YELLOW, "En proceso": BLUE, "Terminado": GREEN };
+  const ahora = new Date();
 
   for (const p of pqrs) {
-    const estado = ESTADO_LABEL[p.estado] || p.estado;
+    let estadoLabel = ESTADO_LABEL[p.estado] || p.estado;
+    if (p.estado === "EN_PROGRESO" && p.faseActual) {
+      estadoLabel = `En proceso - ${FASE_LABEL[p.faseActual] || `Fase ${p.faseActual}`}`;
+    }
+
+    const numPadded = String(p.numero).padStart(4, "0");
+    const yearStr = p.fechaRecibido.getFullYear().toString();
+    const diasDesdeApertura = p.fechaCierre
+      ? Math.ceil((p.fechaCierre.getTime() - p.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24))
+      : Math.ceil((ahora.getTime() - p.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24));
+
     const row = ws2.addRow([
-      p.numero,
-      p.medio === "PLATAFORMA_WEB" ? "Plataforma Web" : p.medio,
+      p.numeroRadicacion || `${yearStr}-${numPadded}`,
       p.fechaRecibido.toLocaleDateString("es-CO"),
-      p.mes,
       p.bloque,
       p.apto,
       p.nombreResidente,
-      p.asunto,
+      p.asunto || "Sin asunto",
       p.descripcion,
+      estadoLabel,
       p.fechaPrimerContacto ? p.fechaPrimerContacto.toLocaleDateString("es-CO") : "",
       p.tiempoRespuestaPrimerContacto ?? "",
       p.accionTomada || "",
-      estado,
       p.evidenciaCierre || "",
       p.fechaCierre ? p.fechaCierre.toLocaleDateString("es-CO") : "",
       p.tiempoRespuestaCierre ?? "",
+      diasDesdeApertura,
     ]);
 
     row.eachCell((cell, col) => {
       cell.font = bFont;
       cell.border = brd;
-      cell.alignment = [1, 4, 5, 6, 11, 16].includes(col) ? ctr : { ...lft, wrapText: true, vertical: "middle" as const };
+      cell.alignment = [3, 4, 10, 14, 15].includes(col) ? ctr : { ...lft, wrapText: true, vertical: "middle" as const };
     });
 
-    const estadoCell = row.getCell(13);
-    if (estadoFills[estado]) {
-      estadoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: estadoFills[estado] } };
-      estadoCell.font = { ...bldFont, color: { argb: estadoColors[estado] } };
+    // Color the estado cell
+    const estadoCell = row.getCell(8);
+    const baseEstado = estadoLabel.startsWith("En proceso") ? "En proceso" : estadoLabel.startsWith("En espera") ? "En espera" : estadoLabel;
+    if (estadoFills[baseEstado]) {
+      estadoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: estadoFills[baseEstado] } };
+      estadoCell.font = { ...bldFont, color: { argb: estadoColors[baseEstado] } };
     }
     estadoCell.alignment = ctr;
   }
 
-  ws2.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2 + pqrs.length, column: 16 } };
+  ws2.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2 + pqrs.length, column: 15 } };
   ws2.views = [{ state: "frozen", ySplit: 2 }];
 
   const buffer = await wb.xlsx.writeBuffer();

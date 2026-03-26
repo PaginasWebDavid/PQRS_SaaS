@@ -67,12 +67,13 @@ export async function GET(req: NextRequest) {
 
   const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
   for (const p of pqrs) {
-    if (!asuntoMap[p.asunto]) asuntoMap[p.asunto] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
-    asuntoMap[p.asunto].total++;
-    if (p.estado === "TERMINADO") asuntoMap[p.asunto].terminado++;
-    else if (p.estado === "EN_PROGRESO") asuntoMap[p.asunto].enProgreso++;
-    else asuntoMap[p.asunto].enEspera++;
-    if (p.subAsunto) asuntoMap[p.asunto].descripciones.add(p.subAsunto);
+    const key = p.asunto || "Sin asunto";
+    if (!asuntoMap[key]) asuntoMap[key] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
+    asuntoMap[key].total++;
+    if (p.estado === "TERMINADO") asuntoMap[key].terminado++;
+    else if (p.estado === "EN_PROGRESO") asuntoMap[key].enProgreso++;
+    else asuntoMap[key].enEspera++;
+    if (p.subAsunto) asuntoMap[key].descripciones.add(p.subAsunto);
   }
   const porAsuntoDetalle = Object.entries(asuntoMap)
     .map(([asunto, d]) => ({ asunto: asunto.toUpperCase(), cantidad: d.total, descripcion: Array.from(d.descripciones).join(", "), terminados: d.terminado, enProgreso: d.enProgreso, enEspera: d.enEspera }))

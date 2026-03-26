@@ -2,23 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  FileText,
   Loader2,
-  ClipboardList,
-  Frown,
-  AlertTriangle,
-  Lightbulb,
   ChevronRight,
   CheckCircle2,
   History,
+  ArrowLeft,
 } from "lucide-react";
 
 interface Pqrs {
   id: string;
   numero: number;
-  tipoPqrs: string;
-  asunto: string;
+  tipoPqrs: string | null;
+  asunto: string | null;
   estado: string;
   fechaRecibido: string;
   fechaCierre: string | null;
@@ -28,20 +25,16 @@ interface Pqrs {
   tiempoRespuestaCierre: number | null;
 }
 
-const tipoConfig: Record<
-  string,
-  {
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badgeBg: string;
-    badgeText: string;
-  }
-> = {
-  PETICION: { label: "Petición", icon: ClipboardList, badgeBg: "bg-blue-100", badgeText: "text-blue-700" },
-  QUEJA: { label: "Queja", icon: Frown, badgeBg: "bg-red-100", badgeText: "text-red-700" },
-  RECLAMO: { label: "Reclamo", icon: AlertTriangle, badgeBg: "bg-orange-100", badgeText: "text-orange-700" },
-  SUGERENCIA: { label: "Sugerencia", icon: Lightbulb, badgeBg: "bg-green-100", badgeText: "text-green-700" },
-};
+const ASUNTOS = [
+  "AREA COMUN",
+  "CONTABILIDAD",
+  "CONVIVENCIA",
+  "HUMEDAD/CUBIERTA",
+  "HUMEDAD/DEPOSITO",
+  "HUMEDAD/VENTANAS",
+  "HUMEDAD/FACHADA",
+  "HUMEDAD/GARAJE",
+];
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("es-CO", {
@@ -54,19 +47,18 @@ function formatDate(dateStr: string) {
 function getYears() {
   const current = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = current; y >= 2021; y--) {
+  for (let y = current; y >= 2026; y--) {
     years.push(y);
   }
   return years;
 }
 
 export function HistorialList() {
+  const router = useRouter();
   const [pqrs, setPqrs] = useState<Pqrs[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tipo, setTipo] = useState("");
   const [asuntoFilter, setAsuntoFilter] = useState("");
   const [year, setYear] = useState("");
-
   const [error, setError] = useState("");
 
   const fetchPqrs = useCallback(async () => {
@@ -75,10 +67,8 @@ export function HistorialList() {
     try {
       const params = new URLSearchParams();
       params.set("scope", "historial");
-      if (tipo) params.set("tipo", tipo);
       if (asuntoFilter) params.set("asunto", asuntoFilter);
       if (year) params.set("year", year);
-
       const res = await fetch(`/api/pqrs?${params.toString()}`);
       if (!res.ok) throw new Error("Error al cargar historial");
       const data = await res.json();
@@ -88,21 +78,51 @@ export function HistorialList() {
     } finally {
       setLoading(false);
     }
-  }, [tipo, asuntoFilter, year]);
+  }, [asuntoFilter, year]);
 
   useEffect(() => {
     fetchPqrs();
   }, [fetchPqrs]);
 
+  // Calculate avg response time by asunto
+  const avgByAsunto: Record<string, { sum: number; count: number }> = {};
+  for (const p of pqrs) {
+    if (p.asunto && p.tiempoRespuestaCierre !== null) {
+      if (!avgByAsunto[p.asunto]) avgByAsunto[p.asunto] = { sum: 0, count: 0 };
+      avgByAsunto[p.asunto].sum += p.tiempoRespuestaCierre;
+      avgByAsunto[p.asunto].count++;
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
           <History className="h-5 w-5 text-green-700" />
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Historial PQRS</h1>
       </div>
+
+      {/* Avg response time by asunto */}
+      {Object.keys(avgByAsunto).length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <h3 className="text-sm font-bold text-gray-900 mb-2">Promedio tiempo de cierre por Asunto</h3>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(avgByAsunto).map(([asunto, { sum, count }]) => (
+              <span key={asunto} className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700 border border-green-200">
+                {asunto}: {Math.round(sum / count)} dias
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
@@ -113,22 +133,8 @@ export function HistorialList() {
         >
           <option value="">Año</option>
           {getYears().map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
+            <option key={y} value={String(y)}>{y}</option>
           ))}
-        </select>
-
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-        >
-          <option value="">Tipo</option>
-          <option value="PETICION">Petición</option>
-          <option value="QUEJA">Queja</option>
-          <option value="RECLAMO">Reclamo</option>
-          <option value="SUGERENCIA">Sugerencia</option>
         </select>
 
         <select
@@ -137,19 +143,14 @@ export function HistorialList() {
           className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
         >
           <option value="">Asunto</option>
-          <option value="Área común">Área común</option>
-          <option value="Convivencia">Convivencia</option>
-          <option value="Humedad">Humedad</option>
-          <option value="Iluminación">Iluminación</option>
+          {ASUNTOS.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
         </select>
 
-        {(year || tipo || asuntoFilter) && (
+        {(year || asuntoFilter) && (
           <button
-            onClick={() => {
-              setYear("");
-              setTipo("");
-              setAsuntoFilter("");
-            }}
+            onClick={() => { setYear(""); setAsuntoFilter(""); }}
             className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
           >
             Limpiar
@@ -157,7 +158,6 @@ export function HistorialList() {
         )}
       </div>
 
-      {/* Error */}
       {error && (
         <div className="text-center py-16">
           <p className="text-red-600">{error}</p>
@@ -165,14 +165,12 @@ export function HistorialList() {
         </div>
       )}
 
-      {/* Loading */}
       {loading && (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-green-600" />
         </div>
       )}
 
-      {/* No results */}
       {!loading && pqrs.length === 0 && (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -189,56 +187,38 @@ export function HistorialList() {
           </p>
 
           <div className="space-y-3">
-            {pqrs.map((p) => {
-              const tc = tipoConfig[p.tipoPqrs];
-              const TipoIcon = tc?.icon || FileText;
-
-              return (
-                <Link key={p.id} href={`/pqrs/${p.id}`}>
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-green-200 transition-all duration-200 group">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tc?.badgeBg || "bg-gray-100"} ${tc?.badgeText || "text-gray-600"}`}
-                      >
-                        <TipoIcon className="h-6 w-6" />
+            {pqrs.map((p) => (
+              <Link key={p.id} href={`/pqrs/${p.id}`}>
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-green-200 transition-all duration-200 group">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-xs text-gray-400">#{p.numero}</span>
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Terminado
+                        </span>
                       </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-mono text-xs text-gray-400">
-                            #{p.numero}
+                      <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
+                        {p.asunto || "Sin asunto"}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                        <span>{p.nombreResidente} · B{p.bloque}-{p.apto}</span>
+                        <span>{formatDate(p.fechaRecibido)}</span>
+                        {p.fechaCierre && (
+                          <span className="text-green-600">
+                            Cerrado: {formatDate(p.fechaCierre)}
+                            {p.tiempoRespuestaCierre !== null &&
+                              ` (${p.tiempoRespuestaCierre} dia${p.tiempoRespuestaCierre !== 1 ? "s" : ""})`}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Terminado
-                          </span>
-                        </div>
-
-                        <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
-                          {p.asunto}
-                        </p>
-
-                        <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
-                          <span>
-                            {p.nombreResidente} · B{p.bloque}-{p.apto}
-                          </span>
-                          <span>{formatDate(p.fechaRecibido)}</span>
-                          {p.fechaCierre && (
-                            <span className="text-green-600">
-                              Cerrado: {formatDate(p.fechaCierre)}
-                              {p.tiempoRespuestaCierre !== null &&
-                                ` (${p.tiempoRespuestaCierre} día${p.tiempoRespuestaCierre !== 1 ? "s" : ""})`}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-
-                      <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-green-600 transition-colors shrink-0 mt-1" />
                     </div>
+                    <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-green-600 transition-colors shrink-0 mt-1" />
                   </div>
-                </Link>
-              );
-            })}
+                </div>
+              </Link>
+            ))}
           </div>
         </>
       )}

@@ -5,16 +5,20 @@ import { sendEmail } from "@/lib/email";
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: "En espera",
-  EN_PROGRESO: "En progreso",
+  EN_PROGRESO: "En proceso",
   TERMINADO: "Terminado",
 };
 
-const TIPO_LABEL: Record<string, string> = {
-  PETICION: "Petición",
-  QUEJA: "Queja",
-  RECLAMO: "Reclamo",
-  SUGERENCIA: "Sugerencia",
-};
+const ASUNTOS_VALIDOS = [
+  "AREA COMUN",
+  "CONTABILIDAD",
+  "CONVIVENCIA",
+  "HUMEDAD/CUBIERTA",
+  "HUMEDAD/DEPOSITO",
+  "HUMEDAD/VENTANAS",
+  "HUMEDAD/FACHADA",
+  "HUMEDAD/GARAJE",
+];
 
 export async function GET(
   req: NextRequest,
@@ -71,7 +75,7 @@ export async function PATCH(
 
   const body = await req.json();
 
-  // --- Primer contacto: EN_ESPERA → EN_PROGRESO (sin email) ---
+  // --- Primer contacto: EN_ESPERA → EN_PROGRESO ---
   if (body.primerContacto) {
     if (pqrs.estado !== "EN_ESPERA") {
       return NextResponse.json(
@@ -88,15 +92,31 @@ export async function PATCH(
       );
     }
 
+    // Asunto es obligatorio para registrar primer contacto
+    const asunto = body.asunto || pqrs.asunto;
+    if (!asunto) {
+      return NextResponse.json(
+        { error: "Debe seleccionar un asunto antes de registrar el primer contacto" },
+        { status: 400 }
+      );
+    }
+
+    if (!ASUNTOS_VALIDOS.includes(asunto)) {
+      return NextResponse.json(
+        { error: "Asunto invalido" },
+        { status: 400 }
+      );
+    }
+
     const ahora = new Date();
     const diffDays = Math.ceil(
       (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    // Generate radicación number: RAD-YYYY-NNNN
+    // Generate radicacion number: YYYY-NNNN (sin RAD)
     const yearStr = ahora.getFullYear().toString();
     const numPadded = String(pqrs.numero).padStart(4, "0");
-    const numeroRadicacion = `RAD-${yearStr}-${numPadded}`;
+    const numeroRadicacion = `${yearStr}-${numPadded}`;
 
     await prisma.historialPqrs.create({
       data: {
@@ -111,6 +131,7 @@ export async function PATCH(
       where: { id: params.id },
       data: {
         estado: "EN_PROGRESO",
+        asunto,
         fechaPrimerContacto: ahora,
         tiempoRespuestaPrimerContacto: diffDays,
         notaPrimerContacto: nota,
@@ -124,42 +145,76 @@ export async function PATCH(
       },
     });
 
-    // Send radicación email to resident
+    // Send radicacion email to resident
     if (pqrs.creadoPor?.email) {
-      const asuntoDisplay = pqrs.subAsunto
-        ? `${pqrs.asunto} - ${pqrs.subAsunto}`
-        : pqrs.asunto;
       try {
         await sendEmail({
           to: pqrs.creadoPor.email,
-          subject: `Su ${TIPO_LABEL[pqrs.tipoPqrs]} ha sido radicada - ${numeroRadicacion}`,
+          subject: `Su PQRS ha sido radicada - ${numeroRadicacion}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #15803d;">Su solicitud ha sido radicada</h2>
               <p>Estimado/a <strong>${pqrs.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
-              <p>Le informamos que su ${TIPO_LABEL[pqrs.tipoPqrs].toLowerCase()} ha sido recibida y está siendo gestionada.</p>
+              <p>Le informamos que su PQRS ha sido recibida y esta siendo gestionada.</p>
               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                <p style="margin: 0; font-size: 14px; color: #166534;">N° de radicación</p>
+                <p style="margin: 0; font-size: 14px; color: #166534;">N° de radicacion</p>
                 <p style="margin: 4px 0 0; font-size: 24px; font-weight: bold; color: #15803d;">${numeroRadicacion}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tipo</td><td style="padding: 8px; border: 1px solid #ddd;">${TIPO_LABEL[pqrs.tipoPqrs]}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asuntoDisplay}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asunto}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
               </table>
               <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
                 <p style="margin: 0; font-size: 14px; font-weight: bold; color: #374151;">Nota del primer contacto:</p>
                 <p style="margin: 8px 0 0; font-size: 14px; color: #4b5563;">${nota}</p>
               </div>
-              <p style="color: #666; font-size: 14px;">Guarde este número para hacer seguimiento a su solicitud.</p>
+              <p style="color: #666; font-size: 14px;">Guarde este numero para hacer seguimiento a su solicitud.</p>
               <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
             </div>
           `,
         });
       } catch (emailError) {
-        console.error("Error enviando email de radicación:", emailError);
+        console.error("Error enviando email de radicacion:", emailError);
       }
     }
+
+    return NextResponse.json(updated);
+  }
+
+  // --- Actualizar fase ---
+  if (body.actualizarFase !== undefined) {
+    if (pqrs.estado !== "EN_PROGRESO") {
+      return NextResponse.json(
+        { error: "Solo se pueden gestionar fases en PQRS en proceso" },
+        { status: 400 }
+      );
+    }
+
+    const { faseActual, faseTipo } = body;
+    const ahora = new Date();
+    const updateData: Record<string, unknown> = {
+      faseActual,
+      gestionadoPorId: session.user.id,
+    };
+
+    if (faseTipo) updateData.faseTipo = faseTipo;
+
+    // Set start date for the phase being activated
+    if (faseActual === 1 && !pqrs.fase1Inicio) updateData.fase1Inicio = ahora;
+    if (faseActual === 2 && !pqrs.fase2Inicio) updateData.fase2Inicio = ahora;
+    if (faseActual === 3 && !pqrs.fase3Inicio) updateData.fase3Inicio = ahora;
+    if (faseActual === 4 && !pqrs.fase4Inicio) updateData.fase4Inicio = ahora;
+    if (faseActual === 5 && !pqrs.fase5Inicio) updateData.fase5Inicio = ahora;
+
+    const updated = await prisma.pqrs.update({
+      where: { id: params.id },
+      data: updateData,
+      include: {
+        creadoPor: { select: { name: true, email: true } },
+        gestionadoPor: { select: { name: true } },
+        historial: { orderBy: { creadoAt: "asc" } },
+      },
+    });
 
     return NextResponse.json(updated);
   }
@@ -167,7 +222,7 @@ export async function PATCH(
   // --- Guardar / Terminar: solo en EN_PROGRESO ---
   if (pqrs.estado === "TERMINADO") {
     return NextResponse.json(
-      { error: "Esta PQRS ya está cerrada" },
+      { error: "Esta PQRS ya esta cerrada" },
       { status: 400 }
     );
   }
@@ -187,7 +242,24 @@ export async function PATCH(
 
     if (!finalAccion) {
       return NextResponse.json(
-        { error: "Para cerrar la PQRS debe completar la acción tomada" },
+        { error: "Para cerrar la PQRS debe completar la accion tomada" },
+        { status: 400 }
+      );
+    }
+
+    // Validate phase V is completed
+    if (pqrs.faseActual !== 5) {
+      return NextResponse.json(
+        { error: "No se puede terminar la PQRS hasta que la Fase V (Terminado) este activa" },
+        { status: 400 }
+      );
+    }
+
+    // Validate evidencia de cierre is filled
+    const finalEvidencia = evidenciaCierre || pqrs.evidenciaCierre;
+    if (!finalEvidencia && !evidenciaArchivoData && !pqrs.evidenciaArchivoData) {
+      return NextResponse.json(
+        { error: "Debe diligenciar la evidencia de cierre antes de terminar" },
         { status: 400 }
       );
     }
@@ -257,25 +329,24 @@ export async function PATCH(
 
       await sendEmail({
         to: updated.creadoPor.email,
-        subject: `PQRS #${pqrs.numero} - ${TIPO_LABEL[pqrs.tipoPqrs]} cerrada`,
+        subject: `PQRS #${pqrs.numero} cerrada`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1a1a1a;">Su ${TIPO_LABEL[pqrs.tipoPqrs]} ha sido resuelta</h2>
+            <h2 style="color: #1a1a1a;">Su PQRS ha sido resuelta</h2>
             <p>Estimado/a <strong>${updated.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
             <p>Le informamos que su solicitud ha sido cerrada.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">N° Solicitud</td><td style="padding: 8px; border: 1px solid #ddd;">#${pqrs.numero}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tipo</td><td style="padding: 8px; border: 1px solid #ddd;">${TIPO_LABEL[pqrs.tipoPqrs]}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.asunto}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Descripción</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.descripcion}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.asunto || "N/A"}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Descripcion</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.descripcion}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha recibido</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaRecibido}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaCierre}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Acción tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Accion tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
               ${updated.evidenciaCierre ? `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>` : ""}
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
-            ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">📎 Se adjunta archivo de evidencia de cierre.</p>` : ""}
+            ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">Se adjunta archivo de evidencia de cierre.</p>` : ""}
             <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
           </div>
         `,

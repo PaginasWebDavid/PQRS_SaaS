@@ -1,17 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   BarChart3,
   FileSpreadsheet,
   FileText,
-  ArrowRightLeft,
   TrendingUp,
   Timer,
   CheckCircle2,
   Hourglass,
   Clock,
+  ArrowLeft,
 } from "lucide-react";
 
 const MESES = [
@@ -19,39 +20,44 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+const ASUNTOS = [
+  "AREA COMUN",
+  "CONTABILIDAD",
+  "CONVIVENCIA",
+  "HUMEDAD/CUBIERTA",
+  "HUMEDAD/DEPOSITO",
+  "HUMEDAD/VENTANAS",
+  "HUMEDAD/FACHADA",
+  "HUMEDAD/GARAJE",
+];
+
 interface ReporteData {
   year: number;
   month: number | null;
   resumen: {
     total: number;
-    byTipo: { peticion: number; queja: number; reclamo: number; sugerencia: number };
+    byAsunto: Record<string, number>;
     byEstado: { enEspera: number; enProgreso: number; terminado: number };
     porcentajeCompletadas: number;
     tiempoPromedioRespuesta: number | null;
     tiempoPromedioCierre: number | null;
   };
-  transiciones: {
-    espera_a_progreso: number;
-    progreso_a_terminado: number;
-  };
   detalle: {
-    numero: number;
-    medio: string;
+    numero: string;
     fechaRecibido: string;
-    mes: string;
     bloque: number;
     apto: number;
     nombreResidente: string;
-    tipoPqrs: string;
     asunto: string;
     descripcion: string;
+    estado: string;
     fechaPrimerContacto: string;
     tiempoRespuestaPrimerContacto: number | string;
     accionTomada: string;
-    estado: string;
     evidenciaCierre: string;
     fechaCierre: string;
     tiempoRespuestaCierre: number | string;
+    diasDesdeApertura: number;
     gestionadoPor: string;
   }[];
 }
@@ -59,20 +65,22 @@ interface ReporteData {
 function getYears() {
   const current = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = current; y >= 2021; y--) {
+  for (let y = current; y >= 2026; y--) {
     years.push(y);
   }
   return years;
 }
 
 export function ReportesView() {
+  const router = useRouter();
   const [data, setData] = useState<ReporteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [month, setMonth] = useState("");
   const [exporting, setExporting] = useState(false);
-
   const [error, setError] = useState("");
+  const [tableAsunto, setTableAsunto] = useState("");
+  const [tableEstado, setTableEstado] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -124,24 +132,25 @@ export function ReportesView() {
     doc.setFont("helvetica", "bold");
     doc.text("Resumen General", 14, 33);
 
+    const r = data.resumen;
+    const summaryRows: [string, string][] = [
+      ["Total PQRS", String(r.total)],
+      ["En espera", String(r.byEstado.enEspera)],
+      ["En proceso", String(r.byEstado.enProgreso)],
+      ["Terminadas", String(r.byEstado.terminado)],
+      ["% Completadas", `${r.porcentajeCompletadas}%`],
+      ["Prom. primer contacto (días)", r.tiempoPromedioRespuesta !== null ? String(r.tiempoPromedioRespuesta) : "N/A"],
+      ["Prom. cierre (días)", r.tiempoPromedioCierre !== null ? String(r.tiempoPromedioCierre) : "N/A"],
+    ];
+
+    for (const [asunto, count] of Object.entries(r.byAsunto).sort((a, b) => b[1] - a[1])) {
+      summaryRows.push([asunto, String(count)]);
+    }
+
     autoTable(doc, {
       startY: 36,
       head: [["Métrica", "Valor"]],
-      body: [
-        ["Total PQRS", String(data.resumen.total)],
-        ["Peticiones", String(data.resumen.byTipo.peticion)],
-        ["Quejas", String(data.resumen.byTipo.queja)],
-        ["Reclamos", String(data.resumen.byTipo.reclamo)],
-        ["Sugerencias", String(data.resumen.byTipo.sugerencia)],
-        ["En espera", String(data.resumen.byEstado.enEspera)],
-        ["En progreso", String(data.resumen.byEstado.enProgreso)],
-        ["Terminadas", String(data.resumen.byEstado.terminado)],
-        ["% Completadas", `${data.resumen.porcentajeCompletadas}%`],
-        ["Prom. respuesta (días)", data.resumen.tiempoPromedioRespuesta !== null ? String(data.resumen.tiempoPromedioRespuesta) : "N/A"],
-        ["Prom. cierre (días)", data.resumen.tiempoPromedioCierre !== null ? String(data.resumen.tiempoPromedioCierre) : "N/A"],
-        ["Transiciones: Espera → Progreso", String(data.transiciones.espera_a_progreso)],
-        ["Transiciones: Progreso → Terminado", String(data.transiciones.progreso_a_terminado)],
-      ],
+      body: summaryRows,
       theme: "grid",
       headStyles: { fillColor: [21, 128, 61] },
       styles: { fontSize: 9 },
@@ -160,23 +169,23 @@ export function ReportesView() {
         startY: 18,
         head: [[
           "N°", "Fecha Recibido", "Bloque", "Apto", "Nombre",
-          "Tipo", "Asunto", "Estado",
+          "Asunto", "Estado",
           "Fecha 1er Contacto", "Días Resp.",
-          "Fecha Cierre", "Días Cierre",
+          "Fecha de cierre", "Días Cierre", "Días Apertura",
         ]],
         body: data.detalle.map((d) => [
-          String(d.numero),
+          d.numero,
           d.fechaRecibido,
           String(d.bloque),
           String(d.apto),
           d.nombreResidente,
-          d.tipoPqrs,
           d.asunto.substring(0, 40),
           d.estado,
           d.fechaPrimerContacto || "—",
           d.tiempoRespuestaPrimerContacto !== "" ? String(d.tiempoRespuestaPrimerContacto) : "—",
           d.fechaCierre || "—",
           d.tiempoRespuestaCierre !== "" ? String(d.tiempoRespuestaCierre) : "—",
+          String(d.diasDesdeApertura),
         ]),
         theme: "grid",
         headStyles: { fillColor: [21, 128, 61], fontSize: 7 },
@@ -212,11 +221,30 @@ export function ReportesView() {
 
   const r = data.resumen;
 
+  // Filter detail table
+  const filteredDetalle = data.detalle.filter((d) => {
+    if (tableAsunto && d.asunto !== tableAsunto) return false;
+    if (tableEstado) {
+      if (tableEstado === "En espera" && !d.estado.startsWith("En espera")) return false;
+      if (tableEstado === "En proceso" && !d.estado.startsWith("En proceso")) return false;
+      if (tableEstado === "Terminado" && !d.estado.startsWith("Terminado")) return false;
+    }
+    return true;
+  });
+
+  const asuntoEntries = Object.entries(r.byAsunto).sort((a, b) => b[1] - a[1]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
             <BarChart3 className="h-5 w-5 text-green-700" />
           </div>
@@ -230,9 +258,7 @@ export function ReportesView() {
             className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           >
             {getYears().map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
+              <option key={y} value={String(y)}>{y}</option>
             ))}
           </select>
 
@@ -243,9 +269,7 @@ export function ReportesView() {
           >
             <option value="">Todo el año</option>
             {MESES.map((m, i) => (
-              <option key={i} value={String(i + 1)}>
-                {m}
-              </option>
+              <option key={i} value={String(i + 1)}>{m}</option>
             ))}
           </select>
         </div>
@@ -282,118 +306,110 @@ export function ReportesView() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatCard
-              label="Total PQRS"
-              value={r.total}
-              icon={<FileText className="h-5 w-5" />}
-              color="text-gray-900"
-              bg="bg-gray-100"
-            />
-            <StatCard
-              label="En espera"
-              value={r.byEstado.enEspera}
-              icon={<Hourglass className="h-5 w-5" />}
-              color="text-yellow-700"
-              bg="bg-yellow-100"
-            />
-            <StatCard
-              label="En progreso"
-              value={r.byEstado.enProgreso}
-              icon={<Clock className="h-5 w-5" />}
-              color="text-blue-700"
-              bg="bg-blue-100"
-            />
-            <StatCard
-              label="Terminadas"
-              value={r.byEstado.terminado}
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              color="text-green-700"
-              bg="bg-green-100"
-            />
-            <StatCard
-              label="% Completadas"
-              value={`${r.porcentajeCompletadas}%`}
-              icon={<TrendingUp className="h-5 w-5" />}
-              color="text-green-700"
-              bg="bg-green-100"
-            />
-            <StatCard
-              label="Prom. cierre"
-              value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} días` : "—"}
-              icon={<Timer className="h-5 w-5" />}
-              color="text-blue-700"
-              bg="bg-blue-100"
-            />
+            <StatCard label="Total PQRS" value={r.total} icon={<FileText className="h-5 w-5" />} color="text-gray-900" bg="bg-gray-100" />
+            <StatCard label="En espera" value={r.byEstado.enEspera} icon={<Hourglass className="h-5 w-5" />} color="text-yellow-700" bg="bg-yellow-100" />
+            <StatCard label="En proceso" value={r.byEstado.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
+            <StatCard label="Terminadas" value={r.byEstado.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
+            <StatCard label="% Completadas" value={`${r.porcentajeCompletadas}%`} icon={<TrendingUp className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
+            <StatCard label="Prom. cierre" value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} días` : "—"} icon={<Timer className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
           </div>
 
-          {/* Transitions card */}
+          {/* Asunto distribution */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ArrowRightLeft className="h-5 w-5 text-green-700" />
-              <h2 className="text-base font-bold text-gray-900">Transiciones de estado</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-xl">
-                <p className="text-sm text-blue-600 font-medium">En espera → En progreso</p>
-                <p className="text-3xl font-bold text-blue-700 mt-1">{data.transiciones.espera_a_progreso}</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-xl">
-                <p className="text-sm text-green-600 font-medium">En progreso → Terminado</p>
-                <p className="text-3xl font-bold text-green-700 mt-1">{data.transiciones.progreso_a_terminado}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Type distribution */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-base font-bold text-gray-900 mb-4">Distribución por tipo</h2>
+            <h2 className="text-base font-bold text-gray-900 mb-4">Distribución por asunto</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <TypeCard label="Peticiones" value={r.byTipo.peticion} total={r.total} color="bg-blue-500" bg="bg-blue-50" textColor="text-blue-700" />
-              <TypeCard label="Quejas" value={r.byTipo.queja} total={r.total} color="bg-red-500" bg="bg-red-50" textColor="text-red-700" />
-              <TypeCard label="Reclamos" value={r.byTipo.reclamo} total={r.total} color="bg-orange-500" bg="bg-orange-50" textColor="text-orange-700" />
-              <TypeCard label="Sugerencias" value={r.byTipo.sugerencia} total={r.total} color="bg-green-500" bg="bg-green-50" textColor="text-green-700" />
+              {asuntoEntries.map(([asunto, count]) => {
+                const pct = r.total > 0 ? Math.round((count / r.total) * 100) : 0;
+                return (
+                  <div key={asunto} className="rounded-2xl border border-gray-100 p-4 bg-green-50">
+                    <p className="text-xs text-green-700 font-medium">{asunto}</p>
+                    <p className="text-2xl font-bold mt-1 text-green-700">{count}</p>
+                    <div className="mt-2 h-2 rounded-full bg-white/60 overflow-hidden">
+                      <div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs text-green-700 opacity-70 mt-1">{pct}%</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Detail table */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
             <div className="p-5 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">
-                Detalle de PQRS ({data.detalle.length})
-              </h2>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h2 className="text-base font-bold text-gray-900">
+                  Detalle de PQRS ({filteredDetalle.length})
+                </h2>
+                <div className="flex gap-2">
+                  <select
+                    value={tableAsunto}
+                    onChange={(e) => setTableAsunto(e.target.value)}
+                    className="h-9 text-xs px-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                  >
+                    <option value="">Todos los asuntos</option>
+                    {ASUNTOS.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                    {data.detalle.some((d) => d.asunto === "Sin asunto") && (
+                      <option value="Sin asunto">Sin asunto</option>
+                    )}
+                  </select>
+                  <select
+                    value={tableEstado}
+                    onChange={(e) => setTableEstado(e.target.value)}
+                    className="h-9 text-xs px-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                  >
+                    <option value="">Todos los estados</option>
+                    <option value="En espera">En espera</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Terminado">Terminado</option>
+                  </select>
+                  {(tableAsunto || tableEstado) && (
+                    <button
+                      onClick={() => { setTableAsunto(""); setTableEstado(""); }}
+                      className="h-9 text-xs px-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">N°</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Residente</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Ubicación</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Tipo</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Nombre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Bloque</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Apto</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Asunto</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Estado</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Cierre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha de cierre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Días apertura</th>
                 </tr>
               </thead>
               <tbody>
-                {data.detalle.map((d) => (
+                {filteredDetalle.map((d) => (
                   <tr key={d.numero} className="border-b border-gray-50 last:border-0">
-                    <td className="px-4 py-2.5 text-gray-600">#{d.numero}</td>
+                    <td className="px-4 py-2.5 text-gray-600 font-mono text-xs">{d.numero}</td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaRecibido}</td>
                     <td className="px-4 py-2.5 text-gray-900">{d.nombreResidente}</td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">B{d.bloque}-{d.apto}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{d.tipoPqrs}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.bloque}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.apto}</td>
                     <td className="px-4 py-2.5 text-gray-900 max-w-[200px] truncate">{d.asunto}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        d.estado === "Terminado" ? "bg-green-100 text-green-700" :
-                        d.estado === "En progreso" ? "bg-blue-100 text-blue-700" :
+                        d.estado.startsWith("Terminado") ? "bg-green-100 text-green-700" :
+                        d.estado.startsWith("En proceso") ? "bg-blue-100 text-blue-700" :
                         "bg-yellow-100 text-yellow-700"
                       }`}>
                         {d.estado}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaCierre || "—"}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.diasDesdeApertura}</td>
                   </tr>
                 ))}
               </tbody>
@@ -419,27 +435,6 @@ function StatCard({ label, value, icon, color, bg }: {
       </div>
       <p className="text-xs text-gray-500">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function TypeCard({ label, value, total, color, bg, textColor }: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-  bg: string;
-  textColor: string;
-}) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  return (
-    <div className={`rounded-2xl border border-gray-100 p-4 ${bg}`}>
-      <p className={`text-xs ${textColor} font-medium`}>{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${textColor}`}>{value}</p>
-      <div className="mt-2 h-2 rounded-full bg-white/60 overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <p className={`text-xs ${textColor} opacity-70 mt-1`}>{pct}%</p>
     </div>
   );
 }
