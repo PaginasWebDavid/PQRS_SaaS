@@ -190,7 +190,7 @@ export async function PATCH(
       );
     }
 
-    const { faseActual, faseTipo } = body;
+    const { faseActual, faseTipo, fase1Nota, fase2Nota, fase3Nota, fase4Nota } = body;
     const ahora = new Date();
     const updateData: Record<string, unknown> = {
       faseActual,
@@ -198,6 +198,12 @@ export async function PATCH(
     };
 
     if (faseTipo) updateData.faseTipo = faseTipo;
+
+    // Save notes for each phase
+    if (fase1Nota !== undefined) updateData.fase1Nota = fase1Nota;
+    if (fase2Nota !== undefined) updateData.fase2Nota = fase2Nota;
+    if (fase3Nota !== undefined) updateData.fase3Nota = fase3Nota;
+    if (fase4Nota !== undefined) updateData.fase4Nota = fase4Nota;
 
     // Set start date for the phase being activated
     if (faseActual === 1 && !pqrs.fase1Inicio) updateData.fase1Inicio = ahora;
@@ -234,7 +240,7 @@ export async function PATCH(
     );
   }
 
-  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar } = body;
+  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar, queSeHizoParaCerrar } = body;
 
   // If terminar=true, we're closing the PQRS
   if (terminar) {
@@ -247,12 +253,15 @@ export async function PATCH(
       );
     }
 
-    // Validate phase V is completed
+    // If phase V not reached, require queSeHizoParaCerrar
     if (pqrs.faseActual !== 5) {
-      return NextResponse.json(
-        { error: "No se puede terminar la PQRS hasta que la Fase V (Terminado) este activa" },
-        { status: 400 }
-      );
+      const finalQueSeHizo = queSeHizoParaCerrar?.trim() || pqrs.queSeHizoParaCerrar?.trim();
+      if (!finalQueSeHizo) {
+        return NextResponse.json(
+          { error: "Si no se completaron todas las fases, debe indicar que se hizo para cerrar la PQRS" },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate evidencia de cierre is filled
@@ -271,6 +280,7 @@ export async function PATCH(
 
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
+  if (queSeHizoParaCerrar !== undefined) updateData.queSeHizoParaCerrar = queSeHizoParaCerrar;
   if (evidenciaArchivoData !== undefined) updateData.evidenciaArchivoData = evidenciaArchivoData;
   if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
   if (evidenciaArchivoTipo !== undefined) updateData.evidenciaArchivoTipo = evidenciaArchivoTipo;

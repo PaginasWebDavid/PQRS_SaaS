@@ -11,7 +11,6 @@ import {
   Clock,
   Hourglass,
   CheckCircle2,
-  Eye,
   ArrowLeft,
 } from "lucide-react";
 
@@ -38,6 +37,11 @@ const ASUNTOS = [
   "HUMEDAD/VENTANAS",
   "HUMEDAD/FACHADA",
   "HUMEDAD/GARAJE",
+];
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
 const estadoConfig: Record<
@@ -99,14 +103,14 @@ export function PqrsList({ role }: PqrsListProps) {
   const [loading, setLoading] = useState(true);
   const [asuntoFilter, setAsuntoFilter] = useState("");
   const [year, setYear] = useState("");
+  const [mes, setMes] = useState("");
   const [estadoFilter, setEstadoFilter] = useState(estadoFromUrl);
-  const [seguimiento, setSeguimiento] = useState(false);
   const [searchBloque, setSearchBloque] = useState("");
   const [searchApto, setSearchApto] = useState("");
   const [searchNumero, setSearchNumero] = useState("");
 
   const isResidente = role === "RESIDENTE";
-  const canCreate = !isResidente && role === "ADMIN";
+  const canCreate = role === "ADMIN";
 
   const [error, setError] = useState("");
 
@@ -123,22 +127,18 @@ export function PqrsList({ role }: PqrsListProps) {
     try {
       const params = new URLSearchParams();
 
-      // If a specific estado filter is set, use it directly (no scope)
       if (estadoFilter && estadoFilter !== "todos") {
         params.set("estado", estadoFilter);
       } else if (!estadoFilter && !isResidente) {
-        // Default: non-residents see active only
         params.set("scope", "active");
       }
 
       if (asuntoFilter) params.set("asunto", asuntoFilter);
       if (year) params.set("year", year);
+      if (mes) params.set("mes", mes);
       if (searchBloque) params.set("bloque", searchBloque);
       if (searchApto) params.set("apto", searchApto);
       if (searchNumero) params.set("numero", searchNumero);
-      if (isResidente && seguimiento) {
-        params.set("estado", "EN_PROGRESO");
-      }
 
       const res = await fetch(`/api/pqrs?${params.toString()}`);
       if (!res.ok) throw new Error("Error al cargar PQRS");
@@ -149,83 +149,33 @@ export function PqrsList({ role }: PqrsListProps) {
     } finally {
       setLoading(false);
     }
-  }, [asuntoFilter, year, isResidente, seguimiento, estadoFilter, searchBloque, searchApto, searchNumero]);
+  }, [asuntoFilter, year, mes, isResidente, estadoFilter, searchBloque, searchApto, searchNumero]);
 
   useEffect(() => {
     fetchPqrs();
   }, [fetchPqrs]);
 
-  // Empty state for resident (no PQRS at all)
-  if (!loading && pqrs.length === 0 && isResidente && !year && !seguimiento) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
-
-        {/* Two action buttons: CREAR PQRS + MIS PQRS */}
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/pqrs/nuevo"
-            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-transparent bg-green-50 hover:border-green-400 text-green-700 transition-all hover:shadow-md"
-          >
-            <Plus className="h-8 w-8" />
-            <span className="text-sm font-bold text-center">CREAR PQRS</span>
-          </Link>
-          <button
-            onClick={() => setSeguimiento(true)}
-            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-transparent bg-blue-50 hover:border-blue-400 text-blue-700 transition-all hover:shadow-md"
-          >
-            <FileText className="h-8 w-8" />
-            <span className="text-sm font-bold text-center">MIS PQRS</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-4">
-            <FileText className="h-10 w-10 text-green-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            No tienes solicitudes aun
-          </h2>
-          <p className="text-gray-500 max-w-sm">
-            Presiona &quot;Crear PQRS&quot; para crear tu primera solicitud
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const hasFilters = !!(year || mes || asuntoFilter || estadoFilter || searchBloque || searchApto || searchNumero);
 
   return (
     <div className="space-y-4">
-      {/* Resident: two action buttons + Seguimiento */}
+      {/* === RESIDENTE: header + crear === */}
       {isResidente && (
         <>
-          <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
-
-          {/* Two action buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
             <Link
               href="/pqrs/nuevo"
-              className="flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 border-transparent bg-green-50 hover:border-green-400 text-green-700 transition-all hover:shadow-md"
+              className="inline-flex items-center gap-2 bg-green-700 text-white font-bold px-4 py-2.5 rounded-xl hover:bg-green-800 transition-colors text-sm"
             >
-              <Plus className="h-7 w-7" />
-              <span className="text-xs font-bold text-center">CREAR PQRS</span>
+              <Plus className="h-4 w-4" />
+              Crear
             </Link>
-            <button
-              onClick={() => setSeguimiento(!seguimiento)}
-              className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                seguimiento
-                  ? "border-blue-400 bg-blue-100 text-blue-800"
-                  : "border-transparent bg-blue-50 hover:border-blue-400 text-blue-700"
-              }`}
-            >
-              <Eye className="h-7 w-7" />
-              <span className="text-xs font-bold text-center">MIS PQRS</span>
-            </button>
           </div>
         </>
       )}
 
-      {/* Non-resident header */}
+      {/* === ADMIN/ASISTENTE/CONSEJO: header === */}
       {!isResidente && (
         <div className="flex items-center gap-3">
           <button
@@ -234,17 +184,7 @@ export function PqrsList({ role }: PqrsListProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 flex-1">
-            {estadoFilter === "EN_ESPERA"
-              ? "PQRS En Espera"
-              : estadoFilter === "EN_PROGRESO"
-                ? "PQRS En Proceso"
-                : estadoFilter === "TERMINADO"
-                  ? "PQRS Terminadas"
-                  : estadoFilter === "todos"
-                    ? "Todas las PQRS"
-                    : "PQRS Activas"}
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">PQRS</h1>
           {canCreate && (
             <Link
               href="/pqrs/nuevo"
@@ -257,7 +197,7 @@ export function PqrsList({ role }: PqrsListProps) {
         </div>
       )}
 
-      {/* Search */}
+      {/* === ADMIN: búsqueda por número / bloque / apto === */}
       {!isResidente && (
         <div className="flex flex-wrap gap-2">
           <input
@@ -295,21 +235,42 @@ export function PqrsList({ role }: PqrsListProps) {
         </div>
       )}
 
-      {/* Filters */}
+      {/* === Filtros === */}
       <div className="flex flex-wrap gap-2">
-        {!isResidente && (
-          <select
-            value={estadoFilter}
-            onChange={(e) => setEstadoFilter(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-          >
-            <option value="">Activas</option>
-            <option value="todos">Todas</option>
-            <option value="EN_ESPERA">En espera</option>
-            <option value="EN_PROGRESO">En proceso</option>
-            <option value="TERMINADO">Terminadas</option>
-          </select>
-        )}
+        {/* Estado: residente también puede filtrar */}
+        <select
+          value={estadoFilter}
+          onChange={(e) => setEstadoFilter(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          {isResidente ? (
+            <>
+              <option value="">Todas</option>
+              <option value="EN_ESPERA">En espera</option>
+              <option value="EN_PROGRESO">En proceso</option>
+              <option value="TERMINADO">Terminadas</option>
+            </>
+          ) : (
+            <>
+              <option value="">Activas</option>
+              <option value="todos">Todas</option>
+              <option value="EN_ESPERA">En espera</option>
+              <option value="EN_PROGRESO">En proceso</option>
+              <option value="TERMINADO">Terminadas</option>
+            </>
+          )}
+        </select>
+
+        <select
+          value={mes}
+          onChange={(e) => setMes(e.target.value)}
+          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+        >
+          <option value="">Mes</option>
+          {MESES.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
 
         <select
           value={year}
@@ -318,29 +279,28 @@ export function PqrsList({ role }: PqrsListProps) {
         >
           <option value="">Año</option>
           {getYears().map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
+            <option key={y} value={String(y)}>{y}</option>
           ))}
         </select>
 
-        <select
-          value={asuntoFilter}
-          onChange={(e) => setAsuntoFilter(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
-        >
-          <option value="">Asunto</option>
-          {ASUNTOS.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+        {!isResidente && (
+          <select
+            value={asuntoFilter}
+            onChange={(e) => setAsuntoFilter(e.target.value)}
+            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          >
+            <option value="">Asunto</option>
+            {ASUNTOS.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        )}
 
-        {(year || asuntoFilter || estadoFilter || searchBloque || searchApto || searchNumero) && (
+        {hasFilters && (
           <button
             onClick={() => {
               setYear("");
+              setMes("");
               setAsuntoFilter("");
               setEstadoFilter("");
               setSearchBloque("");
@@ -376,11 +336,9 @@ export function PqrsList({ role }: PqrsListProps) {
             <FileText className="h-8 w-8 text-gray-400" />
           </div>
           <p className="text-gray-500">
-            {isResidente && seguimiento
-              ? "No tienes PQRS en proceso en este momento."
-              : isResidente
-                ? "No se encontraron PQRS con los filtros seleccionados."
-                : "No hay PQRS activas en este momento."}
+            {isResidente
+              ? "No tienes solicitudes con los filtros seleccionados."
+              : "No hay PQRS con los filtros seleccionados."}
           </p>
         </div>
       )}
@@ -389,7 +347,6 @@ export function PqrsList({ role }: PqrsListProps) {
         <>
           <p className="text-sm text-gray-500">
             {pqrs.length} solicitud{pqrs.length !== 1 ? "es" : ""}
-            {seguimiento ? " en proceso" : ""}
           </p>
 
           <div className="space-y-3">

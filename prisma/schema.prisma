@@ -66,10 +66,15 @@ model Pqrs {
   faseActual                    Int?            // 1-5, null = sin fase asignada
   faseTipo                      String?         // "INSUMOS" (Fase II) o "PROVEEDOR" (Fase III)
   fase1Inicio                   DateTime?       // Inspección de Campo
+  fase1Nota                     String?         @db.Text
   fase2Inicio                   DateTime?       // Adquisición de insumos
+  fase2Nota                     String?         @db.Text
   fase3Inicio                   DateTime?       // Firma contrato proveedor
+  fase3Nota                     String?         @db.Text
   fase4Inicio                   DateTime?       // Ejecución
+  fase4Nota                     String?         @db.Text
   fase5Inicio                   DateTime?       // Terminado
+  queSeHizoParaCerrar           String?         @db.Text  // Obligatorio si se cierra sin completar todas las fases
 
   // Metadata
   createdAt       DateTime  @default(now())

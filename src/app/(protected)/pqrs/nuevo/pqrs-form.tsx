@@ -36,6 +36,10 @@ export function PqrsForm({
   const router = useRouter();
   const isAdmin = role === "ADMIN";
 
+  function countWords(text: string): number {
+    return text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
+  }
+
   const [asunto, setAsunto] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [nombreResidente, setNombreResidente] = useState("");
@@ -50,6 +54,10 @@ export function PqrsForm({
 
     if (!descripcion.trim()) {
       setError("La descripcion es obligatoria");
+      return;
+    }
+    if (countWords(descripcion) > 300) {
+      setError("La descripcion no puede superar 300 palabras");
       return;
     }
     if (isAdmin && !nombreResidente.trim()) {
@@ -145,6 +153,9 @@ export function PqrsForm({
               rows={5}
               className="w-full text-base px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
             />
+            <p className={`text-xs text-right ${countWords(descripcion) > 300 ? "text-red-500 font-medium" : "text-gray-400"}`}>
+              {countWords(descripcion)} / 300 palabras
+            </p>
           </div>
 
           {/* Admin: Asunto (optional at creation, can assign later in EN_ESPERA) */}

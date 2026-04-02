@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const estado = searchParams.get("estado");
   const asunto = searchParams.get("asunto");
   const year = searchParams.get("year");
+  const mes = searchParams.get("mes");
   const scope = searchParams.get("scope"); // "active" | "historial" | null
   const searchBloque = searchParams.get("bloque");
   const searchApto = searchParams.get("apto");
@@ -44,6 +45,10 @@ export async function GET(req: NextRequest) {
 
   if (asunto) {
     where.asunto = asunto;
+  }
+
+  if (mes) {
+    where.mes = mes;
   }
 
   if (year) {
@@ -97,6 +102,14 @@ export async function POST(req: NextRequest) {
   if (!descripcion) {
     return NextResponse.json(
       { error: "La descripcion es obligatoria" },
+      { status: 400 }
+    );
+  }
+
+  const wordCount = descripcion.trim() === "" ? 0 : descripcion.trim().split(/\s+/).length;
+  if (wordCount > 300) {
+    return NextResponse.json(
+      { error: "La descripcion no puede superar 300 palabras" },
       { status: 400 }
     );
   }

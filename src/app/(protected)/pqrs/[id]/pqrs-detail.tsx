@@ -47,7 +47,12 @@ interface Pqrs {
   fase2Inicio: string | null;
   fase3Inicio: string | null;
   fase4Inicio: string | null;
+  fase1Nota: string | null;
+  fase2Nota: string | null;
+  fase3Nota: string | null;
+  fase4Nota: string | null;
   fase5Inicio: string | null;
+  queSeHizoParaCerrar: string | null;
   creadoPor: { name: string; email: string } | null;
   gestionadoPor: { name: string } | null;
   historial: {
@@ -131,6 +136,8 @@ interface PqrsDetailProps {
 export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const router = useRouter();
   const isAdmin = role === "ADMIN";
+  const isResidente = role === "RESIDENTE";
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pqrs, setPqrs] = useState<Pqrs | null>(null);
@@ -145,6 +152,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const [registrandoContacto, setRegistrandoContacto] = useState(false);
 
   const [accionTomada, setAccionTomada] = useState("");
+  const [queSeHizoParaCerrar, setQueSeHizoParaCerrar] = useState("");
+  const [faseNotas, setFaseNotas] = useState<Record<number, string>>({ 1: "", 2: "", 3: "", 4: "" });
   const [evidenciaCierre, setEvidenciaCierre] = useState("");
   const [archivoData, setArchivoData] = useState<string | null>(null);
   const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
@@ -162,6 +171,12 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     setPqrs(data);
     setAccionTomada(data.accionTomada || "");
     setEvidenciaCierre(data.evidenciaCierre || "");
+    setFaseNotas({
+      1: data.fase1Nota || "",
+      2: data.fase2Nota || "",
+      3: data.fase3Nota || "",
+      4: data.fase4Nota || "",
+    });
     setArchivoData(data.evidenciaArchivoData || null);
     setArchivoNombre(data.evidenciaArchivoNombre || null);
     setArchivoTipo(data.evidenciaArchivoTipo || null);
@@ -234,12 +249,16 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     setRegistrandoContacto(false);
   }
 
-  async function handleFaseChange(nuevaFase: number, tipo?: string) {
+  async function handleFaseChange(nuevaFase: number, tipo?: string, notaFaseActual?: string) {
     setError("");
     setSuccess("");
     setSaving(true);
     const body: Record<string, unknown> = { actualizarFase: true, faseActual: nuevaFase };
     if (tipo) body.faseTipo = tipo;
+    // Save the note for the current (departing) fase
+    if (notaFaseActual !== undefined && pqrs?.faseActual) {
+      body[`fase${pqrs.faseActual}Nota`] = notaFaseActual;
+    }
     const res = await fetch(`/api/pqrs/${pqrsId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -253,6 +272,12 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     }
     const updated = await res.json();
     setPqrs(updated);
+    setFaseNotas({
+      1: updated.fase1Nota || "",
+      2: updated.fase2Nota || "",
+      3: updated.fase3Nota || "",
+      4: updated.fase4Nota || "",
+    });
     setSuccess("Fase actualizada.");
     setSaving(false);
   }
@@ -292,8 +317,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       setError("Debe completar la accion tomada antes de cerrar la PQRS");
       return;
     }
-    if (!pqrs || pqrs.faseActual !== 5) {
-      setError("La Fase V (Terminado) debe estar activa para cerrar la PQRS");
+    if (!pqrs || (!faseV && !queSeHizoParaCerrar.trim())) {
+      setError("Complete todas las fases o indique que se hizo para cerrar la PQRS");
       return;
     }
     if (!evidenciaCierre.trim() && !archivoData) {
@@ -306,6 +331,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         accionTomada: finalAccion,
+        queSeHizoParaCerrar: queSeHizoParaCerrar.trim() || null,
         evidenciaCierre: evidenciaCierre.trim() || null,
         evidenciaArchivoData: archivoData,
         evidenciaArchivoNombre: archivoNombre,
@@ -351,7 +377,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const ec = estadoConfig[pqrs.estado];
   const EstadoIcon = ec?.icon || Clock;
   const faseV = pqrs.faseActual === 5;
-  const evidenciaEnabled = faseV;
+  const cierreTempranoValido = !faseV && queSeHizoParaCerrar.trim().length > 0;
+  const evidenciaEnabled = faseV || cierreTempranoValido;
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -394,7 +421,6 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         <InfoRow label="Ubicacion" value={`Bloque ${pqrs.bloque} - Apto ${pqrs.apto}`} />
         {pqrs.asunto && <InfoRow label="Asunto" value={pqrs.asunto} />}
         <InfoRow label="Fecha recibido" value={fmtDateTime(pqrs.fechaRecibido)} />
-        {pqrs.creadoPor && <InfoRow label="Registrado por" value={pqrs.creadoPor.name} />}
         <div className="border-t border-gray-100 pt-3">
           <p className="text-sm font-medium text-gray-500 mb-1">Descripcion</p>
           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
@@ -410,7 +436,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         {pqrs.fechaPrimerContacto && (
           <InfoRow
             label="Primer contacto"
-            value={`${fmtDateTime(pqrs.fechaPrimerContacto)} (${pqrs.tiempoRespuestaPrimerContacto} dia${pqrs.tiempoRespuestaPrimerContacto !== 1 ? "s" : ""})`}
+            value={`${fmtDateTime(pqrs.fechaPrimerContacto)}`}
           />
         )}
         {pqrs.notaPrimerContacto && (
@@ -425,16 +451,9 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             value={`${fmtDateTime(pqrs.fechaCierre)} (${pqrs.tiempoRespuestaCierre} dia${pqrs.tiempoRespuestaCierre !== 1 ? "s" : ""})`}
           />
         )}
-        {pqrs.gestionadoPor && <InfoRow label="Gestionado por" value={pqrs.gestionadoPor.name} />}
-        <div className="border-t border-gray-100" />
-
         {/* === EN_ESPERA: Asunto + Primer contacto form === */}
         {isAdmin && pqrs.estado === "EN_ESPERA" && (
           <>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-800">
-              <p className="font-medium">Tiempo de respuesta: 1 dia habil</p>
-            </div>
-
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Asunto <span className="text-red-500">*</span>
@@ -512,29 +531,6 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
 
-              {/* Phase II/III selector if in phase 1 or not yet decided */}
-              {(pqrs.faseActual === 1 || !pqrs.faseActual) && !pqrs.faseTipo && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                  <p className="font-medium mb-2">Seleccione el tipo de gestion:</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleFaseChange(pqrs.faseActual || 1, "INSUMOS")}
-                      disabled={saving}
-                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Fase II - Insumos
-                    </button>
-                    <button
-                      onClick={() => handleFaseChange(pqrs.faseActual || 1, "PROVEEDOR")}
-                      disabled={saving}
-                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Fase III - Proveedor
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {FASES.map((fase) => {
                 // Skip Phase II if PROVEEDOR path, skip Phase III if INSUMOS path
                 if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
@@ -549,59 +545,139 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   fase.num === 3 ? pqrs.fase3Inicio :
                   fase.num === 4 ? pqrs.fase4Inicio :
                   pqrs.fase5Inicio;
+                const savedNota = fase.num === 1 ? pqrs.fase1Nota :
+                  fase.num === 2 ? pqrs.fase2Nota :
+                  fase.num === 3 ? pqrs.fase3Nota :
+                  fase.num === 4 ? pqrs.fase4Nota : null;
 
                 const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
                 const semaphore = isActive && faseInicio
                   ? getSemaphore(diasTranscurridos, fase.diasHabiles)
                   : isCompleted ? "bg-green-500" : "bg-gray-300";
 
+                const isNested = fase.num === 2 || fase.num === 3;
+                // "Avanzar" requires: nota filled + (if fase 1) faseTipo selected
+                const notaActual = faseNotas[fase.num] || "";
+                const canAdvance = notaActual.trim().length > 0 &&
+                  (fase.num !== 1 || !!pqrs.faseTipo);
+
                 return (
-                  <div key={fase.num} className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
-                    <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
-                        Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
-                      </p>
-                      {fase.diasHabiles > 0 && (
-                        <p className="text-[10px] text-gray-400">
-                          {fase.diasHabiles} dias habiles
-                          {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
+                  <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
+                    <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                      <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                          Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
                         </p>
+                        {fase.diasHabiles > 0 && (
+                          <p className="text-[10px] text-gray-400">
+                            {fase.diasHabiles} dias habiles
+                            {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
+                          </p>
+                        )}
+                      </div>
+                      {isActive && pqrs.faseActual !== null && pqrs.faseActual < 5 && (
+                        <button
+                          onClick={() => {
+                            let next = fase.num + 1;
+                            if (next === 2 && pqrs.faseTipo === "PROVEEDOR") next = 3;
+                            if (next === 3 && pqrs.faseTipo === "INSUMOS") next = 4;
+                            handleFaseChange(next, undefined, notaActual);
+                          }}
+                          disabled={saving || !canAdvance}
+                          className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
+                          title={!notaActual.trim() ? "Escriba una nota antes de avanzar" : (fase.num === 1 && !pqrs.faseTipo) ? "Seleccione Fase II o III antes de avanzar" : ""}
+                        >
+                          Avanzar
+                        </button>
+                      )}
+                      {!isActive && !isCompleted && pqrs.faseActual === null && fase.num === 1 && (
+                        <button
+                          onClick={() => handleFaseChange(1)}
+                          disabled={saving}
+                          className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
+                        >
+                          Iniciar
+                        </button>
                       )}
                     </div>
-                    {isActive && pqrs.faseActual !== null && pqrs.faseActual < 5 && (
-                      <button
-                        onClick={() => {
-                          // Next phase logic: skip 2 or 3 based on faseTipo
-                          let next = fase.num + 1;
-                          if (next === 2 && pqrs.faseTipo === "PROVEEDOR") next = 3;
-                          if (next === 3 && pqrs.faseTipo === "INSUMOS") next = 4;
-                          handleFaseChange(next);
-                        }}
-                        disabled={saving}
-                        className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
-                      >
-                        Avanzar
-                      </button>
+
+                    {/* Nota de la fase activa (obligatoria para avanzar) */}
+                    {isActive && fase.num !== 5 && (
+                      <div className="mt-2 px-2">
+                        <textarea
+                          placeholder={`Nota de ${fase.nombre} (obligatoria para avanzar)`}
+                          value={notaActual}
+                          onChange={(e) => setFaseNotas(prev => ({ ...prev, [fase.num]: e.target.value }))}
+                          rows={2}
+                          className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none bg-white"
+                        />
+                      </div>
                     )}
-                    {!isActive && !isCompleted && pqrs.faseActual === null && fase.num === 1 && (
-                      <button
-                        onClick={() => handleFaseChange(1)}
-                        disabled={saving}
-                        className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
-                      >
-                        Iniciar
-                      </button>
+
+                    {/* Nota guardada de fase completada (solo lectura) */}
+                    {isCompleted && savedNota && (
+                      <div className="mt-1 px-2">
+                        <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                      </div>
+                    )}
+
+                    {/* Selector de tipo (Insumos / Proveedor) — debajo de Fase I, requiere nota primero */}
+                    {fase.num === 1 && isActive && !pqrs.faseTipo && (
+                      <div className="ml-6 border-l-2 border-gray-200 pl-3 mt-2">
+                        <div className={`bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 ${!notaActual.trim() ? "opacity-50 pointer-events-none" : ""}`}>
+                          <p className="font-medium mb-1">
+                            {!notaActual.trim()
+                              ? "Escriba una nota de Fase I para continuar"
+                              : "Seleccione el tipo de gestion:"}
+                          </p>
+                          {notaActual.trim() && (
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleFaseChange(pqrs.faseActual || 1, "INSUMOS", notaActual)}
+                                disabled={saving}
+                                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                Fase II - Insumos
+                              </button>
+                              <button
+                                onClick={() => handleFaseChange(pqrs.faseActual || 1, "PROVEEDOR", notaActual)}
+                                disabled={saving}
+                                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                Fase III - Proveedor
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Evidencia de cierre - only enabled when Phase V is active */}
+            {/* Cierre temprano: campo obligatorio si no se completaron todas las fases */}
+            {!faseV && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  ¿Que se hizo para cerrar? {cierreTempranoValido ? "" : <span className="text-red-500">*</span>}
+                </label>
+                <p className="text-xs text-gray-500">Requerido si no se completaron todas las fases de gestion.</p>
+                <textarea
+                  placeholder="Describa que se hizo para cerrar la PQRS sin completar todas las fases"
+                  value={queSeHizoParaCerrar}
+                  onChange={(e) => setQueSeHizoParaCerrar(e.target.value)}
+                  rows={3}
+                  className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+                />
+              </div>
+            )}
+
+            {/* Evidencia de cierre - only enabled when Phase V is active or cierre temprano is valid */}
             <div className={`space-y-3 ${!evidenciaEnabled ? "opacity-50 pointer-events-none" : ""}`}>
               <label className="block text-sm font-medium text-gray-700">
-                Evidencia de cierre {!evidenciaEnabled && "(disponible en Fase V)"}
+                Evidencia de cierre {!evidenciaEnabled && "(complete las fases o indique que se hizo para cerrar)"}
               </label>
               <textarea
                 placeholder="Describa la evidencia del cierre"
@@ -662,7 +738,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               </button>
               <button
                 onClick={handleTerminar}
-                disabled={saving || terminating || !faseV || (!evidenciaCierre.trim() && !archivoData)}
+                disabled={saving || terminating || (!faseV && !queSeHizoParaCerrar.trim()) || (!evidenciaCierre.trim() && !archivoData)}
                 className="flex-1 h-12 text-base font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {terminating ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
@@ -675,10 +751,68 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         {/* === EN_PROGRESO: Read-only for non-admin === */}
         {pqrs.estado === "EN_PROGRESO" && !isAdmin && (
           <>
-            {pqrs.accionTomada && (
+            {/* Residente: mostrar nota de Fase IV como "En ejecucion" */}
+            {isResidente && pqrs.fase4Nota && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-blue-800 mb-1">En ejecucion</p>
+                <p className="text-sm text-blue-700 whitespace-pre-wrap">{pqrs.fase4Nota}</p>
+              </div>
+            )}
+            {pqrs.accionTomada && !isResidente && (
               <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Accion tomada</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
+              </div>
+            )}
+            {/* Fases en solo lectura para CONSEJO/ASISTENTE */}
+            {!isAdmin && !isResidente && pqrs.faseActual !== null && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
+                {FASES.map((fase) => {
+                  if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
+                  if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
+                  if (fase.num === 2 && !pqrs.faseTipo) return null;
+                  if (fase.num === 3 && !pqrs.faseTipo) return null;
+                  const isActive = pqrs.faseActual === fase.num;
+                  const isCompleted = pqrs.faseActual !== null && pqrs.faseActual > fase.num;
+                  const faseInicio = fase.num === 1 ? pqrs.fase1Inicio :
+                    fase.num === 2 ? pqrs.fase2Inicio :
+                    fase.num === 3 ? pqrs.fase3Inicio :
+                    fase.num === 4 ? pqrs.fase4Inicio :
+                    pqrs.fase5Inicio;
+                  const savedNota = fase.num === 1 ? pqrs.fase1Nota :
+                    fase.num === 2 ? pqrs.fase2Nota :
+                    fase.num === 3 ? pqrs.fase3Nota :
+                    fase.num === 4 ? pqrs.fase4Nota : null;
+                  const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
+                  const semaphore = isActive && faseInicio
+                    ? getSemaphore(diasTranscurridos, fase.diasHabiles)
+                    : isCompleted ? "bg-green-500" : "bg-gray-300";
+                  const isNested = fase.num === 2 || fase.num === 3;
+                  return (
+                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                        <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                            Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
+                          </p>
+                          {fase.diasHabiles > 0 && (
+                            <p className="text-[10px] text-gray-400">
+                              {fase.diasHabiles} dias habiles
+                              {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {savedNota && (
+                        <div className="px-2 mt-1">
+                          <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -687,7 +821,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         {/* === TERMINADO: Everything read-only === */}
         {isTerminado && (
           <>
-            {pqrs.accionTomada && (
+            {pqrs.accionTomada && !isResidente && (
               <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Accion tomada</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
@@ -709,6 +843,63 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                     {pqrs.evidenciaArchivoNombre || "Descargar archivo"}
                   </a>
                 )}
+              </div>
+            )}
+            {pqrs.queSeHizoParaCerrar && !isResidente && (
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Que se hizo para cerrar</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.queSeHizoParaCerrar}</p>
+              </div>
+            )}
+            {/* Fases en solo lectura para ADMIN/ASISTENTE/CONSEJO en estado TERMINADO */}
+            {!isResidente && pqrs.faseActual !== null && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
+                {FASES.map((fase) => {
+                  if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
+                  if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
+                  if (fase.num === 2 && !pqrs.faseTipo) return null;
+                  if (fase.num === 3 && !pqrs.faseTipo) return null;
+                  const isActive = pqrs.faseActual === fase.num;
+                  const isCompleted = pqrs.faseActual !== null && pqrs.faseActual > fase.num;
+                  const faseInicio = fase.num === 1 ? pqrs.fase1Inicio :
+                    fase.num === 2 ? pqrs.fase2Inicio :
+                    fase.num === 3 ? pqrs.fase3Inicio :
+                    fase.num === 4 ? pqrs.fase4Inicio :
+                    pqrs.fase5Inicio;
+                  const savedNota = fase.num === 1 ? pqrs.fase1Nota :
+                    fase.num === 2 ? pqrs.fase2Nota :
+                    fase.num === 3 ? pqrs.fase3Nota :
+                    fase.num === 4 ? pqrs.fase4Nota : null;
+                  const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
+                  const semaphore = isActive && faseInicio
+                    ? getSemaphore(diasTranscurridos, fase.diasHabiles)
+                    : isCompleted ? "bg-green-500" : "bg-gray-300";
+                  const isNested = fase.num === 2 || fase.num === 3;
+                  return (
+                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                        <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                            Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
+                          </p>
+                          {fase.diasHabiles > 0 && (
+                            <p className="text-[10px] text-gray-400">
+                              {fase.diasHabiles} dias habiles
+                              {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {savedNota && (
+                        <div className="px-2 mt-1">
+                          <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
