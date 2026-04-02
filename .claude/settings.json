@@ -19,7 +19,8 @@
       "Bash(find . -maxdepth 3 -type f \\\\\\(-name *.md -o -name *.txt -o -name README* \\\\\\) ! -path ./node_modules/*)",
       "Bash(git log:*)",
       "Read(//c/Users/d.hernandeza2/.claude/projects/**)",
-      "Bash(vercel --yes)"
+      "Bash(vercel --yes)",
+      "Bash(wc -l src/app/api/pqrs/[id]/route.ts src/app/\\\\\\(protected\\\\\\)/pqrs/nuevo/pqrs-form.tsx src/app/\\\\\\(protected\\\\\\)/pqrs/pqrs-list.tsx)"
     ],
     "additionalDirectories": [
       "C:\\Users\\d.hernandeza2\\Documents\\pqrs-calle-100-temp",
