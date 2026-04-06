@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Loader2,
   FileText,
@@ -14,7 +13,6 @@ import {
   ChevronRight,
   TrendingUp,
   FileSpreadsheet,
-  ArrowLeft,
 } from "lucide-react";
 import {
   BarChart,
@@ -94,7 +92,6 @@ const FASE_LABEL: Record<number, string> = {
 };
 
 export function DashboardView() {
-  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -165,19 +162,11 @@ export function DashboardView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Panel
-            {month ? ` — ${MESES[parseInt(month) - 1]}` : ""} {year}
-          </h1>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Panel
+          {month ? ` — ${MESES[parseInt(month) - 1]}` : ""} {year}
+        </h1>
         <div className="flex gap-2 flex-wrap">
           <select
             value={year}
@@ -226,7 +215,7 @@ export function DashboardView() {
       </div>
 
       {/* Metrics row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
           <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
             <TrendingUp className="h-5 w-5" />
@@ -238,7 +227,7 @@ export function DashboardView() {
           <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
             <Timer className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500 leading-tight">Promedio tiempo de respuesta Primer contacto</p>
+          <p className="text-xs text-gray-500 leading-tight">Prom. primer contacto</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
             {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "—"}
           </p>
@@ -247,7 +236,7 @@ export function DashboardView() {
           <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
             <CheckCircle2 className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500 leading-tight">Promedio tiempo de respuesta Cierre del PQRS</p>
+          <p className="text-xs text-gray-500 leading-tight">Prom. tiempo de cierre</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
             {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "—"}
           </p>

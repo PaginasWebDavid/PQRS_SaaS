@@ -91,12 +91,13 @@ export function AppShell({ children, user }: AppShellProps) {
             />
           </div>
           <span className="font-bold text-white text-sm sm:text-base">
-            Conjunto Parque Residencial Calle 100
+            <span className="sm:hidden">Calle 100</span>
+            <span className="hidden sm:inline">Conjunto Parque Residencial Calle 100</span>
           </span>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <p className="font-semibold text-white text-sm truncate max-w-[150px] sm:max-w-none">
               {user.name}
             </p>

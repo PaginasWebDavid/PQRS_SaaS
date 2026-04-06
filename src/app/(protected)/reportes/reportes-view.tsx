@@ -237,7 +237,7 @@ export function ReportesView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
@@ -251,7 +251,7 @@ export function ReportesView() {
           <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
@@ -276,7 +276,7 @@ export function ReportesView() {
       </div>
 
       {/* Export buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={exportExcel}
           disabled={exporting || r.total === 0}
