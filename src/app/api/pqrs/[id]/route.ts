@@ -103,7 +103,7 @@ export async function PATCH(
 
     if (!ASUNTOS_VALIDOS.includes(asunto)) {
       return NextResponse.json(
-        { error: "Asunto invalido" },
+        { error: "Asunto inválido" },
         { status: 400 }
       );
     }
@@ -155,14 +155,14 @@ export async function PATCH(
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #15803d;">Su solicitud ha sido radicada</h2>
               <p>Estimado/a <strong>${pqrs.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
-              <p>Le informamos que su PQRS ha sido recibida y esta siendo gestionada.</p>
+              <p>Le informamos que su PQRS ha sido recibida y está siendo gestionada.</p>
               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                <p style="margin: 0; font-size: 14px; color: #166534;">N° de radicacion</p>
+                <p style="margin: 0; font-size: 14px; color: #166534;">N° de radicación</p>
                 <p style="margin: 4px 0 0; font-size: 24px; font-weight: bold; color: #15803d;">${numeroRadicacion}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                 <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asunto}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
               </table>
               <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
                 <p style="margin: 0; font-size: 14px; font-weight: bold; color: #374151;">Nota del primer contacto:</p>
@@ -228,7 +228,7 @@ export async function PATCH(
   // --- Guardar / Terminar: solo en EN_PROGRESO ---
   if (pqrs.estado === "TERMINADO") {
     return NextResponse.json(
-      { error: "Esta PQRS ya esta cerrada" },
+      { error: "Esta PQRS ya está cerrada" },
       { status: 400 }
     );
   }
@@ -248,7 +248,7 @@ export async function PATCH(
 
     if (!finalAccion) {
       return NextResponse.json(
-        { error: "Para cerrar la PQRS debe completar la accion tomada" },
+        { error: "Para cerrar la PQRS debe completar la acción tomada" },
         { status: 400 }
       );
     }
@@ -352,9 +352,9 @@ export async function PATCH(
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha recibido</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaRecibido}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaCierre}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Accion tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Acción tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
               ${updated.evidenciaCierre ? `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>` : ""}
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicación</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
             ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">Se adjunta archivo de evidencia de cierre.</p>` : ""}
             <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>

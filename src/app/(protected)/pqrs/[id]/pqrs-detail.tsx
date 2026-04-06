@@ -76,10 +76,10 @@ const ASUNTOS = [
 ];
 
 const FASES = [
-  { num: 1, nombre: "Inspeccion de Campo", diasHabiles: 2 },
-  { num: 2, nombre: "Adquisicion de insumos", diasHabiles: 2 },
+  { num: 1, nombre: "Inspección de Campo", diasHabiles: 2 },
+  { num: 2, nombre: "Adquisición de insumos", diasHabiles: 2 },
   { num: 3, nombre: "Firma contrato proveedor", diasHabiles: 15 },
-  { num: 4, nombre: "Ejecucion", diasHabiles: 5 },
+  { num: 4, nombre: "Ejecución", diasHabiles: 5 },
   { num: 5, nombre: "Terminado", diasHabiles: 0 },
 ];
 
@@ -314,11 +314,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     setSuccess("");
     const finalAccion = accionTomada.trim();
     if (!finalAccion) {
-      setError("Debe completar la accion tomada antes de cerrar la PQRS");
+      setError("Debe completar la acción tomada antes de cerrar la PQRS");
       return;
     }
     if (!pqrs || (!faseV && !queSeHizoParaCerrar.trim())) {
-      setError("Complete todas las fases o indique que se hizo para cerrar la PQRS");
+      setError("Complete todas las fases o indique qué se hizo para cerrar la PQRS");
       return;
     }
     if (!evidenciaCierre.trim() && !archivoData) {
@@ -347,7 +347,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
     }
     const updated = await res.json();
     setPqrs(updated);
-    setSuccess("PQRS cerrada. Se envio notificacion al residente.");
+    setSuccess("PQRS cerrada. Se envió notificación al residente.");
     setTerminating(false);
   }
 
@@ -408,7 +408,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       {pqrs.numeroRadicacion && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-green-600 font-medium">N° de radicacion</p>
+            <p className="text-xs text-green-600 font-medium">N° de radicación</p>
             <p className="text-lg font-bold text-green-800">{pqrs.numeroRadicacion}</p>
           </div>
         </div>
@@ -416,13 +416,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
       {/* Info card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
-        <h2 className="text-base font-bold text-gray-900">Informacion de la solicitud</h2>
+        <h2 className="text-base font-bold text-gray-900">Información de la solicitud</h2>
         <InfoRow label="Residente" value={pqrs.nombreResidente} />
-        <InfoRow label="Ubicacion" value={`Bloque ${pqrs.bloque} - Apto ${pqrs.apto}`} />
+        <InfoRow label="Ubicación" value={`Bloque ${pqrs.bloque} - Apto ${pqrs.apto}`} />
         {pqrs.asunto && <InfoRow label="Asunto" value={pqrs.asunto} />}
         <InfoRow label="Fecha recibido" value={fmtDateTime(pqrs.fechaRecibido)} />
         <div className="border-t border-gray-100 pt-3">
-          <p className="text-sm font-medium text-gray-500 mb-1">Descripcion</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Descripción</p>
           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
             {pqrs.descripcion}
           </p>
@@ -431,7 +431,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
       {/* Management card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
-        <h2 className="text-base font-bold text-gray-900">Gestion</h2>
+        <h2 className="text-base font-bold text-gray-900">Gestión</h2>
         <InfoRow label="Estado" value={ec?.label || pqrs.estado} />
         {pqrs.fechaPrimerContacto && (
           <InfoRow
@@ -516,7 +516,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             {/* Accion tomada */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Accion tomada <span className="text-red-500">*</span>
+                Acción tomada <span className="text-red-500">*</span>
               </label>
               <textarea
                 placeholder="Describa las acciones realizadas"
@@ -529,7 +529,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
             {/* Phase panel - only visible to admin */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
+              <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
 
               {FASES.map((fase) => {
                 // Skip Phase II if PROVEEDOR path, skip Phase III if INSUMOS path
@@ -571,7 +571,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                         </p>
                         {fase.diasHabiles > 0 && (
                           <p className="text-[10px] text-gray-400">
-                            {fase.diasHabiles} dias habiles
+                            {fase.diasHabiles} días hábiles
                             {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                           </p>
                         )}
@@ -629,7 +629,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                           <p className="font-medium mb-1">
                             {!notaActual.trim()
                               ? "Escriba una nota de Fase I para continuar"
-                              : "Seleccione el tipo de gestion:"}
+                              : "Seleccione el tipo de gestión:"}
                           </p>
                           {notaActual.trim() && (
                             <div className="flex gap-2 mt-2">
@@ -661,11 +661,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             {!faseV && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  ¿Que se hizo para cerrar? {cierreTempranoValido ? "" : <span className="text-red-500">*</span>}
+                  ¿Qué se hizo para cerrar? {cierreTempranoValido ? "" : <span className="text-red-500">*</span>}
                 </label>
-                <p className="text-xs text-gray-500">Requerido si no se completaron todas las fases de gestion.</p>
+                <p className="text-xs text-gray-500">Requerido si no se completaron todas las fases de gestión.</p>
                 <textarea
-                  placeholder="Describa que se hizo para cerrar la PQRS sin completar todas las fases"
+                  placeholder="Describa qué se hizo para cerrar la PQRS sin completar todas las fases"
                   value={queSeHizoParaCerrar}
                   onChange={(e) => setQueSeHizoParaCerrar(e.target.value)}
                   rows={3}
@@ -721,7 +721,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             )}
             {success && (
               <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
-                {success.includes("notificacion") && <Mail className="h-4 w-4" />}
+                {success.includes("notificación") && <Mail className="h-4 w-4" />}
                 {success}
               </div>
             )}
@@ -754,20 +754,20 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             {/* Residente: mostrar nota de Fase IV como "En ejecucion" */}
             {isResidente && pqrs.fase4Nota && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm font-bold text-blue-800 mb-1">En ejecucion</p>
+                <p className="text-sm font-bold text-blue-800 mb-1">En ejecución</p>
                 <p className="text-sm text-blue-700 whitespace-pre-wrap">{pqrs.fase4Nota}</p>
               </div>
             )}
             {pqrs.accionTomada && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Accion tomada</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
               </div>
             )}
             {/* Fases en solo lectura para CONSEJO/ASISTENTE */}
             {!isAdmin && !isResidente && pqrs.faseActual !== null && (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
+                <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
                 {FASES.map((fase) => {
                   if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
                   if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
@@ -799,7 +799,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                           </p>
                           {fase.diasHabiles > 0 && (
                             <p className="text-[10px] text-gray-400">
-                              {fase.diasHabiles} dias habiles
+                              {fase.diasHabiles} días hábiles
                               {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                             </p>
                           )}
@@ -823,7 +823,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
           <>
             {pqrs.accionTomada && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Accion tomada</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
               </div>
             )}
@@ -847,14 +847,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             )}
             {pqrs.queSeHizoParaCerrar && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Que se hizo para cerrar</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Qué se hizo para cerrar</p>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.queSeHizoParaCerrar}</p>
               </div>
             )}
             {/* Fases en solo lectura para ADMIN/ASISTENTE/CONSEJO en estado TERMINADO */}
             {!isResidente && pqrs.faseActual !== null && (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-gray-900">Fases de gestion</h3>
+                <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
                 {FASES.map((fase) => {
                   if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
                   if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
@@ -886,7 +886,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                           </p>
                           {fase.diasHabiles > 0 && (
                             <p className="text-[10px] text-gray-400">
-                              {fase.diasHabiles} dias habiles
+                              {fase.diasHabiles} días hábiles
                               {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                             </p>
                           )}

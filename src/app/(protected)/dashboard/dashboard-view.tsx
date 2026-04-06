@@ -320,7 +320,7 @@ export function DashboardView() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-center px-4 py-3 font-bold text-gray-700">Cantidad</th>
                 <th className="text-left px-4 py-3 font-bold text-gray-700">Asunto</th>
-                <th className="text-left px-4 py-3 font-bold text-gray-700">Descripcion</th>
+                <th className="text-left px-4 py-3 font-bold text-gray-700">Descripción</th>
                 <th className="text-center px-4 py-3 font-bold text-green-700">Terminados</th>
                 <th className="text-center px-4 py-3 font-bold text-blue-700">En Proceso</th>
                 <th className="text-center px-4 py-3 font-bold text-yellow-700">En Espera</th>
@@ -356,7 +356,7 @@ export function DashboardView() {
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <h2 className="text-base font-bold text-yellow-800">
-              PQRS pendientes de gestion (En espera)
+              PQRS pendientes de gestión (En espera)
             </h2>
           </div>
           <div className="space-y-2">

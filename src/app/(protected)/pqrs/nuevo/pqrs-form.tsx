@@ -53,11 +53,11 @@ export function PqrsForm({
     setError("");
 
     if (!descripcion.trim()) {
-      setError("La descripcion es obligatoria");
+      setError("La descripción es obligatoria");
       return;
     }
     if (countWords(descripcion) > 300) {
-      setError("La descripcion no puede superar 300 palabras");
+      setError("La descripción no puede superar 300 palabras");
       return;
     }
     if (isAdmin && !nombreResidente.trim()) {
@@ -73,7 +73,7 @@ export function PqrsForm({
       return;
     }
     if (isAdmin && apto && apto.length !== 3) {
-      setError("El apartamento debe tener exactamente 3 digitos");
+      setError("El apartamento debe tener exactamente 3 dígitos");
       return;
     }
 
@@ -143,7 +143,7 @@ export function PqrsForm({
               htmlFor="descripcion"
               className="block text-base font-medium text-gray-700"
             >
-              Descripcion *
+              Descripción *
             </label>
             <textarea
               id="descripcion"
@@ -260,7 +260,7 @@ export function PqrsForm({
                   <span className="font-medium">Residente:</span> {userName}
                 </p>
                 <p>
-                  <span className="font-medium">Ubicacion:</span> Bloque{" "}
+                  <span className="font-medium">Ubicación:</span> Bloque{" "}
                   {userBloque} - Apto {userApto}
                 </p>
               </div>

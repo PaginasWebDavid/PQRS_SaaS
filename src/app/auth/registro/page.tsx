@@ -29,7 +29,7 @@ export default function RegistroPage() {
     setError("");
 
     if (!form.bloque) {
-      setError("Selecciona tu torre");
+      setError("Selecciona tu bloque");
       return;
     }
 
