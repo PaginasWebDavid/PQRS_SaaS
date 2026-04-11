@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { asunto, descripcion, nombreResidente, bloque, apto } = body;
+  const { asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
 
   // Validaciones - solo descripcion es obligatoria
   if (!descripcion) {
@@ -133,29 +133,68 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bloque debe ser entre 1 y 12" }, { status: 400 });
   }
 
+  // Validar fotos opcionales
+  const fotosArray: { data: string; nombre: string; tipo: string; orden: number }[] = [];
+  if (fotos && Array.isArray(fotos)) {
+    if (fotos.length > 3) {
+      return NextResponse.json({ error: "Máximo 3 fotos permitidas" }, { status: 400 });
+    }
+    for (let i = 0; i < fotos.length; i++) {
+      const foto = fotos[i];
+      if (!foto.data || !foto.nombre || !foto.tipo) {
+        return NextResponse.json({ error: "Datos de foto incompletos" }, { status: 400 });
+      }
+      if (!foto.tipo.startsWith("image/")) {
+        return NextResponse.json({ error: "Solo se permiten archivos de imagen" }, { status: 400 });
+      }
+      // Verificar tamaño: base64 ~1.33x tamaño original. Límite 1MB original = ~1.37MB base64
+      const base64Data = foto.data.replace(/^data:[^;]+;base64,/, "");
+      const sizeBytes = Math.ceil(base64Data.length * 0.75);
+      if (sizeBytes > 1024 * 1024) {
+        return NextResponse.json({ error: `La foto "${foto.nombre}" supera 1MB` }, { status: 400 });
+      }
+      fotosArray.push({ data: foto.data, nombre: foto.nombre, tipo: foto.tipo, orden: i });
+    }
+  }
+
   const ahora = new Date();
 
-  const pqrs = await prisma.pqrs.create({
-    data: {
-      medio: "PLATAFORMA_WEB",
-      fechaRecibido: ahora,
-      mes: MESES[ahora.getMonth()],
-      bloque: finalBloque,
-      apto: finalApto,
-      nombreResidente: finalNombre,
-      asunto: asunto || null,
-      descripcion,
-      creadoPorId: session.user.id,
-    },
-  });
+  const pqrs = await prisma.$transaction(async (tx) => {
+    const nuevoPqrs = await tx.pqrs.create({
+      data: {
+        medio: "PLATAFORMA_WEB",
+        fechaRecibido: ahora,
+        mes: MESES[ahora.getMonth()],
+        bloque: finalBloque,
+        apto: finalApto,
+        nombreResidente: finalNombre,
+        asunto: asunto || null,
+        descripcion,
+        creadoPorId: session.user.id,
+      },
+    });
 
-  // Registrar en historial
-  await prisma.historialPqrs.create({
-    data: {
-      pqrsId: pqrs.id,
-      estadoDespues: "EN_ESPERA",
-      nota: `PQRS creada por ${isAdmin ? "administracion" : "residente"}`,
-    },
+    if (fotosArray.length > 0) {
+      await tx.pqrsFoto.createMany({
+        data: fotosArray.map((f) => ({
+          pqrsId: nuevoPqrs.id,
+          data: f.data,
+          nombre: f.nombre,
+          tipo: f.tipo,
+          orden: f.orden,
+        })),
+      });
+    }
+
+    await tx.historialPqrs.create({
+      data: {
+        pqrsId: nuevoPqrs.id,
+        estadoDespues: "EN_ESPERA",
+        nota: `PQRS creada por ${isAdmin ? "administracion" : "residente"}`,
+      },
+    });
+
+    return nuevoPqrs;
   });
 
   return NextResponse.json(pqrs, { status: 201 });

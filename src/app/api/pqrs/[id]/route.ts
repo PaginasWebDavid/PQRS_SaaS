@@ -35,6 +35,10 @@ export async function GET(
       creadoPor: { select: { name: true, email: true } },
       gestionadoPor: { select: { name: true } },
       historial: { orderBy: { creadoAt: "asc" } },
+      fotos: {
+        select: { id: true, nombre: true, tipo: true, orden: true },
+        orderBy: { orden: "asc" },
+      },
     },
   });
 

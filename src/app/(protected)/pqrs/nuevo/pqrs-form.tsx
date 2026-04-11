@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
   CheckCircle2,
   FileText,
+  ImagePlus,
+  X,
 } from "lucide-react";
 
 interface PqrsFormProps {
@@ -47,6 +49,43 @@ export function PqrsForm({
   const [apto, setApto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fotos, setFotos] = useState<{ data: string; nombre: string; tipo: string; preview: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const disponibles = 3 - fotos.length;
+    const seleccionadas = files.slice(0, disponibles);
+
+    seleccionadas.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        setError("Solo se permiten archivos de imagen");
+        return;
+      }
+      if (file.size > 1024 * 1024) {
+        setError(`"${file.name}" supera 1MB`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setFotos((prev) => [
+          ...prev,
+          { data: dataUrl, nombre: file.name, tipo: file.type, preview: dataUrl },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeFoto(idx: number) {
+    setFotos((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,7 +118,7 @@ export function PqrsForm({
 
     setLoading(true);
 
-    const body: Record<string, string> = {
+    const body: Record<string, unknown> = {
       descripcion: descripcion.trim(),
     };
 
@@ -92,6 +131,10 @@ export function PqrsForm({
       body.nombreResidente = nombreResidente.trim();
       body.bloque = bloque;
       body.apto = apto;
+    }
+
+    if (fotos.length > 0) {
+      body.fotos = fotos.map(({ data, nombre, tipo }) => ({ data, nombre, tipo }));
     }
 
     const res = await fetch("/api/pqrs", {
@@ -156,6 +199,52 @@ export function PqrsForm({
             <p className={`text-xs text-right ${countWords(descripcion) > 300 ? "text-red-500 font-medium" : "text-gray-400"}`}>
               {countWords(descripcion)} / 300 palabras
             </p>
+          </div>
+
+          {/* Fotos adjuntas (opcional) */}
+          <div className="space-y-2">
+            <label className="block text-base font-medium text-gray-700">
+              Fotos adjuntas <span className="text-gray-400 font-normal text-sm">(opcional, máx. 3)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFotoSelect}
+            />
+            {fotos.length < 3 && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors w-full justify-center"
+              >
+                <ImagePlus className="h-4 w-4" />
+                Agregar foto
+              </button>
+            )}
+            {fotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {fotos.map((foto, idx) => (
+                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-square">
+                    <img
+                      src={foto.preview}
+                      alt={foto.nombre}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFoto(idx)}
+                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-400">Formato imagen, máx. 1MB por foto</p>
           </div>
 
           {/* Admin: Asunto (optional at creation, can assign later in EN_ESPERA) */}

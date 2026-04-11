@@ -21,7 +21,8 @@
       "Read(//c/Users/d.hernandeza2/.claude/projects/**)",
       "Bash(vercel --yes)",
       "Bash(wc -l src/app/api/pqrs/[id]/route.ts src/app/\\\\\\(protected\\\\\\)/pqrs/nuevo/pqrs-form.tsx src/app/\\\\\\(protected\\\\\\)/pqrs/pqrs-list.tsx)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(vercel --prod)"
     ],
     "additionalDirectories": [
       "C:\\Users\\d.hernandeza2\\Documents\\pqrs-calle-100-temp",

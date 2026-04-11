@@ -86,6 +86,7 @@ model Pqrs {
 
   // Trazabilidad
   historial HistorialPqrs[]
+  fotos     PqrsFoto[]
 }
 
 enum Medio {
@@ -103,6 +104,17 @@ enum Estado {
   EN_ESPERA
   EN_PROGRESO
   TERMINADO
+}
+
+model PqrsFoto {
+  id        String   @id @default(cuid())
+  pqrsId    String
+  pqrs      Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+  data      String   @db.Text
+  nombre    String
+  tipo      String
+  orden     Int
+  createdAt DateTime @default(now())
 }
 
 model HistorialPqrs {

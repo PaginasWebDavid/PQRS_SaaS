@@ -62,6 +62,7 @@ interface Pqrs {
     nota: string | null;
     creadoAt: string;
   }[];
+  fotos: { id: string; nombre: string; tipo: string; orden: number }[];
 }
 
 const ASUNTOS = [
@@ -427,6 +428,28 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             {pqrs.descripcion}
           </p>
         </div>
+        {pqrs.fotos && pqrs.fotos.length > 0 && (
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-sm font-medium text-gray-500 mb-2">Fotos adjuntas</p>
+            <div className="grid grid-cols-3 gap-2">
+              {pqrs.fotos.map((foto) => (
+                <a
+                  key={foto.id}
+                  href={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl overflow-hidden border border-gray-200 aspect-square hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
+                    alt={foto.nombre}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Management card */}
