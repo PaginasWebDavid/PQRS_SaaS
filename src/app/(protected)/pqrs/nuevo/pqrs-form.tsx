@@ -20,6 +20,7 @@ interface PqrsFormProps {
 
 const ASUNTOS = [
   "AREA COMUN",
+  "AREA PRIVADA",
   "CONTABILIDAD",
   "CONVIVENCIA",
   "HUMEDAD/CUBIERTA",

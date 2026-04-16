@@ -27,6 +27,7 @@ interface Pqrs {
 
 const ASUNTOS = [
   "AREA COMUN",
+  "AREA PRIVADA",
   "CONTABILIDAD",
   "CONVIVENCIA",
   "HUMEDAD/CUBIERTA",

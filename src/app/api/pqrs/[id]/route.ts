@@ -11,6 +11,7 @@ const ESTADO_LABEL: Record<string, string> = {
 
 const ASUNTOS_VALIDOS = [
   "AREA COMUN",
+  "AREA PRIVADA",
   "CONTABILIDAD",
   "CONVIVENCIA",
   "HUMEDAD/CUBIERTA",
