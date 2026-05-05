@@ -62,7 +62,7 @@ interface Pqrs {
     nota: string | null;
     creadoAt: string;
   }[];
-  fotos: { id: string; nombre: string; tipo: string; orden: number }[];
+  fotos: { id: string; data: string; nombre: string; tipo: string; orden: number }[];
 }
 
 const ASUNTOS = [
@@ -437,14 +437,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               {pqrs.fotos.map((foto) => (
                 <a
                   key={foto.id}
-                  href={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
+                  href={foto.data}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block rounded-xl overflow-hidden border border-gray-200 aspect-square hover:opacity-90 transition-opacity"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
+                    src={foto.data}
                     alt={foto.nombre}
                     className="w-full h-full object-cover"
                   />
