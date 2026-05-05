@@ -245,7 +245,7 @@ export async function PATCH(
     );
   }
 
-  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar, queSeHizoParaCerrar } = body;
+  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar, queSeHizoParaCerrar, asunto } = body;
 
   // If terminar=true, we're closing the PQRS
   if (terminar) {
@@ -283,6 +283,12 @@ export async function PATCH(
   const ahora = new Date();
   const updateData: Record<string, unknown> = {};
 
+  if (asunto !== undefined) {
+    if (!ASUNTOS_VALIDOS.includes(asunto)) {
+      return NextResponse.json({ error: "Asunto inválido" }, { status: 400 });
+    }
+    updateData.asunto = asunto;
+  }
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
   if (queSeHizoParaCerrar !== undefined) updateData.queSeHizoParaCerrar = queSeHizoParaCerrar;

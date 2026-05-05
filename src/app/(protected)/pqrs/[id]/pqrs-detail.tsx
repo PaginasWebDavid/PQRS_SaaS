@@ -292,6 +292,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        asunto: asuntoSelected || undefined,
         accionTomada: accionTomada.trim() || null,
         evidenciaCierre: evidenciaCierre.trim() || null,
         evidenciaArchivoData: archivoData,
@@ -537,6 +538,22 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         {/* === EN_PROGRESO: Accion tomada + Fases + Evidencia === */}
         {pqrs.estado === "EN_PROGRESO" && isAdmin && (
           <>
+            {/* Cambiar asunto */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Asunto
+              </label>
+              <select
+                value={asuntoSelected}
+                onChange={(e) => setAsuntoSelected(e.target.value)}
+                className="w-full h-12 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+              >
+                {ASUNTOS.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Accion tomada */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
