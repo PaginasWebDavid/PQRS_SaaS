@@ -229,6 +229,7 @@ export function PqrsForm({
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {fotos.map((foto, idx) => (
                   <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-square">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={foto.preview}
                       alt={foto.nombre}

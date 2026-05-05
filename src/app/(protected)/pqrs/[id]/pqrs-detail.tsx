@@ -442,6 +442,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   rel="noopener noreferrer"
                   className="block rounded-xl overflow-hidden border border-gray-200 aspect-square hover:opacity-90 transition-opacity"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
                     alt={foto.nombre}
