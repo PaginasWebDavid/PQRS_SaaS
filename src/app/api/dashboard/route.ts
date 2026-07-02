@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
   const monthParam = searchParams.get("month");
@@ -31,6 +33,7 @@ export async function GET(req: NextRequest) {
 
   const pqrs = await prisma.pqrs.findMany({
     where: {
+      tenantId,
       fechaRecibido: { gte: dateGte, lt: dateLt },
     },
   });

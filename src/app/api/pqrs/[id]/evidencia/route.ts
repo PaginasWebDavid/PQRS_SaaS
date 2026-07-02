@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 
 export async function GET(
   req: NextRequest,
@@ -11,8 +12,10 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const pqrs = await prisma.pqrs.findUnique({
-    where: { id: params.id },
+  const tenantId = getTenantIdFromSession(session);
+
+  const pqrs = await prisma.pqrs.findFirst({
+    where: { id: params.id, tenantId },
     select: {
       evidenciaArchivoData: true,
       evidenciaArchivoNombre: true,

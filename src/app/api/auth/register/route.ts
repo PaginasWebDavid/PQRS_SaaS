@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultTenant, getInitialTenantId } from "@/domains/organizations/tenant.service";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
       );
     }
 
+    await ensureDefaultTenant();
+
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     await prisma.user.create({
@@ -37,6 +40,7 @@ export async function POST(req: Request) {
         bloque: data.bloque,
         apto: data.apto,
         role: "RESIDENTE",
+        tenantId: getInitialTenantId(),
       },
     });
 

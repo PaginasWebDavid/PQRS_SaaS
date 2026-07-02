@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -8,11 +9,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;
   const role = searchParams.get("role");
   const search = searchParams.get("search");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { tenantId };
   if (role) where.role = role;
   if (search) {
     where.OR = [

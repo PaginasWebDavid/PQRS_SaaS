@@ -8,12 +8,42 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+  units     Int          @default(0)
+  city      String?
+  address   String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  users     User[]
+  pqrs      Pqrs[]
+  fotos     PqrsFoto[]
+  historial HistorialPqrs[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELLED
+}
+
 model User {
   id                    String    @id @default(cuid())
   email                 String    @unique
   password              String
   name                  String
   role                  Role      @default(RESIDENTE)
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id])
   bloque                Int?
   apto                  Int?
   haCorregidoUbicacion  Boolean   @default(false)
@@ -25,6 +55,8 @@ model User {
   pqrsManaged           Pqrs[]    @relation("ManagedBy")
   sessions              Session[]
   accounts              Account[]
+
+  @@index([tenantId])
 }
 
 enum Role {
@@ -37,6 +69,8 @@ enum Role {
 model Pqrs {
   id                            String          @id @default(cuid())
   numero                        Int             @unique @default(autoincrement())
+  tenantId                      String
+  tenant                        Tenant          @relation(fields: [tenantId], references: [id])
   medio                         Medio           @default(PLATAFORMA_WEB)
   fechaRecibido                 DateTime
   mes                           String
@@ -49,7 +83,7 @@ model Pqrs {
   descripcion                   String          @db.Text
   numeroRadicacion              String?         @unique
 
-  // Gestión por asistente/admin
+  // Gestion por asistente/admin
   fechaPrimerContacto           DateTime?
   tiempoRespuestaPrimerContacto Int?
   notaPrimerContacto            String?         @db.Text
@@ -62,16 +96,16 @@ model Pqrs {
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
 
-  // Fases de gestión (solo admin, no visible para residente)
+  // Fases de gestion (solo admin, no visible para residente)
   faseActual                    Int?            // 1-5, null = sin fase asignada
   faseTipo                      String?         // "INSUMOS" (Fase II) o "PROVEEDOR" (Fase III)
-  fase1Inicio                   DateTime?       // Inspección de Campo
+  fase1Inicio                   DateTime?       // Inspeccion de Campo
   fase1Nota                     String?         @db.Text
-  fase2Inicio                   DateTime?       // Adquisición de insumos
+  fase2Inicio                   DateTime?       // Adquisicion de insumos
   fase2Nota                     String?         @db.Text
   fase3Inicio                   DateTime?       // Firma contrato proveedor
   fase3Nota                     String?         @db.Text
-  fase4Inicio                   DateTime?       // Ejecución
+  fase4Inicio                   DateTime?       // Ejecucion
   fase4Nota                     String?         @db.Text
   fase5Inicio                   DateTime?       // Terminado
   queSeHizoParaCerrar           String?         @db.Text  // Obligatorio si se cierra sin completar todas las fases
@@ -87,6 +121,10 @@ model Pqrs {
   // Trazabilidad
   historial HistorialPqrs[]
   fotos     PqrsFoto[]
+
+  @@index([tenantId])
+  @@index([tenantId, estado])
+  @@index([tenantId, fechaRecibido])
 }
 
 enum Medio {
@@ -108,6 +146,8 @@ enum Estado {
 
 model PqrsFoto {
   id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   pqrsId    String
   pqrs      Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
   data      String   @db.Text
@@ -115,16 +155,24 @@ model PqrsFoto {
   tipo      String
   orden     Int
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([pqrsId])
 }
 
 model HistorialPqrs {
   id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
   pqrsId        String
   pqrs          Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
   estadoAntes   Estado?
   estadoDespues Estado
   nota          String?
   creadoAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([pqrsId])
 }
 
 // NextAuth tables
