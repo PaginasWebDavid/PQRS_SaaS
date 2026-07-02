@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 
 export async function PATCH(
   req: NextRequest,
@@ -11,6 +12,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const { id } = await params;
   const body = await req.json();
   const { role, bloque, apto } = body;
@@ -26,6 +28,15 @@ export async function PATCH(
       { error: "No puedes cambiar tu propio rol" },
       { status: 400 }
     );
+  }
+
+  const targetUser = await prisma.user.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+
+  if (!targetUser) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
   }
 
   const updateData: Record<string, unknown> = {};
@@ -58,6 +69,7 @@ export async function DELETE(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const { id } = await params;
 
   if (id === session.user.id) {
@@ -67,9 +79,18 @@ export async function DELETE(
     );
   }
 
-  // Check if user has PQRS
+  const targetUser = await prisma.user.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+
+  if (!targetUser) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
+  // Check if user has PQRS in this tenant
   const pqrsCount = await prisma.pqrs.count({
-    where: { OR: [{ creadoPorId: id }, { gestionadoPorId: id }] },
+    where: { tenantId, OR: [{ creadoPorId: id }, { gestionadoPorId: id }] },
   });
 
   if (pqrsCount > 0) {

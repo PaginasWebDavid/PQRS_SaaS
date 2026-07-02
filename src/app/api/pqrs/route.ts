@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { Prisma } from "@prisma/client";
 
 const MESES = [
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;
   const estado = searchParams.get("estado");
   const asunto = searchParams.get("asunto");
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
   const searchNumero = searchParams.get("numero");
 
   // Construir filtros
-  const where: Prisma.PqrsWhereInput = {};
+  const where: Prisma.PqrsWhereInput = { tenantId };
 
   // RESIDENTE solo ve sus propias PQRS
   if (session.user.role === "RESIDENTE") {
@@ -90,6 +92,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
+
   // Solo ADMIN y RESIDENTE pueden crear
   if (session.user.role !== "ADMIN" && session.user.role !== "RESIDENTE") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
@@ -147,7 +151,6 @@ export async function POST(req: NextRequest) {
       if (!foto.tipo.startsWith("image/")) {
         return NextResponse.json({ error: "Solo se permiten archivos de imagen" }, { status: 400 });
       }
-      // Verificar tamaño: base64 ~1.33x tamaño original. Límite 1MB original = ~1.37MB base64
       const base64Data = foto.data.replace(/^data:[^;]+;base64,/, "");
       const sizeBytes = Math.ceil(base64Data.length * 0.75);
       if (sizeBytes > 1024 * 1024) {
@@ -162,6 +165,7 @@ export async function POST(req: NextRequest) {
   const pqrs = await prisma.$transaction(async (tx) => {
     const nuevoPqrs = await tx.pqrs.create({
       data: {
+        tenantId,
         medio: "PLATAFORMA_WEB",
         fechaRecibido: ahora,
         mes: MESES[ahora.getMonth()],
@@ -177,6 +181,7 @@ export async function POST(req: NextRequest) {
     if (fotosArray.length > 0) {
       await tx.pqrsFoto.createMany({
         data: fotosArray.map((f) => ({
+          tenantId,
           pqrsId: nuevoPqrs.id,
           data: f.data,
           nombre: f.nombre,
@@ -188,6 +193,7 @@ export async function POST(req: NextRequest) {
 
     await tx.historialPqrs.create({
       data: {
+        tenantId,
         pqrsId: nuevoPqrs.id,
         estadoDespues: "EN_ESPERA",
         nota: `PQRS creada por ${isAdmin ? "administracion" : "residente"}`,

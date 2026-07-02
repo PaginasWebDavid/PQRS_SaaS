@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+﻿import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -34,6 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          tenantId: user.tenantId,
           bloque: user.bloque,
           apto: user.apto,
         };
@@ -44,17 +45,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as { role?: string; bloque?: number | null; apto?: number | null };
+        const u = user as {
+          role?: string;
+          tenantId?: string;
+          bloque?: number | null;
+          apto?: number | null;
+        };
         token.role = u.role;
+        token.tenantId = u.tenantId;
         token.bloque = u.bloque;
         token.apto = u.apto;
       }
+
+      if (token.id && !token.tenantId) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { tenantId: true },
+        });
+        token.tenantId = dbUser?.tenantId;
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
+        session.user.tenantId = token.tenantId as string;
         session.user.bloque = token.bloque as number | null;
         session.user.apto = token.apto as number | null;
       }
