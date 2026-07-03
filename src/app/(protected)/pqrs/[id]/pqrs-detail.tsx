@@ -35,8 +35,11 @@ interface Pqrs {
   accionTomada: string | null;
   evidenciaCierre: string | null;
   evidenciaArchivoData: string | null;
+  evidenciaArchivoUrl: string | null;
+  evidenciaArchivoPath: string | null;
   evidenciaArchivoNombre: string | null;
   evidenciaArchivoTipo: string | null;
+  evidenciaArchivoSize: number | null;
   fechaPrimerContacto: string | null;
   tiempoRespuestaPrimerContacto: number | null;
   fechaCierre: string | null;
@@ -62,7 +65,7 @@ interface Pqrs {
     nota: string | null;
     creadoAt: string;
   }[];
-  fotos: { id: string; data: string; nombre: string; tipo: string; orden: number }[];
+  fotos: { id: string; data: string | null; url: string | null; storagePath: string | null; nombre: string; tipo: string; size: number | null; orden: number }[];
 }
 
 const ASUNTOS = [
@@ -158,8 +161,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const [faseNotas, setFaseNotas] = useState<Record<number, string>>({ 1: "", 2: "", 3: "", 4: "" });
   const [evidenciaCierre, setEvidenciaCierre] = useState("");
   const [archivoData, setArchivoData] = useState<string | null>(null);
+  const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
+  const [archivoPath, setArchivoPath] = useState<string | null>(null);
   const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
   const [archivoTipo, setArchivoTipo] = useState<string | null>(null);
+  const [archivoSize, setArchivoSize] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const fetchPqrs = useCallback(async () => {
@@ -180,8 +186,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       4: data.fase4Nota || "",
     });
     setArchivoData(data.evidenciaArchivoData || null);
+    setArchivoUrl(data.evidenciaArchivoUrl || null);
+    setArchivoPath(data.evidenciaArchivoPath || null);
     setArchivoNombre(data.evidenciaArchivoNombre || null);
     setArchivoTipo(data.evidenciaArchivoTipo || null);
+    setArchivoSize(data.evidenciaArchivoSize || null);
     setAsuntoSelected(data.asunto || "");
     setLoading(false);
   }, [pqrsId]);
@@ -209,9 +218,12 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       return;
     }
     const data = await res.json();
-    setArchivoData(data.data);
+    setArchivoData(null);
+    setArchivoUrl(data.url || null);
+    setArchivoPath(data.path || null);
     setArchivoNombre(data.nombre);
     setArchivoTipo(data.tipo);
+    setArchivoSize(data.size || null);
     setUploading(false);
   }
 
@@ -296,8 +308,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         accionTomada: accionTomada.trim() || null,
         evidenciaCierre: evidenciaCierre.trim() || null,
         evidenciaArchivoData: archivoData,
+        evidenciaArchivoUrl: archivoUrl,
+        evidenciaArchivoPath: archivoPath,
         evidenciaArchivoNombre: archivoNombre,
         evidenciaArchivoTipo: archivoTipo,
+        evidenciaArchivoSize: archivoSize,
       }),
     });
     if (!res.ok) {
@@ -324,7 +339,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       setError("Complete todas las fases o indique qué se hizo para cerrar la PQRS");
       return;
     }
-    if (!evidenciaCierre.trim() && !archivoData) {
+    if (!evidenciaCierre.trim() && !archivoData && !archivoUrl && !archivoPath) {
       setError("Debe diligenciar la evidencia de cierre antes de terminar");
       return;
     }
@@ -337,8 +352,11 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         queSeHizoParaCerrar: queSeHizoParaCerrar.trim() || null,
         evidenciaCierre: evidenciaCierre.trim() || null,
         evidenciaArchivoData: archivoData,
+        evidenciaArchivoUrl: archivoUrl,
+        evidenciaArchivoPath: archivoPath,
         evidenciaArchivoNombre: archivoNombre,
         evidenciaArchivoTipo: archivoTipo,
+        evidenciaArchivoSize: archivoSize,
         terminar: true,
       }),
     });
@@ -382,6 +400,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   const faseV = pqrs.faseActual === 5;
   const cierreTempranoValido = !faseV && queSeHizoParaCerrar.trim().length > 0;
   const evidenciaEnabled = faseV || cierreTempranoValido;
+  const hasArchivo = Boolean(archivoData || archivoUrl || archivoPath);
+  const hasEvidenciaArchivo = Boolean(pqrs.evidenciaArchivoData || pqrs.evidenciaArchivoUrl || pqrs.evidenciaArchivoPath);
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -437,14 +457,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               {pqrs.fotos.map((foto) => (
                 <a
                   key={foto.id}
-                  href={foto.data}
+                  href={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block rounded-xl overflow-hidden border border-gray-200 aspect-square hover:opacity-90 transition-opacity"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={foto.data}
+                    src={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
                     alt={foto.nombre}
                     className="w-full h-full object-cover"
                   />
@@ -728,13 +748,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                 rows={3}
                 className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
               />
-              {archivoData ? (
+              {hasArchivo ? (
                 <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
                   <FileDown className="h-5 w-5 text-green-600 shrink-0" />
                   <span className="text-sm text-green-800 truncate flex-1">{archivoNombre}</span>
                   <button
                     type="button"
-                    onClick={() => { setArchivoData(null); setArchivoNombre(null); setArchivoTipo(null); }}
+                    onClick={() => { setArchivoData(null); setArchivoUrl(null); setArchivoPath(null); setArchivoNombre(null); setArchivoTipo(null); setArchivoSize(null); }}
                     className="text-gray-400 hover:text-red-500 transition-colors"
                   >
                     <X className="h-4 w-4" />
@@ -780,7 +800,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               </button>
               <button
                 onClick={handleTerminar}
-                disabled={saving || terminating || (!faseV && !queSeHizoParaCerrar.trim()) || (!evidenciaCierre.trim() && !archivoData)}
+                disabled={saving || terminating || (!faseV && !queSeHizoParaCerrar.trim()) || (!evidenciaCierre.trim() && !hasArchivo)}
                 className="flex-1 h-12 text-base font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {terminating ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
@@ -869,13 +889,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
               </div>
             )}
-            {(pqrs.evidenciaCierre || pqrs.evidenciaArchivoData) && (
+            {(pqrs.evidenciaCierre || hasEvidenciaArchivo) && (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-gray-500">Evidencia de cierre</p>
                 {pqrs.evidenciaCierre && (
                   <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.evidenciaCierre}</p>
                 )}
-                {pqrs.evidenciaArchivoData && (
+                {hasEvidenciaArchivo && (
                   <a
                     href={`/api/pqrs/${pqrs.id}/evidencia`}
                     download={pqrs.evidenciaArchivoNombre || "evidencia"}
