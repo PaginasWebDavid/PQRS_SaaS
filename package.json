@@ -1,9 +1,10 @@
 {
-  "name": "pqrs-calle-100",
+  "name": "pqrs-saa-s",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "postinstall": "prisma generate",
     "build": "prisma generate && next build",
     "release:check": "prisma validate && npm run build",
     "start": "next start",
