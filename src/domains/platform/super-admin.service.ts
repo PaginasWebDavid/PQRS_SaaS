@@ -1,11 +1,12 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { getPlatformStats } from "./platform-stats.service";
-import { listTenantsForSuperAdmin } from "./tenant-admin.service";
+import { getTenantDetailForSuperAdmin, listTenantsForSuperAdmin } from "./tenant-admin.service";
 
-export async function getSuperAdminOverview() {
-  const [stats, tenants, recentAuditLogs] = await Promise.all([
+export async function getSuperAdminOverview(selectedTenantId?: string | null) {
+  const [stats, tenants, selectedTenant, recentAuditLogs] = await Promise.all([
     getPlatformStats(),
     listTenantsForSuperAdmin(),
+    getTenantDetailForSuperAdmin(selectedTenantId),
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -15,5 +16,5 @@ export async function getSuperAdminOverview() {
     }),
   ]);
 
-  return { stats, tenants, recentAuditLogs };
+  return { stats, tenants, selectedTenant, recentAuditLogs };
 }
