@@ -117,8 +117,11 @@ model Pqrs {
   estado                        Estado          @default(EN_ESPERA)
   evidenciaCierre               String?         @db.Text
   evidenciaArchivoData          String?         @db.Text
+  evidenciaArchivoUrl           String?         @db.Text
+  evidenciaArchivoPath          String?
   evidenciaArchivoNombre        String?
   evidenciaArchivoTipo          String?
+  evidenciaArchivoSize          Int?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
 
@@ -171,16 +174,19 @@ enum Estado {
 }
 
 model PqrsFoto {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  pqrsId    String
-  pqrs      Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
-  data      String   @db.Text
-  nombre    String
-  tipo      String
-  orden     Int
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  pqrsId      String
+  pqrs        Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+  data        String?  @db.Text
+  url         String?  @db.Text
+  storagePath String?
+  nombre      String
+  tipo        String
+  size        Int?
+  orden       Int
+  createdAt   DateTime @default(now())
 
   @@index([tenantId])
   @@index([pqrsId])

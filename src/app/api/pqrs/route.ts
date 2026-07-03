@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
 import { Prisma } from "@prisma/client";
 
 const MESES = [
@@ -162,6 +163,45 @@ export async function POST(req: NextRequest) {
 
   const ahora = new Date();
 
+  let storedFotos: {
+    url: string;
+    storagePath: string;
+    nombre: string;
+    tipo: string;
+    size: number;
+    orden: number;
+  }[] = [];
+
+  try {
+    storedFotos = await Promise.all(
+      fotosArray.map(async (foto) => {
+        const { contentType, buffer } = dataUrlToBuffer(foto.data);
+        const stored = await uploadToStorage({
+          tenantId,
+          folder: "fotos",
+          fileName: foto.nombre,
+          contentType: foto.tipo || contentType,
+          buffer,
+        });
+
+        return {
+          url: stored.url,
+          storagePath: stored.path,
+          nombre: stored.fileName,
+          tipo: stored.contentType,
+          size: stored.size,
+          orden: foto.orden,
+        };
+      })
+    );
+  } catch (error) {
+    console.error("Error subiendo fotos de PQRS:", error);
+    return NextResponse.json(
+      { error: "No se pudieron subir las fotos" },
+      { status: 500 }
+    );
+  }
+
   const pqrs = await prisma.$transaction(async (tx) => {
     const nuevoPqrs = await tx.pqrs.create({
       data: {
@@ -178,14 +218,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (fotosArray.length > 0) {
+    if (storedFotos.length > 0) {
       await tx.pqrsFoto.createMany({
-        data: fotosArray.map((f) => ({
+        data: storedFotos.map((f) => ({
           tenantId,
           pqrsId: nuevoPqrs.id,
-          data: f.data,
+          data: null,
+          url: f.url,
+          storagePath: f.storagePath,
           nombre: f.nombre,
           tipo: f.tipo,
+          size: f.size,
           orden: f.orden,
         })),
       });

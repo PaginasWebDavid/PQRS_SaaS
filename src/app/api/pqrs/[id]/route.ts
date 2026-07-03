@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { sendEmail } from "@/lib/email";
+import { downloadFromStorage } from "@/lib/storage";
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: "En espera",
@@ -40,7 +41,7 @@ export async function GET(
       gestionadoPor: { select: { name: true } },
       historial: { orderBy: { creadoAt: "asc" } },
       fotos: {
-        select: { id: true, data: true, nombre: true, tipo: true, orden: true },
+        select: { id: true, data: true, url: true, storagePath: true, nombre: true, tipo: true, size: true, orden: true },
         orderBy: { orden: "asc" },
       },
     },
@@ -251,7 +252,7 @@ export async function PATCH(
     );
   }
 
-  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoNombre, evidenciaArchivoTipo, terminar, queSeHizoParaCerrar, asunto } = body;
+  const { accionTomada, evidenciaCierre, evidenciaArchivoData, evidenciaArchivoUrl, evidenciaArchivoPath, evidenciaArchivoNombre, evidenciaArchivoTipo, evidenciaArchivoSize, terminar, queSeHizoParaCerrar, asunto } = body;
 
   // If terminar=true, we're closing the PQRS
   if (terminar) {
@@ -277,7 +278,7 @@ export async function PATCH(
 
     // Validate evidencia de cierre is filled
     const finalEvidencia = evidenciaCierre || pqrs.evidenciaCierre;
-    if (!finalEvidencia && !evidenciaArchivoData && !pqrs.evidenciaArchivoData) {
+    if (!finalEvidencia && !evidenciaArchivoData && !evidenciaArchivoUrl && !pqrs.evidenciaArchivoData && !pqrs.evidenciaArchivoUrl && !pqrs.evidenciaArchivoPath) {
       return NextResponse.json(
         { error: "Debe diligenciar la evidencia de cierre antes de terminar" },
         { status: 400 }
@@ -299,6 +300,9 @@ export async function PATCH(
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
   if (queSeHizoParaCerrar !== undefined) updateData.queSeHizoParaCerrar = queSeHizoParaCerrar;
   if (evidenciaArchivoData !== undefined) updateData.evidenciaArchivoData = evidenciaArchivoData;
+  if (evidenciaArchivoUrl !== undefined) updateData.evidenciaArchivoUrl = evidenciaArchivoUrl;
+  if (evidenciaArchivoPath !== undefined) updateData.evidenciaArchivoPath = evidenciaArchivoPath;
+  if (evidenciaArchivoSize !== undefined) updateData.evidenciaArchivoSize = evidenciaArchivoSize;
   if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
   if (evidenciaArchivoTipo !== undefined) updateData.evidenciaArchivoTipo = evidenciaArchivoTipo;
 
@@ -346,7 +350,13 @@ export async function PATCH(
     try {
       // Build attachments if there's an evidence file
       const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
-      if (updated.evidenciaArchivoData && updated.evidenciaArchivoNombre) {
+      if (updated.evidenciaArchivoPath && updated.evidenciaArchivoNombre) {
+        attachments.push({
+          filename: updated.evidenciaArchivoNombre,
+          content: await downloadFromStorage(updated.evidenciaArchivoPath),
+          contentType: updated.evidenciaArchivoTipo || undefined,
+        });
+      } else if (updated.evidenciaArchivoData && updated.evidenciaArchivoNombre) {
         const base64Data = (updated.evidenciaArchivoData as string).replace(/^data:[^;]+;base64,/, "");
         attachments.push({
           filename: updated.evidenciaArchivoNombre,

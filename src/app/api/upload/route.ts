@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { uploadToStorage } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -11,6 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
+  const tenantId = getTenantIdFromSession(session);
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
 
@@ -18,7 +21,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
   }
 
-  // Max 2MB for base64 DB storage
   if (file.size > 2 * 1024 * 1024) {
     return NextResponse.json(
       { error: "El archivo no puede superar 2MB" },
@@ -26,12 +28,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const base64 = buffer.toString("base64");
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const stored = await uploadToStorage({
+      tenantId,
+      folder: "evidencias",
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+      buffer,
+    });
 
-  return NextResponse.json({
-    data: base64,
-    nombre: file.name,
-    tipo: file.type,
-  });
+    return NextResponse.json({
+      url: stored.url,
+      path: stored.path,
+      nombre: stored.fileName,
+      tipo: stored.contentType,
+      size: stored.size,
+    });
+  } catch (error) {
+    console.error("Error subiendo evidencia:", error);
+    return NextResponse.json(
+      { error: "No se pudo subir el archivo" },
+      { status: 500 }
+    );
+  }
 }
