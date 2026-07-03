@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { isSuperAdmin } from "@/domains/platform/permissions";
 import { getSuperAdminOverview } from "@/domains/platform/super-admin.service";
 import { formatMoneyFromCents, getSubscriptionStatusLabel, renewSubscriptionWithSimulatedPayment } from "@/domains/billing/billing.service";
+import { createMercadoPagoSubscriptionForTenant } from "@/domains/billing/mercado-pago.service";
 import {
   createTenantWithAdmin,
   normalizeSlug,
@@ -112,6 +113,26 @@ export default async function SuperAdminPage({
   }
 
 
+
+  async function createMercadoPagoSubscriptionAction(formData: FormData) {
+    "use server";
+
+    const actionSession = await auth();
+    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
+      redirect("/dashboard");
+    }
+
+    const tenantId = readText(formData, "tenantId");
+    if (tenantId) {
+      await createMercadoPagoSubscriptionForTenant({
+        actorUserId: actionSession.user.id,
+        tenantId,
+      });
+    }
+
+    revalidatePath("/super-admin");
+    redirect(`/super-admin?tenantId=${tenantId}`);
+  }
   async function renewSubscriptionAction(formData: FormData) {
     "use server";
 
@@ -245,6 +266,15 @@ export default async function SuperAdminPage({
                               </Button>
                             </form>
                           )}
+                          {tenant.subscription && (
+                            <form action={createMercadoPagoSubscriptionAction}>
+                              <input type="hidden" name="tenantId" value={tenant.id} />
+                              <Button size="sm" variant="outline" type="submit">
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Mercado Pago
+                              </Button>
+                            </form>
+                          )}
                           {tenant.status === "SUSPENDED" ? (
                             <form action={reactivateTenantAction}>
                               <input type="hidden" name="tenantId" value={tenant.id} />
@@ -310,11 +340,23 @@ export default async function SuperAdminPage({
           </div>
 
           {selectedTenant.subscription && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Detail label="Licencia" value={getSubscriptionStatusLabel(selectedTenant.subscription.status)} />
-              <Detail label="Precio mensual" value={formatMoneyFromCents(selectedTenant.subscription.priceCents, selectedTenant.subscription.currency)} />
-              <Detail label="Unidades facturadas" value={selectedTenant.subscription.unitsSnapshot} />
-              <Detail label="Próximo pago" value={selectedTenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO")} />
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Detail label="Licencia" value={getSubscriptionStatusLabel(selectedTenant.subscription.status)} />
+                <Detail label="Precio mensual" value={formatMoneyFromCents(selectedTenant.subscription.priceCents, selectedTenant.subscription.currency)} />
+                <Detail label="Unidades facturadas" value={selectedTenant.subscription.unitsSnapshot} />
+                <Detail label="Próximo pago" value={selectedTenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO")} />
+              </div>
+              {selectedTenant.subscription.mercadoPagoInitPoint && (
+                <a
+                  href={selectedTenant.subscription.mercadoPagoInitPoint}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Abrir autorización Mercado Pago
+                </a>
+              )}
             </div>
           )}
 
