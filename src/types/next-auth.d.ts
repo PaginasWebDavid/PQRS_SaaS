@@ -1,4 +1,4 @@
-﻿import { Role } from "@prisma/client";
+import { Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
 
 declare module "next-auth" {
   interface Session {
@@ -9,8 +9,22 @@ declare module "next-auth" {
       image?: string | null;
       role: Role;
       tenantId: string | null;
+      tenantStatus: TenantStatus | null;
+      subscriptionStatus: SubscriptionStatus | null;
       bloque: number | null;
       apto: number | null;
     };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string;
+    role?: Role;
+    tenantId?: string | null;
+    tenantStatus?: TenantStatus | null;
+    subscriptionStatus?: SubscriptionStatus | null;
+    bloque?: number | null;
+    apto?: number | null;
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
 import { Prisma } from "@prisma/client";
 
@@ -15,6 +16,9 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;
@@ -93,6 +97,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
+
   const tenantId = getTenantIdFromSession(session);
 
   // Solo ADMIN y RESIDENTE pueden crear
@@ -142,7 +149,7 @@ export async function POST(req: NextRequest) {
   const fotosArray: { data: string; nombre: string; tipo: string; orden: number }[] = [];
   if (fotos && Array.isArray(fotos)) {
     if (fotos.length > 3) {
-      return NextResponse.json({ error: "Máximo 3 fotos permitidas" }, { status: 400 });
+      return NextResponse.json({ error: "MÃ¡ximo 3 fotos permitidas" }, { status: 400 });
     }
     for (let i = 0; i < fotos.length; i++) {
       const foto = fotos[i];

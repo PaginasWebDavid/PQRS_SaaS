@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
@@ -9,6 +10,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
   const { currentPassword, newPassword } = await req.json();

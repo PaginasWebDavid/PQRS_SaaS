@@ -61,6 +61,8 @@ model User {
 
   @@index([tenantId])
   @@index([role])
+  @@index([tenantId, role])
+  @@index([tenantId, bloque, apto])
 }
 
 enum Role {
@@ -84,6 +86,7 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action])
   @@index([createdAt])
+  @@index([targetType, targetId])
 }
 
 enum AuditAction {
@@ -169,6 +172,7 @@ model Payment {
   @@index([tenantId])
   @@index([subscriptionId])
   @@index([status, dueDate])
+  @@index([tenantId, status, dueDate])
   @@index([createdAt])
 }
 
@@ -245,6 +249,11 @@ model Pqrs {
   @@index([tenantId])
   @@index([tenantId, estado])
   @@index([tenantId, fechaRecibido])
+  @@index([tenantId, numero])
+  @@index([tenantId, mes])
+  @@index([tenantId, asunto])
+  @@index([tenantId, bloque, apto])
+  @@index([tenantId, creadoPorId])
 }
 
 enum Medio {
@@ -281,6 +290,7 @@ model PqrsFoto {
 
   @@index([tenantId])
   @@index([pqrsId])
+  @@index([tenantId, createdAt])
 }
 
 model HistorialPqrs {
@@ -296,6 +306,8 @@ model HistorialPqrs {
 
   @@index([tenantId])
   @@index([pqrsId])
+  @@index([tenantId, creadoAt])
+  @@index([tenantId, pqrsId, creadoAt])
 }
 
 // NextAuth tables
