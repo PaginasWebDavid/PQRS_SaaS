@@ -1,9 +1,10 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isSuperAdmin } from "@/domains/platform/permissions";
 import { getSuperAdminOverview } from "@/domains/platform/super-admin.service";
+import { formatMoneyFromCents, getSubscriptionStatusLabel, renewSubscriptionWithSimulatedPayment } from "@/domains/billing/billing.service";
 import {
   createTenantWithAdmin,
   normalizeSlug,
@@ -14,7 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Building2,
+  CalendarClock,
   CheckCircle2,
+  CreditCard,
+  DollarSign,
   Eye,
   PauseCircle,
   PlayCircle,
@@ -44,7 +48,7 @@ export default async function SuperAdminPage({
     redirect("/dashboard");
   }
 
-  const { stats, tenants, selectedTenant, recentAuditLogs } = await getSuperAdminOverview(
+  const { stats, tenants, selectedTenant, recentAuditLogs, billing } = await getSuperAdminOverview(
     searchParams.tenantId
   );
 
@@ -107,6 +111,26 @@ export default async function SuperAdminPage({
     redirect(`/super-admin?tenantId=${tenantId}`);
   }
 
+
+  async function renewSubscriptionAction(formData: FormData) {
+    "use server";
+
+    const actionSession = await auth();
+    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
+      redirect("/dashboard");
+    }
+
+    const tenantId = readText(formData, "tenantId");
+    if (tenantId) {
+      await renewSubscriptionWithSimulatedPayment({
+        actorUserId: actionSession.user.id,
+        tenantId,
+      });
+    }
+
+    revalidatePath("/super-admin");
+    redirect(`/super-admin?tenantId=${tenantId}`);
+  }
   async function reactivateTenantAction(formData: FormData) {
     "use server";
 
@@ -141,13 +165,21 @@ export default async function SuperAdminPage({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         <Stat label="Tenant" value={stats.totalTenants} icon={Building2} />
         <Stat label="Activos" value={stats.activeTenants} icon={CheckCircle2} />
+        <Stat label="Trial" value={stats.trialTenants} icon={CalendarClock} />
         <Stat label="Suspendidos" value={stats.suspendedTenants} icon={PauseCircle} />
         <Stat label="Usuarios" value={stats.totalUsers} icon={Users} />
         <Stat label="PQRS" value={stats.totalPqrs} icon={Shield} />
         <Stat label="Cerradas" value={stats.closedPqrs} icon={CheckCircle2} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MoneyStat label="Ingreso mensual" value={billing.monthlyRevenueCents} icon={DollarSign} />
+        <Stat label="Pagos pendientes" value={billing.pendingPayments} icon={CreditCard} />
+        <Stat label="Renovaciones próximas" value={billing.upcomingRenewals} icon={CalendarClock} />
+        <Stat label="Licencias activas" value={billing.activeLicenses} icon={CheckCircle2} />
       </div>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -162,6 +194,9 @@ export default async function SuperAdminPage({
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 font-medium">Unidades</th>
                   <th className="px-4 py-3 font-medium">Administrador</th>
+                  <th className="px-4 py-3 font-medium">Licencia</th>
+                  <th className="px-4 py-3 font-medium">Precio</th>
+                  <th className="px-4 py-3 font-medium">Renueva</th>
                   <th className="px-4 py-3 font-medium">Creado</th>
                   <th className="px-4 py-3 font-medium">Acciones</th>
                 </tr>
@@ -181,6 +216,15 @@ export default async function SuperAdminPage({
                         {admin ? `${admin.name} · ${admin.email}` : "Sin ADMIN"}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
+                        {tenant.subscription ? getSubscriptionStatusLabel(tenant.subscription.status) : "Sin licencia"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {tenant.subscription ? formatMoneyFromCents(tenant.subscription.priceCents, tenant.subscription.currency) : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {tenant.subscription ? tenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO") : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
                         {tenant.createdAt.toLocaleDateString("es-CO")}
                       </td>
                       <td className="px-4 py-3">
@@ -192,6 +236,15 @@ export default async function SuperAdminPage({
                             <Eye className="h-3.5 w-3.5" />
                             Ver
                           </Link>
+                          {tenant.subscription && (
+                            <form action={renewSubscriptionAction}>
+                              <input type="hidden" name="tenantId" value={tenant.id} />
+                              <Button size="sm" variant="outline" type="submit">
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Renovar
+                              </Button>
+                            </form>
+                          )}
                           {tenant.status === "SUSPENDED" ? (
                             <form action={reactivateTenantAction}>
                               <input type="hidden" name="tenantId" value={tenant.id} />
@@ -255,6 +308,36 @@ export default async function SuperAdminPage({
             <Detail label="Usuarios" value={selectedTenant._count.users} />
             <Detail label="PQRS" value={selectedTenant._count.pqrs} />
           </div>
+
+          {selectedTenant.subscription && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Detail label="Licencia" value={getSubscriptionStatusLabel(selectedTenant.subscription.status)} />
+              <Detail label="Precio mensual" value={formatMoneyFromCents(selectedTenant.subscription.priceCents, selectedTenant.subscription.currency)} />
+              <Detail label="Unidades facturadas" value={selectedTenant.subscription.unitsSnapshot} />
+              <Detail label="Próximo pago" value={selectedTenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO")} />
+            </div>
+          )}
+
+          {selectedTenant.subscription && (
+            <div className="space-y-2">
+              <h3 className="font-medium text-gray-900">Pagos recientes</h3>
+              <div className="divide-y rounded-lg border">
+                {selectedTenant.subscription.payments.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-gray-500">Sin pagos registrados.</p>
+                ) : (
+                  selectedTenant.subscription.payments.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                      <div>
+                        <p className="font-medium text-gray-900">{formatMoneyFromCents(payment.amountCents, payment.currency)}</p>
+                        <p className="text-gray-500">{payment.provider} · {payment.createdAt.toLocaleDateString("es-CO")}</p>
+                      </div>
+                      <span className="text-xs font-medium text-gray-500">{getSubscriptionStatusLabel(payment.status)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
@@ -335,6 +418,26 @@ function Stat({
   );
 }
 
+
+function MoneyStat({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">{label}</p>
+        <Icon className="h-4 w-4 text-green-700" />
+      </div>
+      <p className="mt-1 text-2xl font-bold text-gray-900">{formatMoneyFromCents(value)}</p>
+    </div>
+  );
+}
 function Field({ label, name, type = "text", ...props }: React.ComponentProps<typeof Input> & { label: string; name: string }) {
   return (
     <div className="space-y-1.5">

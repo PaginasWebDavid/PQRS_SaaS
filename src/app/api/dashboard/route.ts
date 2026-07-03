@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantLicenseSummary } from "@/domains/billing/billing.service";
 
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -30,6 +31,8 @@ export async function GET(req: NextRequest) {
     dateGte = new Date(`${year}-01-01`);
     dateLt = new Date(`${year + 1}-01-01`);
   }
+
+  const licenseSummary = session.user.role === "ADMIN" ? await getTenantLicenseSummary(tenantId) : null;
 
   const pqrs = await prisma.pqrs.findMany({
     where: {
@@ -179,5 +182,6 @@ export async function GET(req: NextRequest) {
     porAsuntoDetalle,
     pendientes,
     pendientesEnProceso,
+    licenseSummary,
   });
 }

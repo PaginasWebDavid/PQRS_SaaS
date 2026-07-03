@@ -19,10 +19,12 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  users     User[]
-  pqrs      Pqrs[]
-  fotos     PqrsFoto[]
-  historial HistorialPqrs[]
+  users        User[]
+  pqrs         Pqrs[]
+  fotos        PqrsFoto[]
+  historial    HistorialPqrs[]
+  subscription Subscription?
+  payments     Payment[]
 
   @@index([slug])
   @@index([status])
@@ -90,6 +92,87 @@ enum AuditAction {
   TENANT_REACTIVATED
   PLATFORM_SETTING_CHANGED
   PRICING_RULE_CHANGED
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_RENEWED
+  PAYMENT_SIMULATED
+}
+
+
+model PricingRule {
+  id        String   @id @default(cuid())
+  minUnits  Int
+  maxUnits  Int?
+  priceCents Int
+  currency  String   @default("COP")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([minUnits, maxUnits])
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  tenantId           String             @unique
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  status             SubscriptionStatus @default(TRIAL)
+  unitsSnapshot      Int
+  priceCents         Int
+  currency           String             @default("COP")
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  graceEndsAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  payments           Payment[]
+
+  @@index([tenantId, status])
+  @@index([currentPeriodEnd])
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELLED
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  subscriptionId    String
+  subscription      Subscription    @relation(fields: [subscriptionId], references: [id])
+  amountCents       Int
+  currency          String          @default("COP")
+  status            PaymentStatus   @default(PENDING)
+  provider          PaymentProvider @default(SIMULATED)
+  dueDate           DateTime
+  paidAt            DateTime?
+  periodStart       DateTime
+  periodEnd         DateTime
+  externalReference String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@index([status, dueDate])
+  @@index([createdAt])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentProvider {
+  SIMULATED
+  MERCADO_PAGO
 }
 
 model Pqrs {

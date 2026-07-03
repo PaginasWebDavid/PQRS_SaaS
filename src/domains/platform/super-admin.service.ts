@@ -1,9 +1,10 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getPlatformStats } from "./platform-stats.service";
 import { getTenantDetailForSuperAdmin, listTenantsForSuperAdmin } from "./tenant-admin.service";
+import { getBillingPlatformOverview } from "@/domains/billing/billing.service";
 
 export async function getSuperAdminOverview(selectedTenantId?: string | null) {
-  const [stats, tenants, selectedTenant, recentAuditLogs] = await Promise.all([
+  const [stats, tenants, selectedTenant, recentAuditLogs, billing] = await Promise.all([
     getPlatformStats(),
     listTenantsForSuperAdmin(),
     getTenantDetailForSuperAdmin(selectedTenantId),
@@ -14,7 +15,8 @@ export async function getSuperAdminOverview(selectedTenantId?: string | null) {
         actor: { select: { name: true, email: true } },
       },
     }),
+    getBillingPlatformOverview(),
   ]);
 
-  return { stats, tenants, selectedTenant, recentAuditLogs };
+  return { stats, tenants, selectedTenant, recentAuditLogs, billing };
 }
