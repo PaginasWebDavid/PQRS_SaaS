@@ -1,7 +1,8 @@
-﻿import { AuditAction, TenantStatus } from "@prisma/client";
+import { AuditAction, TenantStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
+import { calculatePriceForUnits } from "@/domains/billing/billing.service";
 
 const TEMP_PASSWORD_LENGTH = 12;
 
@@ -27,6 +28,7 @@ export async function listTenantsForSuperAdmin() {
   return prisma.tenant.findMany({
     orderBy: { createdAt: "desc" },
     include: {
+      subscription: true,
       users: {
         where: { role: "ADMIN" },
         select: { id: true, name: true, email: true },
@@ -61,6 +63,14 @@ export async function getTenantDetailForSuperAdmin(tenantId?: string | null) {
         },
         orderBy: [{ role: "asc" }, { name: "asc" }],
       },
+      subscription: {
+        include: {
+          payments: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+        },
+      },
       pqrs: {
         select: {
           id: true,
@@ -92,6 +102,11 @@ export async function createTenantWithAdmin(
   const temporaryPassword = generateTemporaryPassword();
   const password = await bcrypt.hash(temporaryPassword, 10);
 
+  const price = await calculatePriceForUnits(input.units);
+  const now = new Date();
+  const periodEnd = addDays(now, 30);
+  const trialEndsAt = addDays(now, 15);
+
   const result = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
@@ -114,6 +129,33 @@ export async function createTenantWithAdmin(
       },
     });
 
+    const subscription = await tx.subscription.create({
+      data: {
+        tenantId: tenant.id,
+        status: "ACTIVE",
+        unitsSnapshot: price.units,
+        priceCents: price.priceCents,
+        currency: price.currency,
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt,
+        payments: {
+          create: {
+            tenantId: tenant.id,
+            amountCents: price.priceCents,
+            currency: price.currency,
+            status: "APPROVED",
+            provider: "SIMULATED",
+            dueDate: now,
+            paidAt: now,
+            periodStart: now,
+            periodEnd,
+            externalReference: "initial-simulated-payment",
+          },
+        },
+      },
+    });
+
     await tx.auditLog.create({
       data: {
         actorUserId,
@@ -124,6 +166,23 @@ export async function createTenantWithAdmin(
           slug,
           adminEmail,
           adminPhone: emptyToNull(input.adminPhone),
+        },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        action: AuditAction.SUBSCRIPTION_CREATED,
+        targetType: "Subscription",
+        targetId: subscription.id,
+        metadata: {
+          tenantId: tenant.id,
+          units: price.units,
+          priceCents: price.priceCents,
+          currency: price.currency,
+          pricingRuleId: price.pricingRuleId,
+          provider: "SIMULATED",
         },
       },
     });
@@ -185,4 +244,9 @@ function generateTemporaryPassword() {
     password += chars[Math.floor(Math.random() * chars.length)];
   }
   return password;
+}
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
 }

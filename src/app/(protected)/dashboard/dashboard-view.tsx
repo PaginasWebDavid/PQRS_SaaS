@@ -13,6 +13,7 @@ import {
   ChevronRight,
   TrendingUp,
   FileSpreadsheet,
+  CreditCard,
 } from "lucide-react";
 import {
   BarChart,
@@ -55,6 +56,16 @@ interface DashboardData {
     apto: number;
     diasEspera: number;
   }[];
+  licenseSummary: {
+    status: string;
+    currentPeriodEnd: string;
+    trialEndsAt: string | null;
+    graceEndsAt: string | null;
+    priceCents: number;
+    currency: string;
+    unitsSnapshot: number;
+    nextPaymentDueDate: string;
+  } | null;
   pendientesEnProceso: {
     id: string;
     numero: number;
@@ -198,6 +209,27 @@ export function DashboardView() {
         </div>
       </div>
 
+
+      {data.licenseSummary && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Licencia</h2>
+                <p className="text-sm text-gray-500">{getStatusLabel(data.licenseSummary.status)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <LicenseMetric label="Precio" value={formatMoney(data.licenseSummary.priceCents, data.licenseSummary.currency)} />
+              <LicenseMetric label="Próximo pago" value={fmtDate(data.licenseSummary.nextPaymentDueDate)} />
+              <LicenseMetric label="Unidades" value={String(data.licenseSummary.unitsSnapshot)} />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Link href="/pqrs?estado=todos">
@@ -519,6 +551,41 @@ export function DashboardView() {
   );
 }
 
+function fmtDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+function formatMoney(amountCents: number, currency = "COP") {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amountCents / 100);
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    TRIAL: "Trial",
+    ACTIVE: "Activa",
+    GRACE_PERIOD: "Periodo de gracia",
+    SUSPENDED: "Suspendida",
+    CANCELLED: "Cancelada",
+  };
+
+  return labels[status] || status;
+}
+
+function LicenseMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-0.5 font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}
 function SummaryCard({
   label, value, icon, color, bg, alert,
 }: {
