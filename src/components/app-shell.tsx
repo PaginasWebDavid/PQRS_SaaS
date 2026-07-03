@@ -1,22 +1,21 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Menu,
-  X,
-  LogOut,
-  Lock,
-  FileText,
-  LayoutDashboard,
-  Users,
-  Plus,
-  History,
   BarChart3,
+  FileText,
+  History,
+  LayoutDashboard,
+  Lock,
+  LogOut,
+  Menu,
+  Plus,
   Shield,
+  Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,35 +24,36 @@ type Role = "SUPER_ADMIN" | "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
 interface NavItem {
   href: string;
   label: string;
+  description: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const navByRole: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
-    { href: "/super-admin", label: "Plataforma", icon: Shield },
+    { href: "/super-admin", label: "Plataforma", description: "Tenants, licencias, pagos y auditoria", icon: Shield },
   ],
   ADMIN: [
-    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", icon: FileText },
-    { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
-    { href: "/historial", label: "Historial PQRS", icon: History },
-    { href: "/reportes", label: "Reportes", icon: BarChart3 },
-    { href: "/usuarios", label: "Usuarios", icon: Users },
+    { href: "/dashboard", label: "Dashboard", description: "Indicadores y licencia", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", description: "Gestion y seguimiento", icon: FileText },
+    { href: "/pqrs/nuevo", label: "Crear PQRS", description: "Radicacion manual", icon: Plus },
+    { href: "/historial", label: "Historial", description: "Solicitudes cerradas", icon: History },
+    { href: "/reportes", label: "Reportes", description: "Exportes y metricas", icon: BarChart3 },
+    { href: "/usuarios", label: "Usuarios", description: "Roles y ubicaciones", icon: Users },
   ],
   ASISTENTE: [
-    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", icon: FileText },
-    { href: "/historial", label: "Historial PQRS", icon: History },
+    { href: "/dashboard", label: "Dashboard", description: "Indicadores operativos", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", description: "Consulta de solicitudes", icon: FileText },
+    { href: "/historial", label: "Historial", description: "Seguimiento cerrado", icon: History },
   ],
   CONSEJO: [
-    { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", icon: FileText },
-    { href: "/historial", label: "Historial PQRS", icon: History },
-    { href: "/reportes", label: "Reportes", icon: BarChart3 },
+    { href: "/dashboard", label: "Dashboard", description: "Vista de control", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", description: "Consulta de gestion", icon: FileText },
+    { href: "/historial", label: "Historial", description: "Casos cerrados", icon: History },
+    { href: "/reportes", label: "Reportes", description: "Auditoria y exportes", icon: BarChart3 },
   ],
   RESIDENTE: [
-    { href: "/pqrs", label: "Mis PQRS", icon: FileText },
-    { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
+    { href: "/pqrs", label: "Mis PQRS", description: "Estado de solicitudes", icon: FileText },
+    { href: "/pqrs/nuevo", label: "Crear PQRS", description: "Nueva solicitud", icon: Plus },
   ],
 };
 
@@ -69,172 +69,101 @@ interface AppShellProps {
   };
 }
 
+const roleLabel: Record<Role, string> = {
+  SUPER_ADMIN: "Super admin",
+  ADMIN: "Administrador",
+  ASISTENTE: "Asistente",
+  CONSEJO: "Consejo",
+  RESIDENTE: "Residente",
+};
+
 export function AppShell({ children, user }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const navItems = navByRole[user.role] || navByRole.RESIDENTE;
 
+  const nav = (
+    <nav className="flex h-full flex-col border-r border-gray-200 bg-white">
+      <div className="border-b border-gray-200 p-4">
+        <p className="text-sm font-semibold">PQRS SaaS</p>
+        <p className="mt-1 text-xs text-gray-500">Plantilla funcional basica</p>
+      </div>
+
+      <div className="flex-1 space-y-1 overflow-y-auto p-3">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || (item.href !== "/pqrs" && pathname.startsWith(item.href + "/"));
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "block border border-transparent p-3 text-sm",
+                isActive ? "border-gray-950 bg-white" : "hover:border-gray-300"
+              )}
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </span>
+              <span className="mt-1 block text-xs text-gray-500">{item.description}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="space-y-2 border-t border-gray-200 p-3">
+        <Link href="/cambiar-contrasena" className="flex items-center gap-2 border border-gray-200 px-3 py-2 text-sm">
+          <Lock className="h-4 w-4" />
+          Cambiar clave
+        </Link>
+        <button
+          onClick={() => signOut({ callbackUrl: "/auth/login" })}
+          className="flex w-full items-center gap-2 border border-gray-200 px-3 py-2 text-left text-sm"
+        >
+          <LogOut className="h-4 w-4" />
+          Cerrar sesion
+        </button>
+      </div>
+    </nav>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 bg-green-800 px-4 shadow-md">
+    <div className="min-h-screen bg-white text-gray-950">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+          className="inline-flex h-9 w-9 items-center justify-center border border-gray-300 md:hidden"
+          aria-label="Abrir menu"
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-4 w-4" />
         </button>
-
-        <div className="flex items-center gap-3">
-          <div className="bg-white rounded-lg p-1">
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={44}
-              height={44}
-              className="w-11 h-11 object-contain"
-            />
-          </div>
-          <span className="font-bold text-white text-sm sm:text-base">
-            <span className="sm:hidden">Calle 100</span>
-            <span className="hidden sm:inline">Conjunto Parque Residencial Calle 100</span>
-          </span>
-        </div>
-
-        <div className="ml-auto flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="font-semibold text-white text-sm truncate max-w-[150px] sm:max-w-none">
-              {user.name}
-            </p>
-            <p className="text-green-200/70 text-xs">
-              {user.role === "SUPER_ADMIN"
-                ? "Super Admin"
-                : user.role === "RESIDENTE"
-                  ? "Residente"
-                  : user.role === "ADMIN"
-                    ? "Administrador"
-                    : user.role === "CONSEJO"
-                      ? "Consejo"
-                      : user.role}
-              {user.bloque ? ` Â· B${user.bloque}-${user.apto}` : ""}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-sm border-2 border-green-600">
-            {user.name?.charAt(0)?.toUpperCase() || "U"}
-          </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{roleLabel[user.role]}</p>
+          <p className="truncate text-xs text-gray-500">
+            {user.name || user.email || "Usuario"}
+            {user.bloque ? ` · B${user.bloque}-${user.apto}` : ""}
+          </p>
         </div>
       </header>
 
-      {/* Mobile sidebar overlay */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 transition-opacity duration-200",
-          sidebarOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        )}
-        onClick={() => setSidebarOpen(false)}
-      >
-        <div className="absolute inset-0 bg-black/60" />
-        <nav
-          className={cn(
-            "absolute inset-y-0 left-0 w-80 bg-white flex flex-col transition-transform duration-200 shadow-2xl",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Sidebar header */}
-          <div className="flex h-16 items-center justify-between bg-green-800 px-5">
-            <div className="flex items-center gap-2">
-              <div className="bg-white rounded-lg p-0.5">
-                <Image
-                  src="/logo.png"
-                  alt="Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 object-contain"
-                />
-              </div>
-              <span className="font-bold text-white">MenÃº</span>
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center justify-center w-10 h-10 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-
-          {/* User info */}
-          <div className="px-5 py-4 bg-green-50 border-b border-green-100">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-lg">
-                {user.name?.charAt(0)?.toUpperCase() || "U"}
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
-                {user.bloque && (
-                  <p className="text-sm text-green-700 font-medium">
-                    Bloque {user.bloque} - Apto {user.apto}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Nav links */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex flex-col gap-1">
-              {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/pqrs" &&
-                    pathname.startsWith(item.href + "/")) ||
-                  (item.href === "/pqrs" && pathname === "/pqrs");
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-all",
-                      isActive
-                        ? "bg-green-700 text-white shadow-md"
-                        : "text-gray-600 hover:bg-green-50 hover:text-green-800"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Sidebar footer */}
-          <div className="border-t p-4 space-y-1">
-            <Link
-              href="/cambiar-contrasena"
-              onClick={() => setSidebarOpen(false)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <Lock className="h-5 w-5" />
-              Cambiar contraseÃ±a
-            </Link>
-            <button
-              onClick={() => signOut({ callbackUrl: "/auth/login" })}
-              className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="h-5 w-5" />
-              Cerrar sesiÃ³n
-            </button>
-          </div>
-        </nav>
+      <div className="grid min-h-[calc(100vh-3.5rem)] md:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="hidden md:block">{nav}</aside>
+        <main className="mx-auto w-full max-w-6xl p-4 md:p-6">{children}</main>
       </div>
 
-      {/* Main content */}
-      <main className="p-4 sm:p-6 max-w-5xl mx-auto">{children}</main>
+      <div
+        className={cn("fixed inset-0 z-50 bg-white md:hidden", sidebarOpen ? "block" : "hidden")}
+      >
+        <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
+          <span className="text-sm font-semibold">Menu</span>
+          <button onClick={() => setSidebarOpen(false)} className="border border-gray-300 p-2" aria-label="Cerrar menu">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="h-[calc(100vh-3.5rem)]">{nav}</div>
+      </div>
     </div>
   );
 }

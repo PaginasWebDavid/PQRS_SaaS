@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
@@ -93,7 +93,7 @@ export async function PATCH(
 
   const body = await req.json();
 
-  // --- Primer contacto: EN_ESPERA Ã¢â€ â€™ EN_PROGRESO ---
+  // --- Primer contacto: EN_ESPERA ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ EN_PROGRESO ---
   if (body.primerContacto) {
     if (pqrs.estado !== "EN_ESPERA") {
       return NextResponse.json(
@@ -121,7 +121,7 @@ export async function PATCH(
 
     if (!ASUNTOS_VALIDOS.includes(asunto)) {
       return NextResponse.json(
-        { error: "Asunto invÃƒÂ¡lido" },
+        { error: "Asunto invÃƒÆ’Ã‚Â¡lido" },
         { status: 400 }
       );
     }
@@ -174,21 +174,21 @@ export async function PATCH(
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #15803d;">Su solicitud ha sido radicada</h2>
               <p>Estimado/a <strong>${pqrs.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
-              <p>Le informamos que su PQRS ha sido recibida y estÃƒÂ¡ siendo gestionada.</p>
+              <p>Le informamos que su PQRS ha sido recibida y estÃƒÆ’Ã‚Â¡ siendo gestionada.</p>
               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                <p style="margin: 0; font-size: 14px; color: #166534;">NÃ‚Â° de radicaciÃƒÂ³n</p>
+                <p style="margin: 0; font-size: 14px; color: #166534;">NÃƒâ€šÃ‚Â° de radicaciÃƒÆ’Ã‚Â³n</p>
                 <p style="margin: 4px 0 0; font-size: 24px; font-weight: bold; color: #15803d;">${numeroRadicacion}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                 <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${asunto}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">UbicaciÃƒÂ³n</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">UbicaciÃƒÆ’Ã‚Â³n</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
               </table>
               <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
                 <p style="margin: 0; font-size: 14px; font-weight: bold; color: #374151;">Nota del primer contacto:</p>
                 <p style="margin: 8px 0 0; font-size: 14px; color: #4b5563;">${nota}</p>
               </div>
               <p style="color: #666; font-size: 14px;">Guarde este numero para hacer seguimiento a su solicitud.</p>
-              <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
+              <p style="color: #666; font-size: 14px;">PQRS SaaS</p>
             </div>
           `,
         });
@@ -247,7 +247,7 @@ export async function PATCH(
   // --- Guardar / Terminar: solo en EN_PROGRESO ---
   if (pqrs.estado === "TERMINADO") {
     return NextResponse.json(
-      { error: "Esta PQRS ya estÃƒÂ¡ cerrada" },
+      { error: "Esta PQRS ya estÃƒÆ’Ã‚Â¡ cerrada" },
       { status: 400 }
     );
   }
@@ -267,7 +267,7 @@ export async function PATCH(
 
     if (!finalAccion) {
       return NextResponse.json(
-        { error: "Para cerrar la PQRS debe completar la acciÃƒÂ³n tomada" },
+        { error: "Para cerrar la PQRS debe completar la acciÃƒÆ’Ã‚Â³n tomada" },
         { status: 400 }
       );
     }
@@ -299,7 +299,7 @@ export async function PATCH(
 
   if (asunto !== undefined) {
     if (!ASUNTOS_VALIDOS.includes(asunto)) {
-      return NextResponse.json({ error: "Asunto invÃƒÂ¡lido" }, { status: 400 });
+      return NextResponse.json({ error: "Asunto invÃƒÆ’Ã‚Â¡lido" }, { status: 400 });
     }
     updateData.asunto = asunto;
   }
@@ -381,18 +381,18 @@ export async function PATCH(
             <p>Estimado/a <strong>${updated.creadoPor.name || pqrs.nombreResidente}</strong>,</p>
             <p>Le informamos que su solicitud ha sido cerrada.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">NÃ‚Â° Solicitud</td><td style="padding: 8px; border: 1px solid #ddd;">#${pqrs.numero}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">NÃƒâ€šÃ‚Â° Solicitud</td><td style="padding: 8px; border: 1px solid #ddd;">#${pqrs.numero}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Asunto</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.asunto || "N/A"}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Descripcion</td><td style="padding: 8px; border: 1px solid #ddd;">${pqrs.descripcion}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha recibido</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaRecibido}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Fecha cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${fechaCierre}</td></tr>
               <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Estado</td><td style="padding: 8px; border: 1px solid #ddd;">${ESTADO_LABEL["TERMINADO"]}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">AcciÃƒÂ³n tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">AcciÃƒÆ’Ã‚Â³n tomada</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.accionTomada}</td></tr>
               ${updated.evidenciaCierre ? `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Evidencia de cierre</td><td style="padding: 8px; border: 1px solid #ddd;">${updated.evidenciaCierre}</td></tr>` : ""}
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">UbicaciÃƒÂ³n</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">UbicaciÃƒÆ’Ã‚Â³n</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${pqrs.bloque} - Apto ${pqrs.apto}</td></tr>
             </table>
             ${attachments.length > 0 ? `<p style="color: #666; font-size: 14px;">Se adjunta archivo de evidencia de cierre.</p>` : ""}
-            <p style="color: #666; font-size: 14px;">Conjunto Parque Residencial Calle 100</p>
+            <p style="color: #666; font-size: 14px;">PQRS SaaS</p>
           </div>
         `,
         attachments,
@@ -404,3 +404,4 @@ export async function PATCH(
 
   return NextResponse.json(updated);
 }
+

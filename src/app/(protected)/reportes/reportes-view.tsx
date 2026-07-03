@@ -119,12 +119,12 @@ export function ReportesView() {
     const { default: autoTable } = await import("jspdf-autotable");
 
     const doc = new jsPDF("landscape", "mm", "letter");
-    const periodo = month ? `${MESES[parseInt(month) - 1]} ${year}` : `Año ${year}`;
+    const periodo = month ? `${MESES[parseInt(month) - 1]} ${year}` : `AÃ±o ${year}`;
 
     // Title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("CONJUNTO PARQUE RESIDENCIAL CALLE 100", 14, 15);
+    doc.text("PQRS SaaS", 14, 15);
     doc.setFontSize(12);
     doc.text(`Reporte PQRS - ${periodo}`, 14, 23);
 
@@ -140,8 +140,8 @@ export function ReportesView() {
       ["En proceso", String(r.byEstado.enProgreso)],
       ["Terminadas", String(r.byEstado.terminado)],
       ["% Completadas", `${r.porcentajeCompletadas}%`],
-      ["Prom. primer contacto (días)", r.tiempoPromedioRespuesta !== null ? String(r.tiempoPromedioRespuesta) : "N/A"],
-      ["Prom. cierre (días)", r.tiempoPromedioCierre !== null ? String(r.tiempoPromedioCierre) : "N/A"],
+      ["Prom. primer contacto (dÃ­as)", r.tiempoPromedioRespuesta !== null ? String(r.tiempoPromedioRespuesta) : "N/A"],
+      ["Prom. cierre (dÃ­as)", r.tiempoPromedioCierre !== null ? String(r.tiempoPromedioCierre) : "N/A"],
     ];
 
     for (const [asunto, count] of Object.entries(r.byAsunto).sort((a, b) => b[1] - a[1])) {
@@ -150,7 +150,7 @@ export function ReportesView() {
 
     autoTable(doc, {
       startY: 36,
-      head: [["Métrica", "Valor"]],
+      head: [["MÃ©trica", "Valor"]],
       body: summaryRows,
       theme: "grid",
       headStyles: { fillColor: [21, 128, 61] },
@@ -169,10 +169,10 @@ export function ReportesView() {
       autoTable(doc, {
         startY: 18,
         head: [[
-          "N°", "Fecha Recibido", "Bloque", "Apto", "Nombre",
+          "NÂ°", "Fecha Recibido", "Bloque", "Apto", "Nombre",
           "Asunto", "Estado",
-          "Fecha 1er Contacto", "Días Resp.",
-          "Fecha de cierre", "Días Cierre", "Días Apertura",
+          "Fecha 1er Contacto", "DÃ­as Resp.",
+          "Fecha de cierre", "DÃ­as Cierre", "DÃ­as Apertura",
         ]],
         body: data.detalle.map((d) => [
           d.numero,
@@ -182,10 +182,10 @@ export function ReportesView() {
           d.nombreResidente,
           d.asunto.substring(0, 40),
           d.estado,
-          d.fechaPrimerContacto || "—",
-          d.tiempoRespuestaPrimerContacto !== "" ? String(d.tiempoRespuestaPrimerContacto) : "—",
-          d.fechaCierre || "—",
-          d.tiempoRespuestaCierre !== "" ? String(d.tiempoRespuestaCierre) : "—",
+          d.fechaPrimerContacto || "â€”",
+          d.tiempoRespuestaPrimerContacto !== "" ? String(d.tiempoRespuestaPrimerContacto) : "â€”",
+          d.fechaCierre || "â€”",
+          d.tiempoRespuestaCierre !== "" ? String(d.tiempoRespuestaCierre) : "â€”",
           String(d.diasDesdeApertura),
         ]),
         theme: "grid",
@@ -268,7 +268,7 @@ export function ReportesView() {
             onChange={(e) => setMonth(e.target.value)}
             className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           >
-            <option value="">Todo el año</option>
+            <option value="">Todo el aÃ±o</option>
             {MESES.map((m, i) => (
               <option key={i} value={String(i + 1)}>{m}</option>
             ))}
@@ -301,7 +301,7 @@ export function ReportesView() {
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
             <BarChart3 className="h-8 w-8 text-gray-400" />
           </div>
-          <p className="text-gray-500">No hay PQRS en el período seleccionado.</p>
+          <p className="text-gray-500">No hay PQRS en el perÃ­odo seleccionado.</p>
         </div>
       ) : (
         <>
@@ -312,12 +312,12 @@ export function ReportesView() {
             <StatCard label="En proceso" value={r.byEstado.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
             <StatCard label="Terminadas" value={r.byEstado.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
             <StatCard label="% Completadas" value={`${r.porcentajeCompletadas}%`} icon={<TrendingUp className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
-            <StatCard label="Prom. cierre" value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} días` : "—"} icon={<Timer className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
+            <StatCard label="Prom. cierre" value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} dÃ­as` : "â€”"} icon={<Timer className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
           </div>
 
           {/* Asunto distribution */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-base font-bold text-gray-900 mb-4">Distribución por asunto</h2>
+            <h2 className="text-base font-bold text-gray-900 mb-4">DistribuciÃ³n por asunto</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {asuntoEntries.map(([asunto, count]) => {
                 const pct = r.total > 0 ? Math.round((count / r.total) * 100) : 0;
@@ -380,7 +380,7 @@ export function ReportesView() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">N°</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">NÂ°</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Nombre</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Bloque</th>
@@ -388,7 +388,7 @@ export function ReportesView() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Asunto</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Estado</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha de cierre</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Días apertura</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">DÃ­as apertura</th>
                 </tr>
               </thead>
               <tbody>
@@ -409,7 +409,7 @@ export function ReportesView() {
                         {d.estado}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaCierre || "—"}</td>
+                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaCierre || "â€”"}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-center">{d.diasDesdeApertura}</td>
                   </tr>
                 ))}

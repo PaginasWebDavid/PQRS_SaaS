@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const periodo = month ? `${MESES[month - 1]} ${year}` : `AÃ±o ${year}`;
+  const periodo = month ? `${MESES[month - 1]} ${year}` : `AÃƒÂ±o ${year}`;
 
   // Resumen stats
   const total = pqrs.length;
@@ -83,19 +83,19 @@ export async function GET(req: NextRequest) {
   }
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Conjunto Parque Residencial Calle 100";
+  wb.creator = "PQRS SaaS";
 
   // Sheet 1: Resumen
   const ws1 = wb.addWorksheet("Resumen");
   ws1.columns = [{ width: 30 }, { width: 16 }];
 
   ws1.mergeCells("A1:B1");
-  ws1.getCell("A1").value = `REPORTE PQRS â€” CONJUNTO PARQUE RESIDENCIAL CALLE 100`;
+  ws1.getCell("A1").value = `REPORTE PQRS Ã¢â‚¬â€ CONJUNTO PARQUE RESIDENCIAL CALLE 100`;
   ws1.getCell("A1").font = { name: "Calibri", size: 14, bold: true, color: { argb: GREEN } };
   ws1.getRow(1).height = 30;
 
   ws1.mergeCells("A2:B2");
-  ws1.getCell("A2").value = `PerÃ­odo: ${periodo}`;
+  ws1.getCell("A2").value = `PerÃƒÂ­odo: ${periodo}`;
   ws1.getCell("A2").font = { name: "Calibri", size: 11, color: { argb: GRAY } };
 
   function addSection(title: string, rows: [string, string | number][]) {
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
   const asuntoRows: [string, number][] = Object.entries(byAsunto)
     .sort((a, b) => b[1] - a[1])
     .map(([asunto, count]) => [asunto, count]);
-  addSection("DISTRIBUCIÃ“N POR ASUNTO", asuntoRows);
+  addSection("DISTRIBUCIÃƒâ€œN POR ASUNTO", asuntoRows);
 
   addSection("ESTADO ACTUAL", [
     ["En espera", byEstado.enEspera],
@@ -128,8 +128,8 @@ export async function GET(req: NextRequest) {
     ["% Completadas", total > 0 ? `${Math.round((byEstado.terminado / total) * 100)}%` : "0%"],
   ]);
   addSection("TIEMPOS PROMEDIO", [
-    ["Primer contacto (dÃ­as)", cntResp > 0 ? Math.round((sumResp / cntResp) * 10) / 10 : "N/A"],
-    ["Cierre (dÃ­as)", cntCierre > 0 ? Math.round((sumCierre / cntCierre) * 10) / 10 : "N/A"],
+    ["Primer contacto (dÃƒÂ­as)", cntResp > 0 ? Math.round((sumResp / cntResp) * 10) / 10 : "N/A"],
+    ["Cierre (dÃƒÂ­as)", cntCierre > 0 ? Math.round((sumCierre / cntCierre) * 10) / 10 : "N/A"],
   ]);
 
   // Sheet 2: Seguimiento PQRS
@@ -143,15 +143,15 @@ export async function GET(req: NextRequest) {
   ];
 
   ws2.mergeCells("A1:O1");
-  ws2.getCell("A1").value = `SEGUIMIENTO PQRS â€” ${periodo}`;
+  ws2.getCell("A1").value = `SEGUIMIENTO PQRS Ã¢â‚¬â€ ${periodo}`;
   ws2.getCell("A1").font = { name: "Calibri", size: 14, bold: true, color: { argb: GREEN } };
   ws2.getRow(1).height = 30;
 
   const headers = [
-    "NÂ° PQRS", "Fecha Recibido", "Bloque", "Apto", "Nombre",
-    "Asunto", "DescripciÃ³n", "Estado",
-    "Fecha Primer Contacto", "Tiempo Resp.", "AcciÃ³n Tomada",
-    "Evidencia Cierre", "Fecha de cierre", "Tiempo Cierre", "DÃ­as Apertura",
+    "NÃ‚Â° PQRS", "Fecha Recibido", "Bloque", "Apto", "Nombre",
+    "Asunto", "DescripciÃƒÂ³n", "Estado",
+    "Fecha Primer Contacto", "Tiempo Resp.", "AcciÃƒÂ³n Tomada",
+    "Evidencia Cierre", "Fecha de cierre", "Tiempo Cierre", "DÃƒÂ­as Apertura",
   ];
   const hRow = ws2.addRow(headers);
   hRow.height = 28;
@@ -221,3 +221,4 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+

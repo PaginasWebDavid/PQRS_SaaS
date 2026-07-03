@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 
 function ErrorContent() {
@@ -11,39 +9,38 @@ function ErrorContent() {
   const error = searchParams.get("error");
 
   const errorMessages: Record<string, string> = {
-    Configuration: "Hay un problema con la configuración del servidor.",
+    Configuration: "Hay un problema con la configuracion del servidor.",
     AccessDenied: "No tienes permiso para acceder.",
-    Verification: "El enlace de verificación expiró o ya fue utilizado.",
-    Default: "Ocurrió un error al intentar iniciar sesión.",
+    Verification: "El enlace de verificacion expiro o ya fue utilizado.",
+    Default: "Ocurrio un error al intentar iniciar sesion.",
   };
 
   const message = errorMessages[error || "Default"] || errorMessages.Default;
 
   return (
-    <Card className="w-full max-w-md text-center">
-      <CardHeader>
-        <CardTitle className="text-2xl">Error de autenticación</CardTitle>
-        <CardDescription>{message}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Link href="/auth/login">
-          <Button>Intentar de nuevo</Button>
-        </Link>
-      </CardContent>
-    </Card>
+    <section className="w-full max-w-md border border-gray-300 bg-white p-6 text-center">
+      <h1 className="text-2xl font-bold">Error de autenticacion</h1>
+      <p className="mt-2 text-sm text-gray-600">{message}</p>
+      <Link
+        href="/auth/login"
+        className="mt-6 inline-flex h-11 items-center justify-center border border-gray-900 px-4 text-sm font-medium"
+      >
+        Intentar de nuevo
+      </Link>
+    </section>
   );
 }
 
 export default function ErrorPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-muted/40">
-      <Suspense fallback={
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <CardTitle className="text-2xl">Cargando...</CardTitle>
-          </CardHeader>
-        </Card>
-      }>
+    <main className="flex min-h-screen items-center justify-center bg-white p-4">
+      <Suspense
+        fallback={
+          <section className="w-full max-w-md border border-gray-300 bg-white p-6 text-center">
+            <h1 className="text-2xl font-bold">Cargando...</h1>
+          </section>
+        }
+      >
         <ErrorContent />
       </Suspense>
     </main>
