@@ -47,7 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         const u = user as {
           role?: string;
-          tenantId?: string;
+          tenantId?: string | null;
           bloque?: number | null;
           apto?: number | null;
         };
@@ -57,11 +57,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.apto = u.apto;
       }
 
-      if (token.id && !token.tenantId) {
+      if (token.id && !token.role) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { tenantId: true },
+          select: { role: true, tenantId: true },
         });
+        token.role = dbUser?.role;
         token.tenantId = dbUser?.tenantId;
       }
 
@@ -70,8 +71,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
-        session.user.tenantId = token.tenantId as string;
+        session.user.role = token.role as "SUPER_ADMIN" | "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
+        session.user.tenantId = token.tenantId as string | null;
         session.user.bloque = token.bloque as number | null;
         session.user.apto = token.apto as number | null;
       }

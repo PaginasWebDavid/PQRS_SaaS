@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -8,7 +8,7 @@ export default async function Home() {
   const session = await auth();
 
   if (session?.user) {
-    redirect(session.user.role === "RESIDENTE" ? "/pqrs" : "/dashboard");
+    redirect(session.user.role === "SUPER_ADMIN" ? "/super-admin" : session.user.role === "RESIDENTE" ? "/pqrs" : "/dashboard");
   }
 
   return (
@@ -37,14 +37,14 @@ export default async function Home() {
         {/* Text */}
         <div className="relative z-10 text-center max-w-xl">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
-            Sistema de Gestión
+            Sistema de GestiÃ³n
             <span className="block text-green-300 mt-1">PQRS</span>
           </h1>
           <p className="mt-4 text-lg sm:text-xl text-green-100/90">
             Peticiones, Quejas, Reclamos y Sugerencias
           </p>
           <p className="mt-2 text-sm text-green-200/60">
-            Conjunto Parque Residencial Calle 100 — Bogotá, Colombia
+            Conjunto Parque Residencial Calle 100 â€” BogotÃ¡, Colombia
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export default async function Home() {
             href="/auth/login"
             className="flex-1 text-center rounded-2xl bg-white text-green-900 font-bold text-lg py-4 px-8 shadow-lg hover:bg-green-50 hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
           >
-            Iniciar Sesión
+            Iniciar SesiÃ³n
           </Link>
           <Link
             href="/auth/registro"
@@ -69,16 +69,16 @@ export default async function Home() {
       <section className="bg-gray-50 py-16 px-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-4">
-            ¿Cómo funciona?
+            Â¿CÃ³mo funciona?
           </h2>
           <p className="text-center text-gray-500 mb-12 max-w-lg mx-auto">
-            Gestione sus solicitudes de forma sencilla y rápida desde cualquier dispositivo
+            Gestione sus solicitudes de forma sencilla y rÃ¡pida desde cualquier dispositivo
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <FeatureCard
               icon={<FileText className="h-10 w-10" />}
               title="Radique"
-              description="Envíe su solicitud de forma fácil con solo unos clics"
+              description="EnvÃ­e su solicitud de forma fÃ¡cil con solo unos clics"
             />
             <FeatureCard
               icon={<Clock className="h-10 w-10" />}
@@ -88,12 +88,12 @@ export default async function Home() {
             <FeatureCard
               icon={<CheckCircle2 className="h-10 w-10" />}
               title="Respuesta"
-              description="Reciba notificación por correo cuando su caso sea resuelto"
+              description="Reciba notificaciÃ³n por correo cuando su caso sea resuelto"
             />
             <FeatureCard
               icon={<Shield className="h-10 w-10" />}
               title="Seguro"
-              description="Sus datos están protegidos y su solicitud es confidencial"
+              description="Sus datos estÃ¡n protegidos y su solicitud es confidencial"
             />
           </div>
         </div>
@@ -104,9 +104,9 @@ export default async function Home() {
         <p className="font-medium text-green-100/80">
           Conjunto Parque Residencial Calle 100
         </p>
-        <p className="mt-1">Bogotá, Colombia</p>
+        <p className="mt-1">BogotÃ¡, Colombia</p>
         <p className="mt-2 text-green-200/40">
-          © {new Date().getFullYear()} — Todos los derechos reservados
+          Â© {new Date().getFullYear()} â€” Todos los derechos reservados
         </p>
       </footer>
     </div>

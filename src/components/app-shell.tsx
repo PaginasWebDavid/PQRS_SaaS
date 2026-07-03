@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -16,10 +16,11 @@ import {
   Plus,
   History,
   BarChart3,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Role = "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
+type Role = "SUPER_ADMIN" | "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
 
 interface NavItem {
   href: string;
@@ -28,6 +29,9 @@ interface NavItem {
 }
 
 const navByRole: Record<Role, NavItem[]> = {
+  SUPER_ADMIN: [
+    { href: "/super-admin", label: "Plataforma", icon: Shield },
+  ],
   ADMIN: [
     { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
     { href: "/pqrs", label: "PQRS", icon: FileText },
@@ -59,6 +63,7 @@ interface AppShellProps {
     name?: string | null;
     email?: string | null;
     role: Role;
+    tenantId?: string | null;
     bloque?: number | null;
     apto?: number | null;
   };
@@ -102,14 +107,16 @@ export function AppShell({ children, user }: AppShellProps) {
               {user.name}
             </p>
             <p className="text-green-200/70 text-xs">
-              {user.role === "RESIDENTE"
-                ? "Residente"
-                : user.role === "ADMIN"
-                  ? "Administrador"
-                  : user.role === "CONSEJO"
-                    ? "Consejo"
-                    : user.role}
-              {user.bloque ? ` · B${user.bloque}-${user.apto}` : ""}
+              {user.role === "SUPER_ADMIN"
+                ? "Super Admin"
+                : user.role === "RESIDENTE"
+                  ? "Residente"
+                  : user.role === "ADMIN"
+                    ? "Administrador"
+                    : user.role === "CONSEJO"
+                      ? "Consejo"
+                      : user.role}
+              {user.bloque ? ` Â· B${user.bloque}-${user.apto}` : ""}
             </p>
           </div>
           <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-sm border-2 border-green-600">
@@ -148,7 +155,7 @@ export function AppShell({ children, user }: AppShellProps) {
                   className="w-8 h-8 object-contain"
                 />
               </div>
-              <span className="font-bold text-white">Menú</span>
+              <span className="font-bold text-white">MenÃº</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -213,14 +220,14 @@ export function AppShell({ children, user }: AppShellProps) {
               className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <Lock className="h-5 w-5" />
-              Cambiar contraseña
+              Cambiar contraseÃ±a
             </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/auth/login" })}
               className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-medium text-red-600 hover:bg-red-50 transition-colors"
             >
               <LogOut className="h-5 w-5" />
-              Cerrar sesión
+              Cerrar sesiÃ³n
             </button>
           </div>
         </nav>

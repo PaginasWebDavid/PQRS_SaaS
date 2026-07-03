@@ -37,33 +37,59 @@ enum TenantStatus {
 }
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
+  id                    String     @id @default(cuid())
+  email                 String     @unique
   password              String
   name                  String
-  role                  Role      @default(RESIDENTE)
-  tenantId              String
-  tenant                Tenant    @relation(fields: [tenantId], references: [id])
+  role                  Role       @default(RESIDENTE)
+  tenantId              String?
+  tenant                Tenant?    @relation(fields: [tenantId], references: [id])
   bloque                Int?
   apto                  Int?
-  haCorregidoUbicacion  Boolean   @default(false)
+  haCorregidoUbicacion  Boolean    @default(false)
   emailVerified         DateTime?
   image                 String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  pqrsCreated           Pqrs[]    @relation("CreatedBy")
-  pqrsManaged           Pqrs[]    @relation("ManagedBy")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  pqrsCreated           Pqrs[]     @relation("CreatedBy")
+  pqrsManaged           Pqrs[]     @relation("ManagedBy")
+  auditLogs             AuditLog[] @relation("AuditActor")
   sessions              Session[]
   accounts              Account[]
 
   @@index([tenantId])
+  @@index([role])
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   ASISTENTE
   CONSEJO
   RESIDENTE
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorUserId String?
+  actor       User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      AuditAction
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum AuditAction {
+  TENANT_CREATED
+  TENANT_SUSPENDED
+  TENANT_REACTIVATED
+  PLATFORM_SETTING_CHANGED
+  PRICING_RULE_CHANGED
 }
 
 model Pqrs {
