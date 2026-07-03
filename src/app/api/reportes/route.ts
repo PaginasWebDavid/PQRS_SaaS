@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: "En espera",
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
   if (session.user.role === "RESIDENTE") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
+
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;

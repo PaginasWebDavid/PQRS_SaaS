@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { getTenantLicenseSummary } from "@/domains/billing/billing.service";
 
 const MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -15,6 +16,9 @@ export async function GET(req: NextRequest) {
   if (session.user.role === "RESIDENTE") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
+
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
   const { searchParams } = req.nextUrl;
@@ -38,6 +42,21 @@ export async function GET(req: NextRequest) {
     where: {
       tenantId,
       fechaRecibido: { gte: dateGte, lt: dateLt },
+    },
+    select: {
+      id: true,
+      numero: true,
+      estado: true,
+      fechaRecibido: true,
+      fechaPrimerContacto: true,
+      tiempoRespuestaPrimerContacto: true,
+      tiempoRespuestaCierre: true,
+      asunto: true,
+      subAsunto: true,
+      nombreResidente: true,
+      bloque: true,
+      apto: true,
+      faseActual: true,
     },
   });
 

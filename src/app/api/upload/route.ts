@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { uploadToStorage } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
@@ -13,12 +14,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
+
   const tenantId = getTenantIdFromSession(session);
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
 
   if (!file) {
-    return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
+    return NextResponse.json({ error: "No se enviÃ³ ningÃºn archivo" }, { status: 400 });
   }
 
   if (file.size > 2 * 1024 * 1024) {
