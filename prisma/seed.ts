@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Limpiando base de datos...");
 
+  await prisma.auditLog.deleteMany();
   await prisma.historialPqrs.deleteMany();
   await prisma.pqrsFoto.deleteMany();
   await prisma.pqrs.deleteMany();
@@ -30,6 +31,18 @@ async function main() {
   });
 
   const hash = (pw: string) => bcrypt.hashSync(pw, 10);
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || "superadmin@pqrs.local";
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || "superadmin123";
+
+  await prisma.user.create({
+    data: {
+      email: superAdminEmail,
+      password: hash(superAdminPassword),
+      name: "SUPER_ADMIN PQRS Services",
+      role: Role.SUPER_ADMIN,
+      tenantId: null,
+    },
+  });
 
   await prisma.user.create({
     data: {
@@ -52,10 +65,11 @@ async function main() {
   });
 
   console.log("Tenant inicial creado: 1");
-  console.log("Usuarios creados: 2");
+  console.log("Usuarios creados: 3");
   console.log("\n--- Credenciales ---");
-  console.log("ADMIN:   admoncallecien@gmail.com / calle100");
-  console.log("CONSEJO: consejoadmoncallecien@gmail.com / Auditoría");
+  console.log(`SUPER_ADMIN: ${superAdminEmail} / ${superAdminPassword}`);
+  console.log("ADMIN:       admoncallecien@gmail.com / calle100");
+  console.log("CONSEJO:     consejoadmoncallecien@gmail.com / Auditoría");
 }
 
 main()
