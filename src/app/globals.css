@@ -5,38 +5,115 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 150 10% 10%;
+    --foreground: 0 0% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 150 10% 10%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 150 10% 10%;
-    --primary: 142 55% 30%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 138 16% 94%;
-    --secondary-foreground: 142 55% 22%;
-    --muted: 138 10% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 138 16% 92%;
-    --accent-foreground: 142 55% 22%;
-    --destructive: 0 84% 60%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 0% 10%;
     --destructive-foreground: 0 0% 100%;
-    --border: 138 10% 90%;
-    --input: 138 10% 82%;
-    --ring: 142 55% 30%;
-    --radius: 0.75rem;
-    --chart-1: 142 55% 30%;
-    --chart-2: 45 93% 47%;
-    --chart-3: 213 94% 43%;
-    --chart-4: 25 95% 53%;
-    --chart-5: 354 70% 54%;
+    --border: 0 0% 84%;
+    --input: 0 0% 78%;
+    --ring: 0 0% 10%;
+    --radius: 0.125rem;
+    --chart-1: 0 0% 20%;
+    --chart-2: 0 0% 35%;
+    --chart-3: 0 0% 50%;
+    --chart-4: 0 0% 65%;
+    --chart-5: 0 0% 80%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    background: #ffffff;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Neutral scaffold: keeps all features visible while removing branding. */
+[class*="bg-gradient"],
+[class*="from-"],
+[class*="via-"],
+[class*="to-"] {
+  background-image: none !important;
+}
+
+[class*="bg-green"],
+[class*="bg-blue"],
+[class*="bg-red"],
+[class*="bg-yellow"],
+[class*="bg-purple"],
+[class*="bg-amber"] {
+  background-color: #ffffff !important;
+}
+
+[class*="text-green"],
+[class*="text-blue"],
+[class*="text-red"],
+[class*="text-yellow"],
+[class*="text-purple"],
+[class*="text-amber"],
+[class*="text-white"] {
+  color: #111111 !important;
+}
+
+[class*="border-green"],
+[class*="border-blue"],
+[class*="border-red"],
+[class*="border-yellow"],
+[class*="border-purple"],
+[class*="border-amber"] {
+  border-color: #d1d5db !important;
+}
+
+[class*="ring-green"],
+[class*="ring-blue"],
+[class*="ring-red"],
+[class*="ring-yellow"],
+[class*="ring-purple"],
+[class*="ring-amber"] {
+  --tw-ring-color: #111111 !important;
+}
+
+[class*="shadow"] {
+  box-shadow: none !important;
+}
+
+[class*="rounded"] {
+  border-radius: 0.125rem !important;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition: none !important;
+}
+
+button,
+a[class*="bg-"],
+[data-slot="button"] {
+  border-color: #111111 !important;
+}
+
+input,
+select,
+textarea {
+  background-color: #ffffff !important;
+  color: #111111 !important;
 }

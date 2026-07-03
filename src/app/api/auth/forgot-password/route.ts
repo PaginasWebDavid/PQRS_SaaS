@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import crypto from "crypto";
@@ -37,19 +37,19 @@ export async function POST(req: NextRequest) {
     try {
       await sendEmail({
         to: email,
-        subject: "Restablecer contraseña - Conjunto Parque Residencial Calle 100",
+        subject: "Restablecer contraseÃ±a - PQRS SaaS",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1a1a1a;">Restablecer contraseña</h2>
+            <h2 style="color: #1a1a1a;">Restablecer contraseÃ±a</h2>
             <p>Hola <strong>${user.name}</strong>,</p>
-            <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el siguiente botón:</p>
+            <p>Recibimos una solicitud para restablecer tu contraseÃ±a. Haz clic en el siguiente botÃ³n:</p>
             <div style="text-align: center; margin: 24px 0;">
               <a href="${resetUrl}" style="display: inline-block; background-color: #15803d; color: white; font-weight: bold; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-size: 16px;">
-                Restablecer contraseña
+                Restablecer contraseÃ±a
               </a>
             </div>
             <p style="color: #666; font-size: 14px;">Este enlace expira en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo.</p>
-            <p style="color: #999; font-size: 12px;">Conjunto Parque Residencial Calle 100</p>
+            <p style="color: #999; font-size: 12px;">PQRS SaaS</p>
           </div>
         `,
       });
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    message: "Si el correo existe, recibirás un enlace para restablecer tu contraseña",
+    message: "Si el correo existe, recibirÃ¡s un enlace para restablecer tu contraseÃ±a",
   });
 }
+

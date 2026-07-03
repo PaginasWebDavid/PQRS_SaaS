@@ -176,7 +176,7 @@ export function DashboardView() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
           Panel
-          {month ? ` — ${MESES[parseInt(month) - 1]}` : ""} {year}
+          {month ? ` â€” ${MESES[parseInt(month) - 1]}` : ""} {year}
         </h1>
         <div className="flex gap-2 flex-wrap">
           <select
@@ -193,7 +193,7 @@ export function DashboardView() {
             onChange={(e) => setMonth(e.target.value)}
             className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
           >
-            <option value="">Todo el año</option>
+            <option value="">Todo el aÃ±o</option>
             {MESES.map((m, i) => (
               <option key={i} value={String(i + 1)}>{m}</option>
             ))}
@@ -224,12 +224,29 @@ export function DashboardView() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
               <LicenseMetric label="Precio" value={formatMoney(data.licenseSummary.priceCents, data.licenseSummary.currency)} />
-              <LicenseMetric label="Próximo pago" value={fmtDate(data.licenseSummary.nextPaymentDueDate)} />
+              <LicenseMetric label="PrÃ³ximo pago" value={fmtDate(data.licenseSummary.nextPaymentDueDate)} />
               <LicenseMetric label="Unidades" value={String(data.licenseSummary.unitsSnapshot)} />
             </div>
           </div>
         </div>
       )}
+      <section className="border border-gray-200 bg-white p-4">
+        <h2 className="text-base font-semibold text-gray-900">Mapa funcional del administrador</h2>
+        <div className="mt-3 grid gap-3 text-sm text-gray-700 md:grid-cols-3">
+          <div className="border border-gray-200 p-3">
+            <p className="font-medium">PQRS</p>
+            <p className="mt-1 text-gray-500">Crear, filtrar, registrar primer contacto, gestionar fases y cerrar con evidencia.</p>
+          </div>
+          <div className="border border-gray-200 p-3">
+            <p className="font-medium">Usuarios</p>
+            <p className="mt-1 text-gray-500">Consultar residentes, cambiar roles permitidos y actualizar ubicaciones.</p>
+          </div>
+          <div className="border border-gray-200 p-3">
+            <p className="font-medium">Reportes</p>
+            <p className="mt-1 text-gray-500">Revisar indicadores, exportar Excel/PDF y auditar tiempos de respuesta.</p>
+          </div>
+        </div>
+      </section>
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Link href="/pqrs?estado=todos">
@@ -261,7 +278,7 @@ export function DashboardView() {
           </div>
           <p className="text-xs text-gray-500 leading-tight">Prom. primer contacto</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
-            {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "—"}
+            {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "â€”"}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
@@ -270,7 +287,7 @@ export function DashboardView() {
           </div>
           <p className="text-xs text-gray-500 leading-tight">Prom. tiempo de cierre</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
-            {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "—"}
+            {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "â€”"}
           </p>
         </div>
       </div>
@@ -341,7 +358,7 @@ export function DashboardView() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-center px-4 py-3 font-bold text-gray-700">Cantidad</th>
                 <th className="text-left px-4 py-3 font-bold text-gray-700">Asunto</th>
-                <th className="text-left px-4 py-3 font-bold text-gray-700">Descripción</th>
+                <th className="text-left px-4 py-3 font-bold text-gray-700">DescripciÃ³n</th>
                 <th className="text-center px-4 py-3 font-bold text-green-700">Terminados</th>
                 <th className="text-center px-4 py-3 font-bold text-blue-700">En Proceso</th>
                 <th className="text-center px-4 py-3 font-bold text-yellow-700">En Espera</th>
@@ -377,7 +394,7 @@ export function DashboardView() {
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <h2 className="text-base font-bold text-yellow-800">
-              PQRS pendientes de gestión (En espera)
+              PQRS pendientes de gestiÃ³n (En espera)
             </h2>
           </div>
           <div className="space-y-2">
@@ -389,7 +406,7 @@ export function DashboardView() {
                       <span className="font-mono text-xs text-gray-400">#{p.numero}</span>
                       <span className="text-sm font-medium text-gray-900 truncate">{p.asunto}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} · B{p.bloque}-{p.apto}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} Â· B{p.bloque}-{p.apto}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
@@ -429,7 +446,7 @@ export function DashboardView() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} · B{p.bloque}-{p.apto}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} Â· B{p.bloque}-{p.apto}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded-lg ${

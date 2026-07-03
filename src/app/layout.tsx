@@ -7,9 +7,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "PQRS - Conjunto Parque Residencial Calle 100",
-  description:
-    "Sistema de gestión de PQRS del Conjunto Parque Residencial Calle 100",
+  title: "PQRS SaaS",
+  description: "Plataforma multi-tenant para gestion de PQRS.",
 };
 
 export default function RootLayout({

@@ -4,8 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +11,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +26,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Correo o contraseña incorrectos");
+      setError("Correo o contrasena incorrectos");
     } else {
       router.push("/");
       router.refresh();
@@ -37,120 +34,62 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-green-950 via-green-900 to-green-800">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Link href="/">
-            <div className="bg-white rounded-2xl p-3 shadow-xl hover:shadow-2xl transition-shadow">
-              <Image
-                src="/logo.png"
-                alt="Calle 100"
-                width={120}
-                height={120}
-                className="w-24 h-24 object-contain"
-              />
-            </div>
-          </Link>
-        </div>
+    <main className="min-h-screen bg-white px-6 py-12 text-gray-950">
+      <div className="mx-auto max-w-sm">
+        <Link href="/" className="text-sm text-gray-500 underline underline-offset-4">
+          Volver
+        </Link>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Bienvenido</h1>
-            <p className="text-gray-500 mt-1">Ingresa a tu cuenta</p>
-          </div>
+        <div className="mt-10 border border-gray-200 p-6">
+          <h1 className="text-2xl font-semibold">Iniciar sesion</h1>
+          <p className="mt-2 text-sm text-gray-600">Acceso para SUPER_ADMIN, ADMIN, ASISTENTE, CONSEJO y RESIDENTE.</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="block text-base font-medium text-gray-700"
-              >
-                Correo electrónico
-              </label>
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-sm font-medium">Correo</label>
               <input
                 id="email"
                 type="email"
-                placeholder="tu@correo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoFocus
-                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                className="h-10 w-full border border-gray-300 px-3 text-sm outline-none focus:border-gray-950"
               />
             </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="block text-base font-medium text-gray-700"
-              >
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Tu contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full h-12 text-base px-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-medium">Contrasena</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-10 w-full border border-gray-300 px-3 text-sm outline-none focus:border-gray-950"
+              />
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
-                {error}
-              </div>
-            )}
+            {error && <p className="border border-gray-300 p-3 text-sm text-gray-900">{error}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="h-10 w-full border border-gray-950 bg-white px-3 text-sm font-medium disabled:opacity-50"
             >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                "Iniciar Sesión"
-              )}
+              {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
 
-          <div className="mt-4 text-center">
-            <Link
-              href="/auth/olvidar-contrasena"
-              className="text-sm text-gray-500 hover:text-green-700 hover:underline"
-            >
-              ¿Olvidaste tu contraseña?
+          <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+            <Link href="/auth/olvidar-contrasena" className="underline underline-offset-4">
+              Olvide mi contrasena
+            </Link>
+            <Link href="/auth/registro" className="underline underline-offset-4">
+              Registro
             </Link>
           </div>
-
-          <div className="mt-4 text-center">
-            <p className="text-gray-500">
-              ¿No tienes cuenta?{" "}
-              <Link
-                href="/auth/registro"
-                className="font-bold text-green-700 hover:text-green-800 hover:underline"
-              >
-                Regístrate aquí
-              </Link>
-            </p>
-          </div>
         </div>
-
-        <p className="text-center text-green-200/50 text-sm mt-6">
-          Conjunto Parque Residencial Calle 100
-        </p>
       </div>
     </main>
   );

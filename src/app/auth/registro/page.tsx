@@ -1,10 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function RegistroPage() {
@@ -64,7 +63,7 @@ export default function RegistroPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Cuenta creada. Intenta iniciar sesión manualmente.");
+      setError("Cuenta creada. Intenta iniciar sesion manualmente.");
     } else {
       router.push("/");
       router.refresh();
@@ -72,38 +71,23 @@ export default function RegistroPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-green-950 via-green-900 to-green-800">
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-white">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <Link href="/">
-            <div className="bg-white rounded-2xl p-3 shadow-xl hover:shadow-2xl transition-shadow">
-              <Image
-                src="/logo.png"
-                alt="Calle 100"
-                width={100}
-                height={100}
-                className="w-20 h-20 object-contain"
-              />
-            </div>
+        <div className="mb-6">
+          <Link href="/" className="text-sm underline">
+            PQRS SaaS
           </Link>
         </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className="bg-white border border-gray-300 p-6">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Crear cuenta</h1>
-            <p className="text-gray-500 mt-1">
-              Regístrate para radicar tus PQRS
-            </p>
+            <p className="text-gray-500 mt-1">Registro basico para residentes.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label
-                htmlFor="name"
-                className="block text-base font-medium text-gray-700"
-              >
+              <label htmlFor="name" className="block text-base font-medium text-gray-700">
                 Nombre completo
               </label>
               <input
@@ -118,11 +102,8 @@ export default function RegistroPage() {
             </div>
 
             <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="block text-base font-medium text-gray-700"
-              >
-                Correo electrónico
+              <label htmlFor="email" className="block text-base font-medium text-gray-700">
+                Correo electronico
               </label>
               <input
                 id="email"
@@ -136,17 +117,14 @@ export default function RegistroPage() {
             </div>
 
             <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="block text-base font-medium text-gray-700"
-              >
-                Contraseña
+              <label htmlFor="password" className="block text-base font-medium text-gray-700">
+                Contrasena
               </label>
               <div className="relative">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Minimo 6 caracteres"
                   value={form.password}
                   onChange={(e) => handleChange("password", e.target.value)}
                   required
@@ -157,6 +135,7 @@ export default function RegistroPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -165,9 +144,7 @@ export default function RegistroPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-base font-medium text-gray-700">
-                  Bloque
-                </label>
+                <label className="block text-base font-medium text-gray-700">Bloque</label>
                 <select
                   value={form.bloque}
                   onChange={(e) => handleChange("bloque", e.target.value)}
@@ -183,10 +160,7 @@ export default function RegistroPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label
-                  htmlFor="apto"
-                  className="block text-base font-medium text-gray-700"
-                >
+                <label htmlFor="apto" className="block text-base font-medium text-gray-700">
                   Apartamento
                 </label>
                 <input
@@ -202,41 +176,26 @@ export default function RegistroPage() {
               </div>
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
-                {error}
-              </div>
-            )}
+            {error && <div className="border border-gray-300 p-3 text-sm text-gray-900 text-center">{error}</div>}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                "Registrarse"
-              )}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Registrarse"}
             </button>
           </form>
 
           <div className="mt-5 text-center">
             <p className="text-gray-500">
-              ¿Ya tienes cuenta?{" "}
-              <Link
-                href="/auth/login"
-                className="font-bold text-green-700 hover:text-green-800 hover:underline"
-              >
-                Inicia sesión
+              Ya tienes cuenta?{" "}
+              <Link href="/auth/login" className="font-bold text-green-700 hover:text-green-800 hover:underline">
+                Inicia sesion
               </Link>
             </p>
           </div>
         </div>
-
-        <p className="text-center text-green-200/50 text-sm mt-6">
-          Conjunto Parque Residencial Calle 100
-        </p>
       </div>
     </main>
   );
