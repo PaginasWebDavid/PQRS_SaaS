@@ -95,6 +95,8 @@ enum AuditAction {
   SUBSCRIPTION_CREATED
   SUBSCRIPTION_RENEWED
   PAYMENT_SIMULATED
+  MERCADO_PAGO_SUBSCRIPTION_CREATED
+  MERCADO_PAGO_WEBHOOK_PROCESSED
 }
 
 
@@ -123,8 +125,12 @@ model Subscription {
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
   trialEndsAt        DateTime?
-  graceEndsAt        DateTime?
-  createdAt          DateTime           @default(now())
+  graceEndsAt                 DateTime?
+  mercadoPagoPreapprovalId    String?            @unique
+  mercadoPagoInitPoint        String?            @db.Text
+  mercadoPagoStatus           String?
+  lastWebhookAt               DateTime?
+  createdAt                   DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   payments           Payment[]
 
@@ -154,8 +160,10 @@ model Payment {
   paidAt            DateTime?
   periodStart       DateTime
   periodEnd         DateTime
-  externalReference String?
-  createdAt         DateTime        @default(now())
+  externalReference    String?
+  mercadoPagoPaymentId String?         @unique
+  rawStatus            String?
+  createdAt            DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   @@index([tenantId])
