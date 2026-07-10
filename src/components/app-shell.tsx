@@ -10,7 +10,6 @@ import {
   History,
   LayoutDashboard,
   Lock,
-  LogOut,
   Menu,
   Plus,
   Shield,
@@ -77,19 +76,35 @@ const roleLabel: Record<Role, string> = {
   RESIDENTE: "Residente",
 };
 
+function getInitials(name?: string | null, email?: string | null) {
+  const source = name?.trim() || email?.trim() || "U";
+  return source
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
 export function AppShell({ children, user }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const navItems = navByRole[user.role] || navByRole.RESIDENTE;
 
+  const initials = getInitials(user.name, user.email);
+
   const nav = (
-    <nav className="flex h-full flex-col border-r border-gray-200 bg-white">
-      <div className="border-b border-gray-200 p-4">
-        <p className="text-sm font-semibold">PQRS SaaS</p>
-        <p className="mt-1 text-xs text-gray-500">Plantilla funcional basica</p>
+    <nav className="flex h-full flex-col bg-[#FAFAFA] p-4">
+      <div className="flex items-center gap-2 px-2 pb-5">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground">
+          P
+        </span>
+        <span className="text-sm font-extrabold tracking-tight">
+          PQRS <span className="font-medium text-muted-foreground">Services</span>
+        </span>
       </div>
 
-      <div className="flex-1 space-y-1 overflow-y-auto p-3">
+      <div className="flex-1 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/pqrs" && pathname.startsWith(item.href + "/"));
           const Icon = item.icon;
@@ -99,71 +114,86 @@ export function AppShell({ children, user }: AppShellProps) {
               href={item.href}
               onClick={() => setSidebarOpen(false)}
               className={cn(
-                "block border border-transparent p-3 text-sm",
-                isActive ? "border-gray-950 bg-white" : "hover:border-gray-300"
+                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-colors",
+                isActive ? "bg-accent text-primary" : "text-[#424245] hover:bg-black/[0.04]"
               )}
             >
-              <span className="flex items-center gap-2 font-medium">
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </span>
-              <span className="mt-1 block text-xs text-gray-500">{item.description}</span>
+              <Icon className="h-4 w-4 shrink-0" />
+              {item.label}
             </Link>
           );
         })}
       </div>
 
-      <div className="space-y-2 border-t border-gray-200 p-3">
-        <Link href="/cambiar-contrasena" className="flex items-center gap-2 border border-gray-200 px-3 py-2 text-sm">
-          <Lock className="h-4 w-4" />
+      <div className="mt-auto space-y-1 border-t border-black/[0.06] pt-3">
+        <Link
+          href="/cambiar-contrasena"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold text-[#424245] transition-colors hover:bg-black/[0.04]"
+        >
+          <Lock className="h-4 w-4 shrink-0" />
           Cambiar clave
         </Link>
-        <button
-          onClick={() => signOut({ callbackUrl: "/auth/login" })}
-          className="flex w-full items-center gap-2 border border-gray-200 px-3 py-2 text-left text-sm"
-        >
-          <LogOut className="h-4 w-4" />
-          Cerrar sesion
-        </button>
+        <div className="flex items-center gap-2.5 px-2 pt-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-extrabold text-primary">
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-extrabold leading-tight">{user.name || user.email || "Usuario"}</p>
+            <p className="truncate text-[11px] font-medium text-muted-foreground">{roleLabel[user.role]}</p>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/auth/login" })}
+            className="text-[11.5px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Salir
+          </button>
+        </div>
       </div>
     </nav>
   );
 
   return (
-    <div className="min-h-screen bg-white text-gray-950">
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
+    <div className="min-h-screen bg-white text-[#1D1D1F]">
+      <header className="sticky top-0 z-40 flex h-13 items-center gap-3 border-b border-black/[0.06] bg-white/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center border border-gray-300 md:hidden"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#F5F5F7]"
           aria-label="Abrir menu"
         >
           <Menu className="h-4 w-4" />
         </button>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{roleLabel[user.role]}</p>
-          <p className="truncate text-xs text-gray-500">
-            {user.name || user.email || "Usuario"}
-            {user.bloque ? ` · B${user.bloque}-${user.apto}` : ""}
-          </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-extrabold">{roleLabel[user.role]}</p>
         </div>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-extrabold text-primary">
+          {getInitials(user.name, user.email)}
+        </span>
       </header>
 
-      <div className="grid min-h-[calc(100vh-3.5rem)] md:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="hidden md:block">{nav}</aside>
-        <main className="mx-auto w-full max-w-6xl p-4 md:p-6">{children}</main>
+      <div className="grid min-h-screen md:grid-cols-[264px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-black/[0.06] md:block">{nav}</aside>
+        <main className="mx-auto w-full max-w-[1080px] px-5 py-6 md:px-10 md:py-10">{children}</main>
       </div>
 
-      <div
-        className={cn("fixed inset-0 z-50 bg-white md:hidden", sidebarOpen ? "block" : "hidden")}
-      >
-        <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
-          <span className="text-sm font-semibold">Menu</span>
-          <button onClick={() => setSidebarOpen(false)} className="border border-gray-300 p-2" aria-label="Cerrar menu">
-            <X className="h-4 w-4" />
-          </button>
+      {sidebarOpen ? (
+        <div className="fixed inset-0 z-[190] bg-black/35 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div
+            className="h-full w-[290px] max-w-[84vw] bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-end p-3">
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F5F5F7]"
+                aria-label="Cerrar menu"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="h-[calc(100%-3.5rem)] px-1">{nav}</div>
+          </div>
         </div>
-        <div className="h-[calc(100vh-3.5rem)]">{nav}</div>
-      </div>
+      ) : null}
     </div>
   );
 }
