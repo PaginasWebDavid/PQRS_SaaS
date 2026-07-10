@@ -5,30 +5,37 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 10%;
+    --foreground: 240 8% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 240 8% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 0 0% 10%;
+    --popover-foreground: 240 8% 11%;
+    --primary: 217 55% 18%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 0 0% 94%;
-    --accent-foreground: 0 0% 10%;
-    --destructive: 0 0% 10%;
+    --secondary: 220 20% 95%;
+    --secondary-foreground: 217 55% 18%;
+    --muted: 240 8% 97%;
+    --muted-foreground: 240 3% 45%;
+    --accent: 220 33% 94%;
+    --accent-foreground: 217 55% 18%;
+    --success: 152 33% 26%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 152 40% 94%;
+    --warning: 39 100% 27%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 42 61% 92%;
+    --destructive: 5 66% 41%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 84%;
-    --input: 0 0% 78%;
-    --ring: 0 0% 10%;
-    --radius: 0.125rem;
-    --chart-1: 0 0% 20%;
-    --chart-2: 0 0% 35%;
-    --chart-3: 0 0% 50%;
-    --chart-4: 0 0% 65%;
-    --chart-5: 0 0% 80%;
+    --destructive-muted: 4 71% 95%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 217 55% 18%;
+    --radius: 1rem;
+    --chart-1: 217 55% 18%;
+    --chart-2: 152 33% 26%;
+    --chart-3: 39 61% 45%;
+    --chart-4: 220 33% 80%;
+    --chart-5: 240 3% 60%;
   }
 
   * {
@@ -42,78 +49,4 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* Neutral scaffold: keeps all features visible while removing branding. */
-[class*="bg-gradient"],
-[class*="from-"],
-[class*="via-"],
-[class*="to-"] {
-  background-image: none !important;
-}
-
-[class*="bg-green"],
-[class*="bg-blue"],
-[class*="bg-red"],
-[class*="bg-yellow"],
-[class*="bg-purple"],
-[class*="bg-amber"] {
-  background-color: #ffffff !important;
-}
-
-[class*="text-green"],
-[class*="text-blue"],
-[class*="text-red"],
-[class*="text-yellow"],
-[class*="text-purple"],
-[class*="text-amber"],
-[class*="text-white"] {
-  color: #111111 !important;
-}
-
-[class*="border-green"],
-[class*="border-blue"],
-[class*="border-red"],
-[class*="border-yellow"],
-[class*="border-purple"],
-[class*="border-amber"] {
-  border-color: #d1d5db !important;
-}
-
-[class*="ring-green"],
-[class*="ring-blue"],
-[class*="ring-red"],
-[class*="ring-yellow"],
-[class*="ring-purple"],
-[class*="ring-amber"] {
-  --tw-ring-color: #111111 !important;
-}
-
-[class*="shadow"] {
-  box-shadow: none !important;
-}
-
-[class*="rounded"] {
-  border-radius: 0.125rem !important;
-}
-
-button,
-a,
-input,
-select,
-textarea {
-  transition: none !important;
-}
-
-button,
-a[class*="bg-"],
-[data-slot="button"] {
-  border-color: #111111 !important;
-}
-
-input,
-select,
-textarea {
-  background-color: #ffffff !important;
-  color: #111111 !important;
 }
