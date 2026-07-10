@@ -173,13 +173,13 @@ export default async function SuperAdminPage({
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Plataforma</h1>
-          <p className="text-sm text-gray-500">Dashboard SUPER_ADMIN</p>
+          <h1 className="text-2xl font-bold text-foreground">Plataforma</h1>
+          <p className="text-sm text-muted-foreground">Dashboard SUPER_ADMIN</p>
         </div>
       </div>
 
       {searchParams.createdTenant && searchParams.adminEmail && searchParams.tempPassword && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+        <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
           <p className="font-semibold">Tenant creado: {searchParams.createdTenant}</p>
           <p className="mt-1">ADMIN: {searchParams.adminEmail}</p>
           <p className="mt-1 font-mono">Contraseña temporal: {searchParams.tempPassword}</p>
@@ -205,10 +205,10 @@ export default async function SuperAdminPage({
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900">Gestión de Tenant</h2>
+          <h2 className="text-lg font-semibold text-foreground">Gestión de Tenant</h2>
           <div className="overflow-x-auto rounded-lg border bg-white">
             <table className="w-full min-w-[860px] text-sm">
-              <thead className="bg-gray-50 text-left text-gray-600">
+              <thead className="bg-muted text-left text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-medium">Nombre</th>
                   <th className="px-4 py-3 font-medium">Slug</th>
@@ -227,32 +227,32 @@ export default async function SuperAdminPage({
                   const admin = tenant.users[0];
                   return (
                     <tr key={tenant.id}>
-                      <td className="px-4 py-3 font-medium text-gray-900">{tenant.name}</td>
-                      <td className="px-4 py-3 text-gray-600">{tenant.slug}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{tenant.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{tenant.slug}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={tenant.status} />
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{tenant.units}</td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-muted-foreground">{tenant.units}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
                         {admin ? `${admin.name} · ${admin.email}` : "Sin ADMIN"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {tenant.subscription ? getSubscriptionStatusLabel(tenant.subscription.status) : "Sin licencia"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {tenant.subscription ? formatMoneyFromCents(tenant.subscription.priceCents, tenant.subscription.currency) : "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {tenant.subscription ? tenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO") : "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {tenant.createdAt.toLocaleDateString("es-CO")}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`/super-admin?tenantId=${tenant.id}`}
-                            className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border px-2.5 text-[0.8rem] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                            className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border px-2.5 text-[0.8rem] font-medium text-foreground transition-colors hover:bg-muted"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Ver
@@ -304,7 +304,7 @@ export default async function SuperAdminPage({
 
         <form action={createTenantAction} className="space-y-4 rounded-lg border bg-white p-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Crear Tenant</h2>
+            <h2 className="text-lg font-semibold text-foreground">Crear Tenant</h2>
           </div>
           <Field name="name" label="Nombre del conjunto" required />
           <Field name="slug" label="Slug" />
@@ -324,8 +324,8 @@ export default async function SuperAdminPage({
         <section className="space-y-3 rounded-lg border bg-white p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Detalle de Tenant</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-foreground">Detalle de Tenant</h2>
+              <p className="text-sm text-muted-foreground">
                 {selectedTenant.name} · {selectedTenant.slug}
               </p>
             </div>
@@ -352,7 +352,7 @@ export default async function SuperAdminPage({
                   href={selectedTenant.subscription.mercadoPagoInitPoint}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   Abrir autorización Mercado Pago
                 </a>
@@ -362,18 +362,18 @@ export default async function SuperAdminPage({
 
           {selectedTenant.subscription && (
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900">Pagos recientes</h3>
+              <h3 className="font-medium text-foreground">Pagos recientes</h3>
               <div className="divide-y rounded-lg border">
                 {selectedTenant.subscription.payments.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-gray-500">Sin pagos registrados.</p>
+                  <p className="px-3 py-3 text-sm text-muted-foreground">Sin pagos registrados.</p>
                 ) : (
                   selectedTenant.subscription.payments.map((payment) => (
                     <div key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                       <div>
-                        <p className="font-medium text-gray-900">{formatMoneyFromCents(payment.amountCents, payment.currency)}</p>
-                        <p className="text-gray-500">{payment.provider} · {payment.createdAt.toLocaleDateString("es-CO")}</p>
+                        <p className="font-medium text-foreground">{formatMoneyFromCents(payment.amountCents, payment.currency)}</p>
+                        <p className="text-muted-foreground">{payment.provider} · {payment.createdAt.toLocaleDateString("es-CO")}</p>
                       </div>
-                      <span className="text-xs font-medium text-gray-500">{getSubscriptionStatusLabel(payment.status)}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{getSubscriptionStatusLabel(payment.status)}</span>
                     </div>
                   ))
                 )}
@@ -383,33 +383,33 @@ export default async function SuperAdminPage({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900">Usuarios</h3>
+              <h3 className="font-medium text-foreground">Usuarios</h3>
               <div className="divide-y rounded-lg border">
                 {selectedTenant.users.map((user) => (
                   <div key={user.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <div>
-                      <p className="font-medium text-gray-900">{user.name}</p>
-                      <p className="text-gray-500">{user.email}</p>
+                      <p className="font-medium text-foreground">{user.name}</p>
+                      <p className="text-muted-foreground">{user.email}</p>
                     </div>
-                    <span className="text-xs font-medium text-gray-500">{user.role}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{user.role}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900">PQRS recientes</h3>
+              <h3 className="font-medium text-foreground">PQRS recientes</h3>
               <div className="divide-y rounded-lg border">
                 {selectedTenant.pqrs.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-gray-500">Sin PQRS registradas.</p>
+                  <p className="px-3 py-3 text-sm text-muted-foreground">Sin PQRS registradas.</p>
                 ) : (
                   selectedTenant.pqrs.map((pqrs) => (
                     <div key={pqrs.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                       <div>
-                        <p className="font-medium text-gray-900">#{pqrs.numero} · {pqrs.asunto || "Sin asunto"}</p>
-                        <p className="text-gray-500">{pqrs.nombreResidente}</p>
+                        <p className="font-medium text-foreground">#{pqrs.numero} · {pqrs.asunto || "Sin asunto"}</p>
+                        <p className="text-muted-foreground">{pqrs.nombreResidente}</p>
                       </div>
-                      <span className="text-xs font-medium text-gray-500">{pqrs.estado}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{pqrs.estado}</span>
                     </div>
                   ))
                 )}
@@ -420,8 +420,8 @@ export default async function SuperAdminPage({
       )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">Auditoría reciente</h2>
-        <div className="rounded-lg border bg-white p-4 text-sm text-gray-600">
+        <h2 className="text-lg font-semibold text-foreground">Auditoría reciente</h2>
+        <div className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">
           {recentAuditLogs.length === 0 ? (
             <p>No hay eventos de auditoría registrados.</p>
           ) : (
@@ -429,7 +429,7 @@ export default async function SuperAdminPage({
               {recentAuditLogs.map((log) => (
                 <li key={log.id} className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                   <span>{log.action}</span>
-                  <span className="text-gray-400">{log.createdAt.toLocaleString("es-CO")}</span>
+                  <span className="text-muted-foreground">{log.createdAt.toLocaleString("es-CO")}</span>
                 </li>
               ))}
             </ul>
@@ -452,10 +452,10 @@ function Stat({
   return (
     <div className="rounded-lg border bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">{label}</p>
-        <Icon className="h-4 w-4 text-green-700" />
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-success" />
       </div>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
     </div>
   );
 }
@@ -473,10 +473,10 @@ function MoneyStat({
   return (
     <div className="rounded-lg border bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">{label}</p>
-        <Icon className="h-4 w-4 text-green-700" />
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-success" />
       </div>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{formatMoneyFromCents(value)}</p>
+      <p className="mt-1 text-2xl font-bold text-foreground">{formatMoneyFromCents(value)}</p>
     </div>
   );
 }
@@ -491,9 +491,9 @@ function Field({ label, name, type = "text", ...props }: React.ComponentProps<ty
 
 function Detail({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border bg-gray-50 p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-1 font-medium text-gray-900">{value}</p>
+    <div className="rounded-lg border bg-muted p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-medium text-foreground">{value}</p>
     </div>
   );
 }
@@ -501,10 +501,10 @@ function Detail({ label, value }: { label: string; value: string | number }) {
 function StatusBadge({ status }: { status: string }) {
   const className =
     status === "ACTIVE"
-      ? "bg-green-50 text-green-700 ring-green-200"
+      ? "bg-success/10 text-success ring-success/30"
       : status === "SUSPENDED"
-        ? "bg-red-50 text-red-700 ring-red-200"
-        : "bg-gray-50 text-gray-700 ring-gray-200";
+        ? "bg-destructive/10 text-destructive ring-destructive/30"
+        : "bg-muted text-foreground ring-border";
 
   return (
     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1 ${className}`}>

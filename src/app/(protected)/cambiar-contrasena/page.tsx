@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 
-export default function CambiarContrasenaPage() {
+export default function CambiarContraseñaPage() {
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -58,33 +58,33 @@ export default function CambiarContrasenaPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <Lock className="h-5 w-5 text-green-700" />
+          <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+            <Lock className="h-5 w-5 text-success" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Cambiar contraseña</h1>
+          <h1 className="text-2xl font-bold text-foreground">Cambiar contraseña</h1>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl border border-border p-6">
         {success ? (
           <div className="text-center py-4">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl font-bold text-foreground mb-2">
               Contraseña actualizada
             </h2>
-            <p className="text-gray-500 mb-6">
+            <p className="text-muted-foreground mb-6">
               Tu contraseña ha sido cambiada correctamente.
             </p>
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center gap-2 w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 transition-colors"
+              className="inline-flex items-center justify-center gap-2 w-full h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 transition-colors"
             >
               Volver
             </button>
@@ -93,7 +93,7 @@ export default function CambiarContrasenaPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Current password */}
             <div className="space-y-2">
-              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-foreground">
                 Contraseña actual
               </label>
               <div className="relative">
@@ -105,12 +105,12 @@ export default function CambiarContrasenaPage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
                   autoFocus
-                  className="w-full h-12 text-base px-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                  className="w-full h-12 text-base px-4 pr-12 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                 >
                   {showCurrent ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -119,7 +119,7 @@ export default function CambiarContrasenaPage() {
 
             {/* New password */}
             <div className="space-y-2">
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="newPassword" className="block text-sm font-medium text-foreground">
                 Nueva contraseña
               </label>
               <div className="relative">
@@ -131,12 +131,12 @@ export default function CambiarContrasenaPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full h-12 text-base px-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                  className="w-full h-12 text-base px-4 pr-12 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                 >
                   {showNew ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -145,7 +145,7 @@ export default function CambiarContrasenaPage() {
 
             {/* Confirm new password */}
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
                 Confirmar nueva contraseña
               </label>
               <input
@@ -155,12 +155,12 @@ export default function CambiarContrasenaPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
@@ -169,7 +169,7 @@ export default function CambiarContrasenaPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />

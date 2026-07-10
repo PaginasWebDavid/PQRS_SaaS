@@ -43,9 +43,9 @@ const roleConfig: Record<
   ADMIN: {
     label: "Administrador",
     icon: ShieldCheck,
-    bg: "bg-red-50",
-    text: "text-red-700",
-    border: "border-red-200",
+    bg: "bg-destructive/10",
+    text: "text-destructive",
+    border: "border-destructive/30",
   },
   ASISTENTE: {
     label: "Asistente",
@@ -57,16 +57,16 @@ const roleConfig: Record<
   CONSEJO: {
     label: "Consejo",
     icon: Crown,
-    bg: "bg-blue-50",
-    text: "text-blue-700",
-    border: "border-blue-200",
+    bg: "bg-accent",
+    text: "text-primary",
+    border: "border-accent",
   },
   RESIDENTE: {
     label: "Residente",
     icon: UserIcon,
-    bg: "bg-green-50",
-    text: "text-green-700",
-    border: "border-green-200",
+    bg: "bg-success/10",
+    text: "text-success",
+    border: "border-success/30",
   },
 };
 
@@ -195,16 +195,16 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-          <Users className="h-5 w-5 text-green-700" />
+        <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+          <Users className="h-5 w-5 text-success" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Usuarios</h1>
+          <p className="text-sm text-muted-foreground">
             {counts.total} usuario{counts.total !== 1 ? "s" : ""} registrado
             {counts.total !== 1 ? "s" : ""}
           </p>
@@ -213,36 +213,36 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 text-center">
-          <p className="text-xs text-gray-500">Admin</p>
-          <p className="text-xl font-bold text-red-700">{counts.admin}</p>
+        <div className="bg-white rounded-2xl border border-border p-3 text-center">
+          <p className="text-xs text-muted-foreground">Admin</p>
+          <p className="text-xl font-bold text-destructive">{counts.admin}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 text-center">
-          <p className="text-xs text-gray-500">Consejo</p>
-          <p className="text-xl font-bold text-blue-700">{counts.consejo}</p>
+        <div className="bg-white rounded-2xl border border-border p-3 text-center">
+          <p className="text-xs text-muted-foreground">Consejo</p>
+          <p className="text-xl font-bold text-primary">{counts.consejo}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 text-center">
-          <p className="text-xs text-gray-500">Residentes</p>
-          <p className="text-xl font-bold text-green-700">{counts.residente}</p>
+        <div className="bg-white rounded-2xl border border-border p-3 text-center">
+          <p className="text-xs text-muted-foreground">Residentes</p>
+          <p className="text-xl font-bold text-success">{counts.residente}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Buscar por nombre o correo..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full h-10 text-sm pl-9 pr-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="w-full h-10 text-sm pl-9 pr-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           />
         </div>
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         >
           <option value="">Todos los roles</option>
           <option value="ADMIN">Administrador</option>
@@ -254,7 +254,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -262,17 +262,17 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
       {/* Loading */}
       {loading && (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-success" />
         </div>
       )}
 
       {/* No results */}
       {!loading && users.length === 0 && (
         <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <Users className="h-8 w-8 text-gray-400" />
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Users className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-gray-500">No se encontraron usuarios.</p>
+          <p className="text-muted-foreground">No se encontraron usuarios.</p>
         </div>
       )}
 
@@ -290,10 +290,10 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                 key={u.id}
                 className={`bg-white rounded-2xl border p-4 transition-all ${
                   isCurrentUser
-                    ? "border-green-300 bg-green-50/30"
+                    ? "border-success/40 bg-success/10/30"
                     : isConsejo
-                    ? "border-blue-200 bg-blue-50/20"
-                    : "border-gray-100"
+                    ? "border-accent bg-accent/20"
+                    : "border-border"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -307,21 +307,21 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-semibold text-gray-900 text-sm truncate">
+                      <p className="font-semibold text-foreground text-sm truncate">
                         {u.name}
                       </p>
                       {isCurrentUser && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/10 text-success">
                           Tú
                         </span>
                       )}
                       {isConsejo && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent text-primary">
                           Solo lectura
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {/* Role badge or selector */}
                       {editingId === u.id ? (
@@ -332,7 +332,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                               handleRoleChange(u.id, e.target.value)
                             }
                             disabled={saving}
-                            className="h-7 text-xs px-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                            className="h-7 text-xs px-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                           >
                             <option value="ADMIN">Administrador</option>
                             <option value="ASISTENTE">Asistente</option>
@@ -341,7 +341,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                           </select>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600 px-1"
+                            className="text-xs text-muted-foreground hover:text-muted-foreground px-1"
                           >
                             Cancelar
                           </button>
@@ -368,36 +368,36 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                       {/* Location: display or edit */}
                       {editLocationId === u.id ? (
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">B</span>
+                          <span className="text-xs text-muted-foreground">B</span>
                           <input
                             type="number"
                             min={1}
                             max={12}
                             value={editBloque}
                             onChange={(e) => setEditBloque(e.target.value)}
-                            className="w-12 h-7 text-xs px-1 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-green-600"
+                            className="w-12 h-7 text-xs px-1 border border-input rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="—"
                           />
-                          <span className="text-xs text-gray-500">Apto</span>
+                          <span className="text-xs text-muted-foreground">Apto</span>
                           <input
                             type="number"
                             min={1}
                             max={999}
                             value={editApto}
                             onChange={(e) => setEditApto(e.target.value)}
-                            className="w-14 h-7 text-xs px-1 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-green-600"
+                            className="w-14 h-7 text-xs px-1 border border-input rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="—"
                           />
                           <button
                             onClick={() => handleLocationSave(u.id)}
                             disabled={saving}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-green-600 hover:bg-green-50 transition-colors"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-success hover:bg-success/10 transition-colors"
                           >
                             <Check className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => setEditLocationId(null)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -409,25 +409,25 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                             setEditBloque(u.bloque ? String(u.bloque) : "");
                             setEditApto(u.apto ? String(u.apto) : "");
                           }}
-                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-muted-foreground transition-colors"
                           title="Editar ubicación"
                         >
                           {u.bloque ? (
                             <span>B{u.bloque}-{u.apto}</span>
                           ) : (
-                            <span className="text-gray-300">Sin ubicación</span>
+                            <span className="text-muted-foreground/40">Sin ubicación</span>
                           )}
                           <Pencil className="h-3 w-3" />
                         </button>
                       )}
 
                       {u._count.pqrsCreated > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <FileText className="h-3 w-3" />
                           {u._count.pqrsCreated}
                         </span>
                       )}
-                      <span className="text-xs text-gray-300">
+                      <span className="text-xs text-muted-foreground/40">
                         Desde {formatDate(u.createdAt)}
                       </span>
                     </div>
@@ -441,13 +441,13 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                           <button
                             onClick={() => handleDelete(u.id)}
                             disabled={saving}
-                            className="text-xs font-medium px-2 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                            className="text-xs font-medium px-2 py-1 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                           >
                             {saving ? "..." : "Confirmar"}
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600 px-1"
+                            className="text-xs text-muted-foreground hover:text-muted-foreground px-1"
                           >
                             No
                           </button>
@@ -455,7 +455,7 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
                       ) : (
                         <button
                           onClick={() => setDeleteConfirm(u.id)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
                           title="Eliminar usuario"
                         >
                           <Trash2 className="h-4 w-4" />

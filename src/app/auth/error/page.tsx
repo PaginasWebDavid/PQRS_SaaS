@@ -18,12 +18,12 @@ function ErrorContent() {
   const message = errorMessages[error || "Default"] || errorMessages.Default;
 
   return (
-    <section className="w-full max-w-md border border-gray-300 bg-white p-6 text-center">
+    <section className="w-full max-w-md border border-input bg-white p-6 text-center">
       <h1 className="text-2xl font-bold">Error de autenticacion</h1>
-      <p className="mt-2 text-sm text-gray-600">{message}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{message}</p>
       <Link
         href="/auth/login"
-        className="mt-6 inline-flex h-11 items-center justify-center border border-gray-900 px-4 text-sm font-medium"
+        className="mt-6 inline-flex h-11 items-center justify-center border border-primary px-4 text-sm font-medium"
       >
         Intentar de nuevo
       </Link>
@@ -36,7 +36,7 @@ export default function ErrorPage() {
     <main className="flex min-h-screen items-center justify-center bg-white p-4">
       <Suspense
         fallback={
-          <section className="w-full max-w-md border border-gray-300 bg-white p-6 text-center">
+          <section className="w-full max-w-md border border-input bg-white p-6 text-center">
             <h1 className="text-2xl font-bold">Cargando...</h1>
           </section>
         }

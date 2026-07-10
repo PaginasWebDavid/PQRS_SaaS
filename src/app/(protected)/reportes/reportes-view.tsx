@@ -182,10 +182,10 @@ export function ReportesView() {
           d.nombreResidente,
           d.asunto.substring(0, 40),
           d.estado,
-          d.fechaPrimerContacto || "â€”",
-          d.tiempoRespuestaPrimerContacto !== "" ? String(d.tiempoRespuestaPrimerContacto) : "â€”",
-          d.fechaCierre || "â€”",
-          d.tiempoRespuestaCierre !== "" ? String(d.tiempoRespuestaCierre) : "â€”",
+          d.fechaPrimerContacto || "—",
+          d.tiempoRespuestaPrimerContacto !== "" ? String(d.tiempoRespuestaPrimerContacto) : "—",
+          d.fechaCierre || "—",
+          d.tiempoRespuestaCierre !== "" ? String(d.tiempoRespuestaCierre) : "—",
           String(d.diasDesdeApertura),
         ]),
         theme: "grid",
@@ -204,7 +204,7 @@ export function ReportesView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-success" />
       </div>
     );
   }
@@ -212,8 +212,8 @@ export function ReportesView() {
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="text-red-600">{error}</p>
-        <button onClick={fetchData} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+        <p className="text-destructive">{error}</p>
+        <button onClick={fetchData} className="mt-3 text-sm text-success underline">Reintentar</button>
       </div>
     );
   }
@@ -242,21 +242,21 @@ export function ReportesView() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-green-700" />
+          <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-success" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+          <h1 className="text-2xl font-bold text-foreground">Reportes</h1>
         </div>
 
         <div className="flex gap-2 flex-wrap">
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
             {getYears().map((y) => (
               <option key={y} value={String(y)}>{y}</option>
@@ -266,9 +266,9 @@ export function ReportesView() {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
-            <option value="">Todo el aÃ±o</option>
+            <option value="">Todo el año</option>
             {MESES.map((m, i) => (
               <option key={i} value={String(i + 1)}>{m}</option>
             ))}
@@ -281,7 +281,7 @@ export function ReportesView() {
         <button
           onClick={exportExcel}
           disabled={exporting || r.total === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-green-700 text-white font-bold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm"
         >
           <FileSpreadsheet className="h-4 w-4" />
           Exportar Excel
@@ -289,7 +289,7 @@ export function ReportesView() {
         <button
           onClick={exportPDF}
           disabled={exporting || r.total === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 bg-destructive text-white font-bold rounded-xl hover:bg-destructive/90 disabled:opacity-50 transition-colors text-sm"
         >
           <FileText className="h-4 w-4" />
           Exportar PDF
@@ -298,37 +298,37 @@ export function ReportesView() {
 
       {r.total === 0 ? (
         <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="h-8 w-8 text-gray-400" />
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-gray-500">No hay PQRS en el perÃ­odo seleccionado.</p>
+          <p className="text-muted-foreground">No hay PQRS en el perÃ­odo seleccionado.</p>
         </div>
       ) : (
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatCard label="Total PQRS" value={r.total} icon={<FileText className="h-5 w-5" />} color="text-gray-900" bg="bg-gray-100" />
-            <StatCard label="En espera" value={r.byEstado.enEspera} icon={<Hourglass className="h-5 w-5" />} color="text-yellow-700" bg="bg-yellow-100" />
-            <StatCard label="En proceso" value={r.byEstado.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
-            <StatCard label="Terminadas" value={r.byEstado.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
-            <StatCard label="% Completadas" value={`${r.porcentajeCompletadas}%`} icon={<TrendingUp className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
-            <StatCard label="Prom. cierre" value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} dÃ­as` : "â€”"} icon={<Timer className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
+            <StatCard label="Total PQRS" value={r.total} icon={<FileText className="h-5 w-5" />} color="text-foreground" bg="bg-muted" />
+            <StatCard label="En espera" value={r.byEstado.enEspera} icon={<Hourglass className="h-5 w-5" />} color="text-warning" bg="bg-warning/10" />
+            <StatCard label="En proceso" value={r.byEstado.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-primary" bg="bg-accent" />
+            <StatCard label="Terminadas" value={r.byEstado.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-success" bg="bg-success/10" />
+            <StatCard label="% Completadas" value={`${r.porcentajeCompletadas}%`} icon={<TrendingUp className="h-5 w-5" />} color="text-success" bg="bg-success/10" />
+            <StatCard label="Prom. cierre" value={r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre} dÃ­as` : "—"} icon={<Timer className="h-5 w-5" />} color="text-primary" bg="bg-accent" />
           </div>
 
           {/* Asunto distribution */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-base font-bold text-gray-900 mb-4">DistribuciÃ³n por asunto</h2>
+          <div className="bg-white rounded-2xl border border-border p-5">
+            <h2 className="text-base font-bold text-foreground mb-4">DistribuciÃ³n por asunto</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {asuntoEntries.map(([asunto, count]) => {
                 const pct = r.total > 0 ? Math.round((count / r.total) * 100) : 0;
                 return (
-                  <div key={asunto} className="rounded-2xl border border-gray-100 p-4 bg-green-50">
-                    <p className="text-xs text-green-700 font-medium">{asunto}</p>
-                    <p className="text-2xl font-bold mt-1 text-green-700">{count}</p>
+                  <div key={asunto} className="rounded-2xl border border-border p-4 bg-success/10">
+                    <p className="text-xs text-success font-medium">{asunto}</p>
+                    <p className="text-2xl font-bold mt-1 text-success">{count}</p>
                     <div className="mt-2 h-2 rounded-full bg-white/60 overflow-hidden">
-                      <div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-success/100" style={{ width: `${pct}%` }} />
                     </div>
-                    <p className="text-xs text-green-700 opacity-70 mt-1">{pct}%</p>
+                    <p className="text-xs text-success opacity-70 mt-1">{pct}%</p>
                   </div>
                 );
               })}
@@ -336,17 +336,17 @@ export function ReportesView() {
           </div>
 
           {/* Detail table */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
-            <div className="p-5 border-b border-gray-100">
+          <div className="bg-white rounded-2xl border border-border overflow-x-auto">
+            <div className="p-5 border-b border-border">
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h2 className="text-base font-bold text-gray-900">
+                <h2 className="text-base font-bold text-foreground">
                   Detalle de PQRS ({filteredDetalle.length})
                 </h2>
                 <div className="flex gap-2">
                   <select
                     value={tableAsunto}
                     onChange={(e) => setTableAsunto(e.target.value)}
-                    className="h-9 text-xs px-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                    className="h-9 text-xs px-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   >
                     <option value="">Todos los asuntos</option>
                     {ASUNTOS.map((a) => (
@@ -359,7 +359,7 @@ export function ReportesView() {
                   <select
                     value={tableEstado}
                     onChange={(e) => setTableEstado(e.target.value)}
-                    className="h-9 text-xs px-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                    className="h-9 text-xs px-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   >
                     <option value="">Todos los estados</option>
                     <option value="En espera">En espera</option>
@@ -369,7 +369,7 @@ export function ReportesView() {
                   {(tableAsunto || tableEstado) && (
                     <button
                       onClick={() => { setTableAsunto(""); setTableEstado(""); }}
-                      className="h-9 text-xs px-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="h-9 text-xs px-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
                     >
                       Limpiar
                     </button>
@@ -379,38 +379,38 @@ export function ReportesView() {
             </div>
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">NÂ°</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Nombre</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Bloque</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Apto</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Asunto</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Estado</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Fecha de cierre</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">DÃ­as apertura</th>
+                <tr className="bg-muted border-b border-border">
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">NÂ°</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Fecha</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Nombre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Bloque</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Apto</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Asunto</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Estado</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">Fecha de cierre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground whitespace-nowrap">DÃ­as apertura</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDetalle.map((d) => (
-                  <tr key={d.numero} className="border-b border-gray-50 last:border-0">
-                    <td className="px-4 py-2.5 text-gray-600 font-mono text-xs">{d.numero}</td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaRecibido}</td>
-                    <td className="px-4 py-2.5 text-gray-900">{d.nombreResidente}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.bloque}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.apto}</td>
-                    <td className="px-4 py-2.5 text-gray-900 max-w-[200px] truncate">{d.asunto}</td>
+                  <tr key={d.numero} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{d.numero}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{d.fechaRecibido}</td>
+                    <td className="px-4 py-2.5 text-foreground">{d.nombreResidente}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground text-center">{d.bloque}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground text-center">{d.apto}</td>
+                    <td className="px-4 py-2.5 text-foreground max-w-[200px] truncate">{d.asunto}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        d.estado.startsWith("Terminado") ? "bg-green-100 text-green-700" :
-                        d.estado.startsWith("En proceso") ? "bg-blue-100 text-blue-700" :
-                        "bg-yellow-100 text-yellow-700"
+                        d.estado.startsWith("Terminado") ? "bg-success/10 text-success" :
+                        d.estado.startsWith("En proceso") ? "bg-accent text-primary" :
+                        "bg-warning/10 text-warning"
                       }`}>
                         {d.estado}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{d.fechaCierre || "â€”"}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-center">{d.diasDesdeApertura}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{d.fechaCierre || "—"}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground text-center">{d.diasDesdeApertura}</td>
                   </tr>
                 ))}
               </tbody>
@@ -430,11 +430,11 @@ function StatCard({ label, value, icon, color, bg }: {
   bg: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+    <div className="bg-white rounded-2xl border border-border p-4 text-center">
       <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center mx-auto mb-2`}>
         {icon}
       </div>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
     </div>
   );

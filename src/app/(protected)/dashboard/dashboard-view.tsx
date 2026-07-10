@@ -138,7 +138,7 @@ export function DashboardView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-success" />
       </div>
     );
   }
@@ -146,8 +146,8 @@ export function DashboardView() {
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="text-red-600">{error}</p>
-        <button onClick={fetchData} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+        <p className="text-destructive">{error}</p>
+        <button onClick={fetchData} className="mt-3 text-sm text-success underline">Reintentar</button>
       </div>
     );
   }
@@ -174,15 +174,15 @@ export function DashboardView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Panel
-          {month ? ` â€” ${MESES[parseInt(month) - 1]}` : ""} {year}
+          {month ? ` — ${MESES[parseInt(month) - 1]}` : ""} {year}
         </h1>
         <div className="flex gap-2 flex-wrap">
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
             {getYears().map((y) => (
               <option key={y} value={String(y)}>{y}</option>
@@ -191,9 +191,9 @@ export function DashboardView() {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
-            <option value="">Todo el aÃ±o</option>
+            <option value="">Todo el año</option>
             {MESES.map((m, i) => (
               <option key={i} value={String(i + 1)}>{m}</option>
             ))}
@@ -201,7 +201,7 @@ export function DashboardView() {
           <button
             onClick={exportDashboardExcel}
             disabled={r.total === 0}
-            className="flex items-center gap-2 h-10 px-4 bg-green-700 text-white font-bold rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors text-sm"
+            className="flex items-center gap-2 h-10 px-4 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm"
           >
             <FileSpreadsheet className="h-4 w-4" />
             Excel
@@ -211,136 +211,136 @@ export function DashboardView() {
 
 
       {data.licenseSummary && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-border p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center">
                 <CreditCard className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-gray-900">Licencia</h2>
-                <p className="text-sm text-gray-500">{getStatusLabel(data.licenseSummary.status)}</p>
+                <h2 className="text-base font-bold text-foreground">Licencia</h2>
+                <p className="text-sm text-muted-foreground">{getStatusLabel(data.licenseSummary.status)}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
               <LicenseMetric label="Precio" value={formatMoney(data.licenseSummary.priceCents, data.licenseSummary.currency)} />
-              <LicenseMetric label="PrÃ³ximo pago" value={fmtDate(data.licenseSummary.nextPaymentDueDate)} />
+              <LicenseMetric label="Próximo pago" value={fmtDate(data.licenseSummary.nextPaymentDueDate)} />
               <LicenseMetric label="Unidades" value={String(data.licenseSummary.unitsSnapshot)} />
             </div>
           </div>
         </div>
       )}
-      <section className="border border-gray-200 bg-white p-4">
-        <h2 className="text-base font-semibold text-gray-900">Mapa funcional del administrador</h2>
-        <div className="mt-3 grid gap-3 text-sm text-gray-700 md:grid-cols-3">
-          <div className="border border-gray-200 p-3">
+      <section className="border border-border bg-white p-4">
+        <h2 className="text-base font-semibold text-foreground">Mapa funcional del administrador</h2>
+        <div className="mt-3 grid gap-3 text-sm text-foreground md:grid-cols-3">
+          <div className="border border-border p-3">
             <p className="font-medium">PQRS</p>
-            <p className="mt-1 text-gray-500">Crear, filtrar, registrar primer contacto, gestionar fases y cerrar con evidencia.</p>
+            <p className="mt-1 text-muted-foreground">Crear, filtrar, registrar primer contacto, gestionar fases y cerrar con evidencia.</p>
           </div>
-          <div className="border border-gray-200 p-3">
+          <div className="border border-border p-3">
             <p className="font-medium">Usuarios</p>
-            <p className="mt-1 text-gray-500">Consultar residentes, cambiar roles permitidos y actualizar ubicaciones.</p>
+            <p className="mt-1 text-muted-foreground">Consultar residentes, cambiar roles permitidos y actualizar ubicaciones.</p>
           </div>
-          <div className="border border-gray-200 p-3">
+          <div className="border border-border p-3">
             <p className="font-medium">Reportes</p>
-            <p className="mt-1 text-gray-500">Revisar indicadores, exportar Excel/PDF y auditar tiempos de respuesta.</p>
+            <p className="mt-1 text-muted-foreground">Revisar indicadores, exportar Excel/PDF y auditar tiempos de respuesta.</p>
           </div>
         </div>
       </section>
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Link href="/pqrs?estado=todos">
-          <SummaryCard label="Total PQRS" value={r.total} icon={<FileText className="h-5 w-5" />} color="text-gray-900" bg="bg-gray-100" />
+          <SummaryCard label="Total PQRS" value={r.total} icon={<FileText className="h-5 w-5" />} color="text-foreground" bg="bg-muted" />
         </Link>
         <Link href="/pqrs?estado=EN_ESPERA">
-          <SummaryCard label="En espera" value={r.enEspera} icon={<Hourglass className="h-5 w-5" />} color="text-yellow-700" bg="bg-yellow-100" alert={r.enEspera > 0} />
+          <SummaryCard label="En espera" value={r.enEspera} icon={<Hourglass className="h-5 w-5" />} color="text-warning" bg="bg-warning/10" alert={r.enEspera > 0} />
         </Link>
         <Link href="/pqrs?estado=EN_PROGRESO">
-          <SummaryCard label="En proceso" value={r.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-blue-700" bg="bg-blue-100" />
+          <SummaryCard label="En proceso" value={r.enProgreso} icon={<Clock className="h-5 w-5" />} color="text-primary" bg="bg-accent" />
         </Link>
         <Link href="/pqrs?estado=TERMINADO">
-          <SummaryCard label="Terminadas" value={r.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-green-700" bg="bg-green-100" />
+          <SummaryCard label="Terminadas" value={r.terminado} icon={<CheckCircle2 className="h-5 w-5" />} color="text-success" bg="bg-success/10" />
         </Link>
       </div>
 
       {/* Metrics row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-          <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
+        <div className="bg-white rounded-2xl border border-border p-4 text-center">
+          <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center mx-auto mb-2">
             <TrendingUp className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500">Completadas</p>
-          <p className="text-2xl font-bold text-green-700 mt-1">{r.porcentajeCompletadas}%</p>
+          <p className="text-xs text-muted-foreground">Completadas</p>
+          <p className="text-2xl font-bold text-success mt-1">{r.porcentajeCompletadas}%</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
+        <div className="bg-white rounded-2xl border border-border p-4 text-center">
+          <div className="w-10 h-10 rounded-xl bg-accent text-primary flex items-center justify-center mx-auto mb-2">
             <Timer className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500 leading-tight">Prom. primer contacto</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "â€”"}
+          <p className="text-xs text-muted-foreground leading-tight">Prom. primer contacto</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            {r.tiempoPromedioRespuesta !== null ? `${r.tiempoPromedioRespuesta}d` : "—"}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-          <div className="w-10 h-10 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-2">
+        <div className="bg-white rounded-2xl border border-border p-4 text-center">
+          <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center mx-auto mb-2">
             <CheckCircle2 className="h-5 w-5" />
           </div>
-          <p className="text-xs text-gray-500 leading-tight">Prom. tiempo de cierre</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "â€”"}
+          <p className="text-xs text-muted-foreground leading-tight">Prom. tiempo de cierre</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            {r.tiempoPromedioCierre !== null ? `${r.tiempoPromedioCierre}d` : "—"}
           </p>
         </div>
       </div>
 
       {/* Tabla resumen por trimestre */}
       {r.total > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
-          <div className="p-5 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">PQRS - {data.year}</h2>
+        <div className="bg-white rounded-2xl border border-border overflow-x-auto">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-base font-bold text-foreground">PQRS - {data.year}</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-3 font-bold text-gray-700">PQRS</th>
+              <tr className="bg-muted border-b border-border">
+                <th className="text-left px-4 py-3 font-bold text-foreground">PQRS</th>
                 {data.trimestres.map((t) => (
-                  <th key={t.label} className="text-center px-4 py-3 font-bold text-gray-700">{t.label}</th>
+                  <th key={t.label} className="text-center px-4 py-3 font-bold text-foreground">{t.label}</th>
                 ))}
-                <th className="text-center px-4 py-3 font-bold text-gray-700">TOTAL</th>
-                <th className="text-center px-4 py-3 font-bold text-gray-700">%</th>
+                <th className="text-center px-4 py-3 font-bold text-foreground">TOTAL</th>
+                <th className="text-center px-4 py-3 font-bold text-foreground">%</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-gray-100">
-                <td className="px-4 py-2.5 font-medium text-gray-900">Total</td>
+              <tr className="border-b border-border">
+                <td className="px-4 py-2.5 font-medium text-foreground">Total</td>
                 {data.trimestres.map((t) => (
-                  <td key={t.label} className="text-center px-4 py-2.5 text-gray-700">{t.total || ""}</td>
+                  <td key={t.label} className="text-center px-4 py-2.5 text-foreground">{t.total || ""}</td>
                 ))}
-                <td className="text-center px-4 py-2.5 font-bold text-gray-900">{r.total}</td>
-                <td className="text-center px-4 py-2.5 text-gray-500"></td>
+                <td className="text-center px-4 py-2.5 font-bold text-foreground">{r.total}</td>
+                <td className="text-center px-4 py-2.5 text-muted-foreground"></td>
               </tr>
-              <tr className="border-b border-gray-100 bg-green-50">
-                <td className="px-4 py-2.5 font-medium text-green-700">Terminado</td>
+              <tr className="border-b border-border bg-success/10">
+                <td className="px-4 py-2.5 font-medium text-success">Terminado</td>
                 {data.trimestres.map((t) => (
-                  <td key={t.label} className="text-center px-4 py-2.5 text-green-700">{t.terminado || ""}</td>
+                  <td key={t.label} className="text-center px-4 py-2.5 text-success">{t.terminado || ""}</td>
                 ))}
-                <td className="text-center px-4 py-2.5 font-bold text-green-700">{r.terminado}</td>
-                <td className="text-center px-4 py-2.5 font-bold text-green-700">{r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%"}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-success">{r.terminado}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-success">{r.total > 0 ? `${Math.round((r.terminado / r.total) * 100)}%` : "0%"}</td>
               </tr>
-              <tr className="border-b border-gray-100">
-                <td className="px-4 py-2.5 font-medium text-blue-700">En Proceso</td>
+              <tr className="border-b border-border">
+                <td className="px-4 py-2.5 font-medium text-primary">En Proceso</td>
                 {data.trimestres.map((t) => (
-                  <td key={t.label} className="text-center px-4 py-2.5 text-blue-700">{t.enProgreso || ""}</td>
+                  <td key={t.label} className="text-center px-4 py-2.5 text-primary">{t.enProgreso || ""}</td>
                 ))}
-                <td className="text-center px-4 py-2.5 font-bold text-blue-700">{r.enProgreso}</td>
-                <td className="text-center px-4 py-2.5 font-bold text-blue-700">{r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%"}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-primary">{r.enProgreso}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-primary">{r.total > 0 ? `${Math.round((r.enProgreso / r.total) * 100)}%` : "0%"}</td>
               </tr>
               <tr>
-                <td className="px-4 py-2.5 font-medium text-yellow-700">En Espera</td>
+                <td className="px-4 py-2.5 font-medium text-warning">En Espera</td>
                 {data.trimestres.map((t) => (
-                  <td key={t.label} className="text-center px-4 py-2.5 text-yellow-700">{t.enEspera || ""}</td>
+                  <td key={t.label} className="text-center px-4 py-2.5 text-warning">{t.enEspera || ""}</td>
                 ))}
-                <td className="text-center px-4 py-2.5 font-bold text-yellow-700">{r.enEspera}</td>
-                <td className="text-center px-4 py-2.5 font-bold text-yellow-700">{r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%"}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-warning">{r.enEspera}</td>
+                <td className="text-center px-4 py-2.5 font-bold text-warning">{r.total > 0 ? `${Math.round((r.enEspera / r.total) * 100)}%` : "0%"}</td>
               </tr>
             </tbody>
           </table>
@@ -349,39 +349,39 @@ export function DashboardView() {
 
       {/* Tabla detalle por asunto */}
       {data.porAsuntoDetalle.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
-          <div className="p-5 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">PQRS por detalle de {data.year}</h2>
+        <div className="bg-white rounded-2xl border border-border overflow-x-auto">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-base font-bold text-foreground">PQRS por detalle de {data.year}</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-center px-4 py-3 font-bold text-gray-700">Cantidad</th>
-                <th className="text-left px-4 py-3 font-bold text-gray-700">Asunto</th>
-                <th className="text-left px-4 py-3 font-bold text-gray-700">DescripciÃ³n</th>
-                <th className="text-center px-4 py-3 font-bold text-green-700">Terminados</th>
-                <th className="text-center px-4 py-3 font-bold text-blue-700">En Proceso</th>
-                <th className="text-center px-4 py-3 font-bold text-yellow-700">En Espera</th>
+              <tr className="bg-muted border-b border-border">
+                <th className="text-center px-4 py-3 font-bold text-foreground">Cantidad</th>
+                <th className="text-left px-4 py-3 font-bold text-foreground">Asunto</th>
+                <th className="text-left px-4 py-3 font-bold text-foreground">Descripción</th>
+                <th className="text-center px-4 py-3 font-bold text-success">Terminados</th>
+                <th className="text-center px-4 py-3 font-bold text-primary">En Proceso</th>
+                <th className="text-center px-4 py-3 font-bold text-warning">En Espera</th>
               </tr>
             </thead>
             <tbody>
               {data.porAsuntoDetalle.map((a) => (
-                <tr key={a.asunto} className="border-b border-gray-100">
-                  <td className="text-center px-4 py-2.5 font-bold text-gray-900">{a.cantidad}</td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{a.asunto}</td>
-                  <td className="px-4 py-2.5 text-gray-600 max-w-[300px] truncate">{a.descripcion}</td>
-                  <td className="text-center px-4 py-2.5 text-green-700">{a.terminados}</td>
-                  <td className="text-center px-4 py-2.5 text-blue-700">{a.enProgreso}</td>
-                  <td className="text-center px-4 py-2.5 text-yellow-700">{a.enEspera}</td>
+                <tr key={a.asunto} className="border-b border-border">
+                  <td className="text-center px-4 py-2.5 font-bold text-foreground">{a.cantidad}</td>
+                  <td className="px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{a.asunto}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground max-w-[300px] truncate">{a.descripcion}</td>
+                  <td className="text-center px-4 py-2.5 text-success">{a.terminados}</td>
+                  <td className="text-center px-4 py-2.5 text-primary">{a.enProgreso}</td>
+                  <td className="text-center px-4 py-2.5 text-warning">{a.enEspera}</td>
                 </tr>
               ))}
-              <tr className="bg-gray-50 font-bold">
-                <td className="text-center px-4 py-2.5 text-gray-900">{r.total}</td>
-                <td className="px-4 py-2.5 text-gray-900"></td>
-                <td className="px-4 py-2.5 text-gray-900"></td>
-                <td className="text-center px-4 py-2.5 text-green-700">{r.terminado}</td>
-                <td className="text-center px-4 py-2.5 text-blue-700">{r.enProgreso}</td>
-                <td className="text-center px-4 py-2.5 text-yellow-700">{r.enEspera}</td>
+              <tr className="bg-muted font-bold">
+                <td className="text-center px-4 py-2.5 text-foreground">{r.total}</td>
+                <td className="px-4 py-2.5 text-foreground"></td>
+                <td className="px-4 py-2.5 text-foreground"></td>
+                <td className="text-center px-4 py-2.5 text-success">{r.terminado}</td>
+                <td className="text-center px-4 py-2.5 text-primary">{r.enProgreso}</td>
+                <td className="text-center px-4 py-2.5 text-warning">{r.enEspera}</td>
               </tr>
             </tbody>
           </table>
@@ -390,11 +390,11 @@ export function DashboardView() {
 
       {/* Pendientes urgentes - EN ESPERA */}
       {data.pendientes.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
+        <div className="bg-warning/10 border border-warning/30 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            <h2 className="text-base font-bold text-yellow-800">
-              PQRS pendientes de gestiÃ³n (En espera)
+            <AlertCircle className="h-5 w-5 text-warning" />
+            <h2 className="text-base font-bold text-warning">
+              PQRS pendientes de gestión (En espera)
             </h2>
           </div>
           <div className="space-y-2">
@@ -403,18 +403,18 @@ export function DashboardView() {
                 <div className="flex items-center justify-between bg-white rounded-xl p-3 hover:shadow-sm transition-all group">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-gray-400">#{p.numero}</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">{p.asunto}</span>
+                      <span className="font-mono text-xs text-muted-foreground">#{p.numero}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{p.asunto}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} Â· B{p.bloque}-{p.apto}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.nombreResidente} · B{p.bloque}-{p.apto}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                      p.diasEspera > 5 ? "bg-red-100 text-red-700" :
-                      p.diasEspera > 2 ? "bg-yellow-100 text-yellow-700" :
-                      "bg-gray-100 text-gray-600"
+                      p.diasEspera > 5 ? "bg-destructive/10 text-destructive" :
+                      p.diasEspera > 2 ? "bg-warning/10 text-warning" :
+                      "bg-muted text-muted-foreground"
                     }`}>{p.diasEspera}d</span>
-                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-green-600" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-success" />
                   </div>
                 </div>
               </Link>
@@ -425,10 +425,10 @@ export function DashboardView() {
 
       {/* Pendientes EN PROCESO */}
       {data.pendientesEnProceso.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+        <div className="bg-accent border border-accent rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
-            <Clock className="h-5 w-5 text-blue-600" />
-            <h2 className="text-base font-bold text-blue-800">
+            <Clock className="h-5 w-5 text-primary" />
+            <h2 className="text-base font-bold text-primary">
               PQRS pendientes en proceso
             </h2>
           </div>
@@ -438,23 +438,23 @@ export function DashboardView() {
                 <div className="flex items-center justify-between bg-white rounded-xl p-3 hover:shadow-sm transition-all group">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-gray-400">#{p.numero}</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">{p.asunto}</span>
+                      <span className="font-mono text-xs text-muted-foreground">#{p.numero}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{p.asunto}</span>
                       {p.faseActual && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-primary">
                           {FASE_LABEL[p.faseActual] || `F${p.faseActual}`}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.nombreResidente} Â· B{p.bloque}-{p.apto}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.nombreResidente} · B{p.bloque}-{p.apto}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                      p.diasEnProceso > 15 ? "bg-red-100 text-red-700" :
-                      p.diasEnProceso > 5 ? "bg-yellow-100 text-yellow-700" :
-                      "bg-gray-100 text-gray-600"
+                      p.diasEnProceso > 15 ? "bg-destructive/10 text-destructive" :
+                      p.diasEnProceso > 5 ? "bg-warning/10 text-warning" :
+                      "bg-muted text-muted-foreground"
                     }`}>{p.diasEnProceso}d</span>
-                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-green-600" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-success" />
                   </div>
                 </div>
               </Link>
@@ -464,8 +464,8 @@ export function DashboardView() {
       )}
 
       {/* Tendencia mensual - with total labels on each point */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h2 className="text-base font-bold text-gray-900 mb-4">Tendencia mensual</h2>
+      <div className="bg-white rounded-2xl border border-border p-5">
+        <h2 className="text-base font-bold text-foreground mb-4">Tendencia mensual</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data.porMes}>
@@ -501,8 +501,8 @@ export function DashboardView() {
       {/* Charts: Estado (donut with %) + Asunto (bars with total and %) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* By estado - donut with percentages inside */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-base font-bold text-gray-900 mb-4">Por estado</h2>
+        <div className="bg-white rounded-2xl border border-border p-5">
+          <h2 className="text-base font-bold text-foreground mb-4">Por estado</h2>
           {r.total > 0 ? (
             <div className="h-52 flex items-center">
               <ResponsiveContainer width="100%" height="100%">
@@ -529,21 +529,21 @@ export function DashboardView() {
                 {data.porEstado.map((e) => (
                   <div key={e.nombre} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: e.color }} />
-                    <span className="text-xs text-gray-600">{e.nombre}</span>
-                    <span className="text-xs font-bold text-gray-900">{e.valor}</span>
+                    <span className="text-xs text-muted-foreground">{e.nombre}</span>
+                    <span className="text-xs font-bold text-foreground">{e.valor}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
+            <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">Sin datos</div>
           )}
         </div>
 
         {/* By asunto - bars with total on top and % inside */}
         {barAsuntoData.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-base font-bold text-gray-900 mb-4">Por asunto</h2>
+          <div className="bg-white rounded-2xl border border-border p-5">
+            <h2 className="text-base font-bold text-foreground mb-4">Por asunto</h2>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barAsuntoData}>
@@ -597,9 +597,9 @@ function getStatusLabel(status: string) {
 
 function LicenseMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-0.5 font-semibold text-gray-900">{value}</p>
+    <div className="rounded-lg border border-border bg-muted px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -609,11 +609,11 @@ function SummaryCard({
   label: string; value: number | string; icon: React.ReactNode; color: string; bg: string; alert?: boolean;
 }) {
   return (
-    <div className={`bg-white rounded-2xl border ${alert ? "border-yellow-300 shadow-sm shadow-yellow-100" : "border-gray-100"} p-4 text-center hover:shadow-md hover:border-green-200 transition-all cursor-pointer`}>
+    <div className={`bg-white rounded-2xl border ${alert ? "border-warning/40 shadow-sm shadow-warning/10" : "border-border"} p-4 text-center hover:shadow-md hover:border-success/30 transition-all cursor-pointer`}>
       <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center mx-auto mb-2`}>
         {icon}
       </div>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
     </div>
   );

@@ -161,31 +161,31 @@ export function PqrsForm({
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
+          <h1 className="text-xl font-bold text-foreground">
             Nuevo PQRS
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Describe tu solicitud
           </p>
         </div>
-        <div className="ml-auto w-12 h-12 rounded-xl flex items-center justify-center bg-green-100 text-green-600">
+        <div className="ml-auto w-12 h-12 rounded-xl flex items-center justify-center bg-success/10 text-success">
           <FileText className="h-6 w-6" />
         </div>
       </div>
 
       {/* Form card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Descripcion */}
           <div className="space-y-2">
             <label
               htmlFor="descripcion"
-              className="block text-base font-medium text-gray-700"
+              className="block text-base font-medium text-foreground"
             >
               Descripción *
             </label>
@@ -195,17 +195,17 @@ export function PqrsForm({
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               rows={5}
-              className="w-full text-base px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
+              className="w-full text-base px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
             />
-            <p className={`text-xs text-right ${countWords(descripcion) > 300 ? "text-red-500 font-medium" : "text-gray-400"}`}>
+            <p className={`text-xs text-right ${countWords(descripcion) > 300 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
               {countWords(descripcion)} / 300 palabras
             </p>
           </div>
 
           {/* Fotos adjuntas (opcional) */}
           <div className="space-y-2">
-            <label className="block text-base font-medium text-gray-700">
-              Fotos adjuntas <span className="text-gray-400 font-normal text-sm">(opcional, máx. 3)</span>
+            <label className="block text-base font-medium text-foreground">
+              Fotos adjuntas <span className="text-muted-foreground font-normal text-sm">(opcional, máx. 3)</span>
             </label>
             <input
               ref={fileInputRef}
@@ -219,7 +219,7 @@ export function PqrsForm({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors w-full justify-center"
+                className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-input rounded-xl text-sm text-muted-foreground hover:border-success hover:text-success transition-colors w-full justify-center"
               >
                 <ImagePlus className="h-4 w-4" />
                 Agregar foto
@@ -228,7 +228,7 @@ export function PqrsForm({
             {fotos.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {fotos.map((foto, idx) => (
-                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-square">
+                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-border aspect-square">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={foto.preview}
@@ -246,7 +246,7 @@ export function PqrsForm({
                 ))}
               </div>
             )}
-            <p className="text-xs text-gray-400">Formato imagen, máx. 1MB por foto</p>
+            <p className="text-xs text-muted-foreground">Formato imagen, máx. 1MB por foto</p>
           </div>
 
           {/* Admin: Asunto (optional at creation, can assign later in EN_ESPERA) */}
@@ -254,7 +254,7 @@ export function PqrsForm({
             <div className="space-y-2">
               <label
                 htmlFor="asunto"
-                className="block text-base font-medium text-gray-700"
+                className="block text-base font-medium text-foreground"
               >
                 Asunto (opcional)
               </label>
@@ -262,7 +262,7 @@ export function PqrsForm({
                 id="asunto"
                 value={asunto}
                 onChange={(e) => setAsunto(e.target.value)}
-                className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+                className="w-full h-12 text-base px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white"
               >
                 <option value="">Seleccionar asunto</option>
                 {ASUNTOS.map((a) => (
@@ -277,8 +277,8 @@ export function PqrsForm({
           {/* Admin: datos del residente */}
           {isAdmin && (
             <>
-              <div className="border-t border-gray-100 pt-4">
-                <p className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                   Datos del residente
                 </p>
               </div>
@@ -286,7 +286,7 @@ export function PqrsForm({
               <div className="space-y-2">
                 <label
                   htmlFor="nombre"
-                  className="block text-base font-medium text-gray-700"
+                  className="block text-base font-medium text-foreground"
                 >
                   Nombre del residente *
                 </label>
@@ -295,19 +295,19 @@ export function PqrsForm({
                   placeholder="Nombre completo"
                   value={nombreResidente}
                   onChange={(e) => setNombreResidente(e.target.value)}
-                  className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                  className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <label className="block text-base font-medium text-gray-700">
+                  <label className="block text-base font-medium text-foreground">
                     Bloque *
                   </label>
                   <select
                     value={bloque}
                     onChange={(e) => setBloque(e.target.value)}
-                    className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+                    className="w-full h-12 text-base px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white"
                   >
                     <option value="">Seleccionar</option>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
@@ -321,7 +321,7 @@ export function PqrsForm({
                 <div className="space-y-2">
                   <label
                     htmlFor="apto"
-                    className="block text-base font-medium text-gray-700"
+                    className="block text-base font-medium text-foreground"
                   >
                     Apartamento *
                   </label>
@@ -335,7 +335,7 @@ export function PqrsForm({
                       setApto(val);
                     }}
                     maxLength={3}
-                    className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                    className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                   />
                 </div>
               </div>
@@ -344,9 +344,9 @@ export function PqrsForm({
 
           {/* Residente: info automatica */}
           {!isAdmin && (
-            <div className="rounded-xl bg-green-50 border border-green-100 p-4 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-              <div className="text-sm text-green-800">
+            <div className="rounded-xl bg-success/10 border border-success/20 p-4 flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+              <div className="text-sm text-success">
                 <p>
                   <span className="font-medium">Residente:</span> {userName}
                 </p>
@@ -359,7 +359,7 @@ export function PqrsForm({
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
+            <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive text-center">
               {error}
             </div>
           )}
@@ -368,14 +368,14 @@ export function PqrsForm({
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex-1 h-12 text-base font-medium text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex-1 h-12 text-base font-medium text-muted-foreground border border-input rounded-xl hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />

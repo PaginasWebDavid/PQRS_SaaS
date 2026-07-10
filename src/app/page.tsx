@@ -48,40 +48,40 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-950">
+    <main className="min-h-screen bg-white text-foreground">
       <section className="mx-auto flex min-h-[70vh] max-w-5xl flex-col justify-center px-6 py-16">
-        <p className="text-sm uppercase tracking-wide text-gray-500">Plantilla base</p>
+        <p className="text-sm uppercase tracking-wide text-muted-foreground">Plantilla base</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">PQRS SaaS</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600">
+        <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
           Base funcional multi-tenant para administrar PQRS, usuarios, reportes, licencias y cobros. Esta pantalla esta sin identidad visual para facilitar aplicar el diseno final despues.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/auth/login" className="border border-gray-950 px-4 py-2 text-sm font-medium">
+          <Link href="/auth/login" className="border border-primary px-4 py-2 text-sm font-medium">
             Iniciar sesion
           </Link>
-          <Link href="#roles" className="border border-gray-300 px-4 py-2 text-sm font-medium">
+          <Link href="#roles" className="border border-input px-4 py-2 text-sm font-medium">
             Ver modulos por rol
           </Link>
         </div>
       </section>
 
-      <section id="roles" className="border-t border-gray-200 px-6 py-12">
+      <section id="roles" className="border-t border-border px-6 py-12">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-2xl font-semibold">Roles y modulos</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {roles.map((role) => (
-              <article key={role.name} className="border border-gray-200 p-4">
+              <article key={role.name} className="border border-border p-4">
                 <h3 className="font-semibold">{role.name}</h3>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase text-gray-500">Modulos</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-gray-700">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Modulos</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
                       {role.modules.map((item) => <li key={item}>{item}</li>)}
                     </ul>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase text-gray-500">Acciones</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-gray-700">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Acciones</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
                       {role.actions.map((item) => <li key={item}>{item}</li>)}
                     </ul>
                   </div>
@@ -92,13 +92,13 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="border-t border-gray-200 px-6 py-12">
+      <section className="border-t border-border px-6 py-12">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-2xl font-semibold">Flujo PQRS implementado</h2>
           <ol className="mt-6 grid gap-3 md:grid-cols-2">
             {flow.map((item, index) => (
-              <li key={item} className="border border-gray-200 p-4 text-sm text-gray-700">
-                <span className="mr-2 font-mono text-gray-400">{String(index + 1).padStart(2, "0")}</span>
+              <li key={item} className="border border-border p-4 text-sm text-foreground">
+                <span className="mr-2 font-mono text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
                 {item}
               </li>
             ))}
