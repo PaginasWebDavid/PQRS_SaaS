@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { AdminShell } from '@/components/design-export/AdminShell';
-import { ADMIN_NAV } from '@/lib/design-export/adminNav';
-import { COLORS, tabStyle } from '@/lib/design-export/tokens';
+import { AdminShell } from '@/components/shell/AdminShell';
+import { ADMIN_NAV } from '@/lib/design/adminNav';
+import { COLORS, tabStyle } from '@/lib/design/tokens';
 
 const ACTIVITY = [
   { text: 'Ana Ruiz cerró PQ-0229 con evidencia de cierre', time: 'hace 20 min', type: 'pqrs', dot: COLORS.success },
@@ -23,7 +23,7 @@ export default function ActividadPage() {
       <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 20px' }}>Trazabilidad completa de tu conjunto</p>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        {FILTERS.map((f) => <div key={f.key} onClick={() => setFilter(f.key)} style={tabStyle(filter === f.key)}>{f.label}</div>)}
+        {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
       </div>
 
       <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: '22px 24px' }}>
