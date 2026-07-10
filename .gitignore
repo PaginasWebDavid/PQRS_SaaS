@@ -38,3 +38,6 @@ next-env.d.ts
 
 
 .vercel
+
+# git worktrees for isolated feature work
+.worktrees/
