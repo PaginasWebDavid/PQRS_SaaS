@@ -1,8 +1,8 @@
 ﻿'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LogoMark } from '@/components/design-export/Logo';
-import { COLORS, RADIUS } from '@/lib/design-export/tokens';
+import { LogoMark } from '@/components/shell/Logo';
+import { COLORS, RADIUS } from '@/lib/design/tokens';
 
 export default function OnboardingConsejoPage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function OnboardingConsejoPage() {
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><LogoMark size={34} /></div>
               <h1 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>Bienvenida, Camila</h1>
               <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>Tu acceso al Consejo de Administración de Parque Residencial Calle 100 ya está activo.</p>
-              <div onClick={() => setStep(1)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Continuar</div>
+              <button type="button" onClick={() => setStep(1)} style={{ width: '100%', border: 'none', background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' }}>Continuar</button>
             </>
           )}
 
@@ -40,7 +40,7 @@ export default function OnboardingConsejoPage() {
                   </div>
                 ))}
               </div>
-              <div onClick={() => router.push('/consejo')} style={{ background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Ir a mi dashboard</div>
+              <button type="button" onClick={() => router.push('/consejo')} style={{ width: '100%', border: 'none', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' }}>Ir a mi dashboard</button>
             </>
           )}
         </div>
@@ -48,4 +48,3 @@ export default function OnboardingConsejoPage() {
     </div>
   );
 }
-
