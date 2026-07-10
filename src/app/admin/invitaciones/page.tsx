@@ -1,10 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { AdminShell } from '@/components/design-export/AdminShell';
-import { Sheet, CloseButton } from '@/components/design-export/Sheet';
-import { Toast, useToast } from '@/components/design-export/Toast';
-import { ADMIN_NAV } from '@/lib/design-export/adminNav';
-import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design-export/tokens';
+import { AdminShell } from '@/components/shell/AdminShell';
+import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Toast, useToast } from '@/components/shell/Toast';
+import { ADMIN_NAV } from '@/lib/design/adminNav';
+import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design/tokens';
 
 type Status = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
 type Role = 'ADMIN' | 'ASISTENTE' | 'CONSEJO' | 'RESIDENTE';
