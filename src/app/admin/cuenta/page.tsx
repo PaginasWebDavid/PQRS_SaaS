@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { AdminShell } from '@/components/design-export/AdminShell';
-import { Toast, useToast } from '@/components/design-export/Toast';
-import { ADMIN_NAV } from '@/lib/design-export/adminNav';
-import { COLORS, RADIUS, tabStyle } from '@/lib/design-export/tokens';
+import { AdminShell } from '@/components/shell/AdminShell';
+import { Toast, useToast } from '@/components/shell/Toast';
+import { ADMIN_NAV } from '@/lib/design/adminNav';
+import { COLORS, RADIUS, tabStyle } from '@/lib/design/tokens';
 
 type Notice = { id: string; title: string; message: string; resourceType?: string | null; resourceId?: string | null; readAt?: string | null; createdAt: string };
 export default function MiCuentaPage() {
