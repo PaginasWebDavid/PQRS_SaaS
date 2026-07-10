@@ -76,10 +76,8 @@ Phase 0 (design system + shared components) precedes all of the above and has no
 - Mock data in the `.dc.html` files (e.g. "Ana Ruiz", "Parque Residencial Calle 100") is illustrative only — real pages use live session/tenant data.
 - The `.dc.html` "demo mode" shortcuts (role switcher on Login, expired-link toggles) are prototyping aids, not shipped.
 
-## 6. Open items to confirm before implementation
+## 6. Open items — resolved
 
-- Does a `Vista Consejo` / read-only board-member role already exist in the `Role` enum, or does it need adding?
-- Is there an existing invitation-token mechanism, or does Phase 3 need a new `Invitation` model + email send?
-- Confirm "Actividad" should replace/rename the current `historial` route vs. being additive.
-
-These will be resolved at the top of whichever phase's implementation plan first touches them, not blocking Phase 0.
+- `Role` enum already has `SUPER_ADMIN | ADMIN | ASISTENTE | CONSEJO | RESIDENTE` — Vista Consejo (Phase 4) gates on `CONSEJO`, no schema change needed.
+- No `Invitation` model exists — Phase 3 (Invitaciones page) needs a new model + token/email send; flagged for that phase's plan.
+- `historial` route already exists and is gated to non-`RESIDENTE` roles with the right shape (list of events) — Actividad (Phase 3) redesigns this route in place, doesn't replace anything else.
