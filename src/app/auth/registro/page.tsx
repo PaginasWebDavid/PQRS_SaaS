@@ -79,15 +79,15 @@ export default function RegistroPage() {
           </Link>
         </div>
 
-        <div className="bg-white border border-gray-300 p-6">
+        <div className="bg-white border border-input p-6">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Crear cuenta</h1>
-            <p className="text-gray-500 mt-1">Registro basico para residentes.</p>
+            <h1 className="text-2xl font-bold text-foreground">Crear cuenta</h1>
+            <p className="text-muted-foreground mt-1">Registro basico para residentes.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="block text-base font-medium text-gray-700">
+              <label htmlFor="name" className="block text-base font-medium text-foreground">
                 Nombre completo
               </label>
               <input
@@ -97,12 +97,12 @@ export default function RegistroPage() {
                 value={form.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 required
-                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-base font-medium text-gray-700">
+              <label htmlFor="email" className="block text-base font-medium text-foreground">
                 Correo electronico
               </label>
               <input
@@ -112,13 +112,13 @@ export default function RegistroPage() {
                 value={form.email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 required
-                className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-base font-medium text-gray-700">
-                Contrasena
+              <label htmlFor="password" className="block text-base font-medium text-foreground">
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -129,13 +129,13 @@ export default function RegistroPage() {
                   onChange={(e) => handleChange("password", e.target.value)}
                   required
                   minLength={6}
-                  className="w-full h-12 text-base px-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                  className="w-full h-12 text-base px-4 pr-12 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -144,12 +144,12 @@ export default function RegistroPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-base font-medium text-gray-700">Bloque</label>
+                <label className="block text-base font-medium text-foreground">Bloque</label>
                 <select
                   value={form.bloque}
                   onChange={(e) => handleChange("bloque", e.target.value)}
                   required
-                  className="w-full h-12 text-base px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all bg-white"
+                  className="w-full h-12 text-base px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white"
                 >
                   <option value="">Selecciona</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
@@ -160,7 +160,7 @@ export default function RegistroPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label htmlFor="apto" className="block text-base font-medium text-gray-700">
+                <label htmlFor="apto" className="block text-base font-medium text-foreground">
                   Apartamento
                 </label>
                 <input
@@ -171,26 +171,26 @@ export default function RegistroPage() {
                   onChange={(e) => handleChange("apto", e.target.value)}
                   required
                   min={1}
-                  className="w-full h-12 text-base px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                  className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
               </div>
             </div>
 
-            {error && <div className="border border-gray-300 p-3 text-sm text-gray-900 text-center">{error}</div>}
+            {error && <div className="border border-input p-3 text-sm text-foreground text-center">{error}</div>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Registrarse"}
             </button>
           </form>
 
           <div className="mt-5 text-center">
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               Ya tienes cuenta?{" "}
-              <Link href="/auth/login" className="font-bold text-green-700 hover:text-green-800 hover:underline">
+              <Link href="/auth/login" className="font-bold text-success hover:text-success hover:underline">
                 Inicia sesion
               </Link>
             </p>

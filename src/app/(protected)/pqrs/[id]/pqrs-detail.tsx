@@ -97,9 +97,9 @@ const estadoConfig: Record<
     text: string;
   }
 > = {
-  EN_ESPERA: { label: "En espera", icon: Hourglass, bg: "bg-yellow-100", text: "text-yellow-700" },
-  EN_PROGRESO: { label: "En proceso", icon: Clock, bg: "bg-blue-100", text: "text-blue-700" },
-  TERMINADO: { label: "Terminado", icon: CheckCircle2, bg: "bg-green-100", text: "text-green-700" },
+  EN_ESPERA: { label: "En espera", icon: Hourglass, bg: "bg-warning/10", text: "text-warning" },
+  EN_PROGRESO: { label: "En proceso", icon: Clock, bg: "bg-accent", text: "text-primary" },
+  TERMINADO: { label: "Terminado", icon: CheckCircle2, bg: "bg-success/10", text: "text-success" },
 };
 
 function fmtDateTime(dateStr: string) {
@@ -126,11 +126,11 @@ function calcBusinessDays(startDate: string): number {
 }
 
 function getSemaphore(diasTranscurridos: number, diasPermitidos: number): string {
-  if (diasPermitidos === 0) return "bg-green-500"; // Fase V terminado
+  if (diasPermitidos === 0) return "bg-success/100"; // Fase V terminado
   const ratio = diasTranscurridos / diasPermitidos;
-  if (ratio <= 0.5) return "bg-green-500";
-  if (ratio <= 1) return "bg-yellow-500";
-  return "bg-red-500";
+  if (ratio <= 0.5) return "bg-success/100";
+  if (ratio <= 1) return "bg-warning/100";
+  return "bg-destructive/100";
 }
 
 interface PqrsDetailProps {
@@ -375,7 +375,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-success" />
       </div>
     );
   }
@@ -383,10 +383,10 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
   if (!pqrs) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">{error || "PQRS no encontrada"}</p>
+        <p className="text-muted-foreground">{error || "PQRS no encontrada"}</p>
         <button
           onClick={() => router.back()}
-          className="mt-4 px-6 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+          className="mt-4 px-6 py-2 text-sm font-medium text-muted-foreground border border-input rounded-xl hover:bg-muted transition-colors"
         >
           Volver
         </button>
@@ -409,19 +409,19 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-sm text-gray-400">#{pqrs.numero}</span>
+            <span className="font-mono text-sm text-muted-foreground">#{pqrs.numero}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${ec?.bg} ${ec?.text}`}>
               <EstadoIcon className="h-3 w-3" />
               {ec?.label || pqrs.estado}
             </span>
           </div>
-          <h1 className="text-lg font-bold text-gray-900 mt-1">
+          <h1 className="text-lg font-bold text-foreground mt-1">
             {pqrs.asunto || pqrs.descripcion.substring(0, 60)}
           </h1>
         </div>
@@ -429,30 +429,30 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
       {/* Radicacion banner */}
       {pqrs.numeroRadicacion && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-success/10 border border-success/30 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-green-600 font-medium">N° de radicación</p>
-            <p className="text-lg font-bold text-green-800">{pqrs.numeroRadicacion}</p>
+            <p className="text-xs text-success font-medium">N° de radicación</p>
+            <p className="text-lg font-bold text-success">{pqrs.numeroRadicacion}</p>
           </div>
         </div>
       )}
 
       {/* Info card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
-        <h2 className="text-base font-bold text-gray-900">Información de la solicitud</h2>
+      <div className="bg-white rounded-2xl border border-border p-5 space-y-3">
+        <h2 className="text-base font-bold text-foreground">Información de la solicitud</h2>
         <InfoRow label="Residente" value={pqrs.nombreResidente} />
         <InfoRow label="Ubicación" value={`Bloque ${pqrs.bloque} - Apto ${pqrs.apto}`} />
         {pqrs.asunto && <InfoRow label="Asunto" value={pqrs.asunto} />}
         <InfoRow label="Fecha recibido" value={fmtDateTime(pqrs.fechaRecibido)} />
-        <div className="border-t border-gray-100 pt-3">
-          <p className="text-sm font-medium text-gray-500 mb-1">Descripción</p>
-          <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+        <div className="border-t border-border pt-3">
+          <p className="text-sm font-medium text-muted-foreground mb-1">Descripción</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
             {pqrs.descripcion}
           </p>
         </div>
         {pqrs.fotos && pqrs.fotos.length > 0 && (
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-sm font-medium text-gray-500 mb-2">Fotos adjuntas</p>
+          <div className="border-t border-border pt-3">
+            <p className="text-sm font-medium text-muted-foreground mb-2">Fotos adjuntas</p>
             <div className="grid grid-cols-3 gap-2">
               {pqrs.fotos.map((foto) => (
                 <a
@@ -460,7 +460,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   href={`/api/pqrs/${pqrs.id}/fotos/${foto.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block rounded-xl overflow-hidden border border-gray-200 aspect-square hover:opacity-90 transition-opacity"
+                  className="block rounded-xl overflow-hidden border border-border aspect-square hover:opacity-90 transition-opacity"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -476,8 +476,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
       </div>
 
       {/* Management card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
-        <h2 className="text-base font-bold text-gray-900">Gestión</h2>
+      <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
+        <h2 className="text-base font-bold text-foreground">Gestión</h2>
         <InfoRow label="Estado" value={ec?.label || pqrs.estado} />
         {pqrs.fechaPrimerContacto && (
           <InfoRow
@@ -487,8 +487,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         )}
         {pqrs.notaPrimerContacto && (
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Nota de primer contacto</p>
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.notaPrimerContacto}</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Nota de primer contacto</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{pqrs.notaPrimerContacto}</p>
           </div>
         )}
         {pqrs.fechaCierre && (
@@ -501,13 +501,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
         {isAdmin && pqrs.estado === "EN_ESPERA" && (
           <>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Asunto <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground">
+                Asunto <span className="text-destructive">*</span>
               </label>
               <select
                 value={asuntoSelected}
                 onChange={(e) => setAsuntoSelected(e.target.value)}
-                className="w-full h-12 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                className="w-full h-12 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
               >
                 <option value="">Seleccionar asunto</option>
                 {ASUNTOS.map((a) => (
@@ -517,26 +517,26 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Primer contacto <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground">
+                Primer contacto <span className="text-destructive">*</span>
               </label>
               <textarea
                 placeholder="Escriba la nota de primer contacto..."
                 value={notaPrimerContacto}
                 onChange={(e) => setNotaPrimerContacto(e.target.value)}
                 rows={3}
-                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+                className="w-full text-sm px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
             {success && (
-              <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
+              <div className="flex items-center justify-center gap-2 text-sm text-success bg-success/10 border border-success/30 rounded-xl p-3">
                 {success}
               </div>
             )}
@@ -544,7 +544,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             <button
               onClick={handlePrimerContacto}
               disabled={registrandoContacto || !asuntoSelected || !notaPrimerContacto.trim()}
-              className="w-full h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {registrandoContacto ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -561,13 +561,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
           <>
             {/* Cambiar asunto */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground">
                 Asunto
               </label>
               <select
                 value={asuntoSelected}
                 onChange={(e) => setAsuntoSelected(e.target.value)}
-                className="w-full h-12 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+                className="w-full h-12 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
               >
                 {ASUNTOS.map((a) => (
                   <option key={a} value={a}>{a}</option>
@@ -577,21 +577,21 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
             {/* Accion tomada */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Acción tomada <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground">
+                Acción tomada <span className="text-destructive">*</span>
               </label>
               <textarea
                 placeholder="Describa las acciones realizadas"
                 value={accionTomada}
                 onChange={(e) => setAccionTomada(e.target.value)}
                 rows={3}
-                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+                className="w-full text-sm px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
 
             {/* Phase panel - only visible to admin */}
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
+            <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-bold text-foreground">Fases de gestión</h3>
 
               {FASES.map((fase) => {
                 // Skip Phase II if PROVEEDOR path, skip Phase III if INSUMOS path
@@ -615,7 +615,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                 const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
                 const semaphore = isActive && faseInicio
                   ? getSemaphore(diasTranscurridos, fase.diasHabiles)
-                  : isCompleted ? "bg-green-500" : "bg-gray-300";
+                  : isCompleted ? "bg-success/100" : "bg-muted";
 
                 const isNested = fase.num === 2 || fase.num === 3;
                 // "Avanzar" requires: nota filled + (if fase 1) faseTipo selected
@@ -624,15 +624,15 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   (fase.num !== 1 || !!pqrs.faseTipo);
 
                 return (
-                  <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
-                    <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                  <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-border pl-3" : ""}>
+                    <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-success/30" : ""}`}>
                       <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                        <p className={`text-xs font-medium ${isActive ? "text-foreground" : isCompleted ? "text-success" : "text-muted-foreground"}`}>
                           Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
                         </p>
                         {fase.diasHabiles > 0 && (
-                          <p className="text-[10px] text-gray-400">
+                          <p className="text-[10px] text-muted-foreground">
                             {fase.diasHabiles} días hábiles
                             {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                           </p>
@@ -647,7 +647,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                             handleFaseChange(next, undefined, notaActual);
                           }}
                           disabled={saving || !canAdvance}
-                          className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
+                          className="text-xs font-bold px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary disabled:opacity-50 shrink-0"
                           title={!notaActual.trim() ? "Escriba una nota antes de avanzar" : (fase.num === 1 && !pqrs.faseTipo) ? "Seleccione Fase II o III antes de avanzar" : ""}
                         >
                           Avanzar
@@ -657,7 +657,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                         <button
                           onClick={() => handleFaseChange(1)}
                           disabled={saving}
-                          className="text-xs font-bold px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0"
+                          className="text-xs font-bold px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary disabled:opacity-50 shrink-0"
                         >
                           Iniciar
                         </button>
@@ -672,7 +672,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                           value={notaActual}
                           onChange={(e) => setFaseNotas(prev => ({ ...prev, [fase.num]: e.target.value }))}
                           rows={2}
-                          className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none bg-white"
+                          className="w-full text-xs px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none bg-white"
                         />
                       </div>
                     )}
@@ -680,14 +680,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                     {/* Nota guardada de fase completada (solo lectura) */}
                     {isCompleted && savedNota && (
                       <div className="mt-1 px-2">
-                        <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                        <p className="text-[10px] text-muted-foreground whitespace-pre-wrap italic">{savedNota}</p>
                       </div>
                     )}
 
                     {/* Selector de tipo (Insumos / Proveedor) — debajo de Fase I, requiere nota primero */}
                     {fase.num === 1 && isActive && !pqrs.faseTipo && (
-                      <div className="ml-6 border-l-2 border-gray-200 pl-3 mt-2">
-                        <div className={`bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 ${!notaActual.trim() ? "opacity-50 pointer-events-none" : ""}`}>
+                      <div className="ml-6 border-l-2 border-border pl-3 mt-2">
+                        <div className={`bg-accent border border-accent rounded-lg p-3 text-sm text-primary ${!notaActual.trim() ? "opacity-50 pointer-events-none" : ""}`}>
                           <p className="font-medium mb-1">
                             {!notaActual.trim()
                               ? "Escriba una nota de Fase I para continuar"
@@ -698,14 +698,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                               <button
                                 onClick={() => handleFaseChange(pqrs.faseActual || 1, "INSUMOS", notaActual)}
                                 disabled={saving}
-                                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+                                className="flex-1 px-3 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50"
                               >
                                 Fase II - Insumos
                               </button>
                               <button
                                 onClick={() => handleFaseChange(pqrs.faseActual || 1, "PROVEEDOR", notaActual)}
                                 disabled={saving}
-                                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+                                className="flex-1 px-3 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50"
                               >
                                 Fase III - Proveedor
                               </button>
@@ -722,23 +722,23 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             {/* Cierre temprano: campo obligatorio si no se completaron todas las fases */}
             {!faseV && (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  ¿Qué se hizo para cerrar? {cierreTempranoValido ? "" : <span className="text-red-500">*</span>}
+                <label className="block text-sm font-medium text-foreground">
+                  ¿Qué se hizo para cerrar? {cierreTempranoValido ? "" : <span className="text-destructive">*</span>}
                 </label>
-                <p className="text-xs text-gray-500">Requerido si no se completaron todas las fases de gestión.</p>
+                <p className="text-xs text-muted-foreground">Requerido si no se completaron todas las fases de gestión.</p>
                 <textarea
                   placeholder="Describa qué se hizo para cerrar la PQRS sin completar todas las fases"
                   value={queSeHizoParaCerrar}
                   onChange={(e) => setQueSeHizoParaCerrar(e.target.value)}
                   rows={3}
-                  className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+                  className="w-full text-sm px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
                 />
               </div>
             )}
 
             {/* Evidencia de cierre - only enabled when Phase V is active or cierre temprano is valid */}
             <div className={`space-y-3 ${!evidenciaEnabled ? "opacity-50 pointer-events-none" : ""}`}>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground">
                 Evidencia de cierre {!evidenciaEnabled && "(complete las fases o indique que se hizo para cerrar)"}
               </label>
               <textarea
@@ -746,16 +746,16 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                 value={evidenciaCierre}
                 onChange={(e) => setEvidenciaCierre(e.target.value)}
                 rows={3}
-                className="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all resize-none"
+                className="w-full text-sm px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
               {hasArchivo ? (
-                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
-                  <FileDown className="h-5 w-5 text-green-600 shrink-0" />
-                  <span className="text-sm text-green-800 truncate flex-1">{archivoNombre}</span>
+                <div className="flex items-center gap-3 bg-success/10 border border-success/30 rounded-xl p-3">
+                  <FileDown className="h-5 w-5 text-success shrink-0" />
+                  <span className="text-sm text-success truncate flex-1">{archivoNombre}</span>
                   <button
                     type="button"
                     onClick={() => { setArchivoData(null); setArchivoUrl(null); setArchivoPath(null); setArchivoNombre(null); setArchivoTipo(null); setArchivoSize(null); }}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
+                    className="text-muted-foreground hover:text-destructive transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -765,7 +765,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="w-full flex items-center justify-center gap-2 h-12 text-sm font-medium text-gray-600 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-all"
+                  className="w-full flex items-center justify-center gap-2 h-12 text-sm font-medium text-muted-foreground border-2 border-dashed border-input rounded-xl hover:border-success hover:text-success hover:bg-success/10 transition-all"
                 >
                   {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
                   {uploading ? "Subiendo..." : "Subir archivo (max. 2MB)"}
@@ -776,13 +776,13 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
             {/* Messages */}
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
             {success && (
-              <div className="flex items-center justify-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3">
+              <div className="flex items-center justify-center gap-2 text-sm text-success bg-success/10 border border-success/30 rounded-xl p-3">
                 {success.includes("notificación") && <Mail className="h-4 w-4" />}
                 {success}
               </div>
@@ -793,7 +793,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               <button
                 onClick={handleSave}
                 disabled={saving || terminating}
-                className="flex-1 h-12 text-base font-bold text-white bg-green-700 rounded-xl hover:bg-green-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 Guardar
@@ -801,7 +801,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
               <button
                 onClick={handleTerminar}
                 disabled={saving || terminating || (!faseV && !queSeHizoParaCerrar.trim()) || (!evidenciaCierre.trim() && !hasArchivo)}
-                className="flex-1 h-12 text-base font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 h-12 text-base font-bold text-white bg-destructive rounded-xl hover:bg-destructive/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {terminating ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
                 Terminar
@@ -815,21 +815,21 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
           <>
             {/* Residente: mostrar nota de Fase IV como "En ejecucion" */}
             {isResidente && pqrs.fase4Nota && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm font-bold text-blue-800 mb-1">En ejecución</p>
-                <p className="text-sm text-blue-700 whitespace-pre-wrap">{pqrs.fase4Nota}</p>
+              <div className="bg-accent border border-accent rounded-xl p-4">
+                <p className="text-sm font-bold text-primary mb-1">En ejecución</p>
+                <p className="text-sm text-primary whitespace-pre-wrap">{pqrs.fase4Nota}</p>
               </div>
             )}
             {pqrs.accionTomada && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Acción tomada</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{pqrs.accionTomada}</p>
               </div>
             )}
             {/* Fases en solo lectura para CONSEJO/ASISTENTE */}
             {!isAdmin && !isResidente && pqrs.faseActual !== null && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
+              <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-foreground">Fases de gestión</h3>
                 {FASES.map((fase) => {
                   if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
                   if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
@@ -849,18 +849,18 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
                   const semaphore = isActive && faseInicio
                     ? getSemaphore(diasTranscurridos, fase.diasHabiles)
-                    : isCompleted ? "bg-green-500" : "bg-gray-300";
+                    : isCompleted ? "bg-success/100" : "bg-muted";
                   const isNested = fase.num === 2 || fase.num === 3;
                   return (
-                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
-                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-border pl-3" : ""}>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-success/30" : ""}`}>
                         <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                          <p className={`text-xs font-medium ${isActive ? "text-foreground" : isCompleted ? "text-success" : "text-muted-foreground"}`}>
                             Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
                           </p>
                           {fase.diasHabiles > 0 && (
-                            <p className="text-[10px] text-gray-400">
+                            <p className="text-[10px] text-muted-foreground">
                               {fase.diasHabiles} días hábiles
                               {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                             </p>
@@ -869,7 +869,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                       </div>
                       {savedNota && (
                         <div className="px-2 mt-1">
-                          <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                          <p className="text-[10px] text-muted-foreground whitespace-pre-wrap italic">{savedNota}</p>
                         </div>
                       )}
                     </div>
@@ -885,21 +885,21 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
           <>
             {pqrs.accionTomada && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Acción tomada</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.accionTomada}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Acción tomada</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{pqrs.accionTomada}</p>
               </div>
             )}
             {(pqrs.evidenciaCierre || hasEvidenciaArchivo) && (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-500">Evidencia de cierre</p>
+                <p className="text-sm font-medium text-muted-foreground">Evidencia de cierre</p>
                 {pqrs.evidenciaCierre && (
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.evidenciaCierre}</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{pqrs.evidenciaCierre}</p>
                 )}
                 {hasEvidenciaArchivo && (
                   <a
                     href={`/api/pqrs/${pqrs.id}/evidencia`}
                     download={pqrs.evidenciaArchivoNombre || "evidencia"}
-                    className="inline-flex items-center gap-2 text-sm text-green-700 hover:text-green-800 bg-green-50 border border-green-200 rounded-xl px-4 py-2 transition-colors"
+                    className="inline-flex items-center gap-2 text-sm text-success hover:text-success bg-success/10 border border-success/30 rounded-xl px-4 py-2 transition-colors"
                   >
                     <FileDown className="h-4 w-4" />
                     {pqrs.evidenciaArchivoNombre || "Descargar archivo"}
@@ -909,14 +909,14 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
             )}
             {pqrs.queSeHizoParaCerrar && !isResidente && (
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Qué se hizo para cerrar</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{pqrs.queSeHizoParaCerrar}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Qué se hizo para cerrar</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{pqrs.queSeHizoParaCerrar}</p>
               </div>
             )}
             {/* Fases en solo lectura para ADMIN/ASISTENTE/CONSEJO en estado TERMINADO */}
             {!isResidente && pqrs.faseActual !== null && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-gray-900">Fases de gestión</h3>
+              <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-bold text-foreground">Fases de gestión</h3>
                 {FASES.map((fase) => {
                   if (fase.num === 2 && pqrs.faseTipo === "PROVEEDOR") return null;
                   if (fase.num === 3 && pqrs.faseTipo === "INSUMOS") return null;
@@ -936,18 +936,18 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                   const diasTranscurridos = faseInicio ? calcBusinessDays(faseInicio) : 0;
                   const semaphore = isActive && faseInicio
                     ? getSemaphore(diasTranscurridos, fase.diasHabiles)
-                    : isCompleted ? "bg-green-500" : "bg-gray-300";
+                    : isCompleted ? "bg-success/100" : "bg-muted";
                   const isNested = fase.num === 2 || fase.num === 3;
                   return (
-                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-gray-200 pl-3" : ""}>
-                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-green-200" : ""}`}>
+                    <div key={fase.num} className={isNested ? "ml-6 border-l-2 border-border pl-3" : ""}>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg ${isActive ? "bg-white border border-success/30" : ""}`}>
                         <div className={`w-3 h-3 rounded-full shrink-0 ${semaphore}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium ${isActive ? "text-gray-900" : isCompleted ? "text-green-700" : "text-gray-400"}`}>
+                          <p className={`text-xs font-medium ${isActive ? "text-foreground" : isCompleted ? "text-success" : "text-muted-foreground"}`}>
                             Fase {fase.num === 2 ? "II" : fase.num === 3 ? "III" : fase.num === 1 ? "I" : fase.num === 4 ? "IV" : "V"} — {fase.nombre}
                           </p>
                           {fase.diasHabiles > 0 && (
-                            <p className="text-[10px] text-gray-400">
+                            <p className="text-[10px] text-muted-foreground">
                               {fase.diasHabiles} días hábiles
                               {isActive && faseInicio ? ` (${diasTranscurridos}d transcurridos)` : ""}
                             </p>
@@ -956,7 +956,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                       </div>
                       {savedNota && (
                         <div className="px-2 mt-1">
-                          <p className="text-[10px] text-gray-500 whitespace-pre-wrap italic">{savedNota}</p>
+                          <p className="text-[10px] text-muted-foreground whitespace-pre-wrap italic">{savedNota}</p>
                         </div>
                       )}
                     </div>
@@ -970,20 +970,20 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 
       {/* History */}
       {pqrs.historial.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-base font-bold text-gray-900 mb-4">Historial</h2>
+        <div className="bg-white rounded-2xl border border-border p-5">
+          <h2 className="text-base font-bold text-foreground mb-4">Historial</h2>
           <div className="space-y-3">
             {pqrs.historial.map((h) => {
               const hec = estadoConfig[h.estadoDespues];
               const HIcon = hec?.icon || Clock;
               return (
                 <div key={h.id} className="flex items-start gap-3 text-sm">
-                  <span className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">
                     {fmtDateTime(h.creadoAt)}
                   </span>
                   <div>
                     {h.estadoAntes && (
-                      <span className="text-gray-500">
+                      <span className="text-muted-foreground">
                         {estadoConfig[h.estadoAntes]?.label || h.estadoAntes} →{" "}
                       </span>
                     )}
@@ -991,7 +991,7 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
                       <HIcon className="h-3 w-3" />
                       {hec?.label || h.estadoDespues}
                     </span>
-                    {h.nota && <p className="text-gray-500 mt-0.5">{h.nota}</p>}
+                    {h.nota && <p className="text-muted-foreground mt-0.5">{h.nota}</p>}
                   </div>
                 </div>
               );
@@ -1006,8 +1006,8 @@ export function PqrsDetail({ pqrsId, role }: PqrsDetailProps) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4 text-sm">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-right text-gray-900 font-medium">{value}</span>
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-right text-foreground font-medium">{value}</span>
     </div>
   );
 }

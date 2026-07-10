@@ -57,20 +57,20 @@ const estadoConfig: Record<
   EN_ESPERA: {
     label: "En espera",
     icon: Hourglass,
-    bg: "bg-yellow-100",
-    text: "text-yellow-700",
+    bg: "bg-warning/10",
+    text: "text-warning",
   },
   EN_PROGRESO: {
     label: "En proceso",
     icon: Clock,
-    bg: "bg-blue-100",
-    text: "text-blue-700",
+    bg: "bg-accent",
+    text: "text-primary",
   },
   TERMINADO: {
     label: "Terminado",
     icon: CheckCircle2,
-    bg: "bg-green-100",
-    text: "text-green-700",
+    bg: "bg-success/10",
+    text: "text-success",
   },
 };
 
@@ -164,10 +164,10 @@ export function PqrsList({ role }: PqrsListProps) {
       {isResidente && (
         <>
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Mis PQRS</h1>
+            <h1 className="text-2xl font-bold text-foreground">Mis PQRS</h1>
             <Link
               href="/pqrs/nuevo"
-              className="inline-flex items-center gap-2 bg-green-700 text-white font-bold px-4 py-2.5 rounded-xl hover:bg-green-800 transition-colors text-sm"
+              className="inline-flex items-center gap-2 bg-primary text-white font-bold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-colors text-sm"
             >
               <Plus className="h-4 w-4" />
               Crear
@@ -181,15 +181,15 @@ export function PqrsList({ role }: PqrsListProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 flex-1">PQRS</h1>
+          <h1 className="text-2xl font-bold text-foreground flex-1">PQRS</h1>
           {canCreate && (
             <Link
               href="/pqrs/nuevo"
-              className="inline-flex items-center gap-2 bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl hover:bg-green-800 transition-colors text-sm"
+              className="inline-flex items-center gap-2 bg-primary text-white font-bold px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-colors text-sm"
             >
               <Plus className="h-4 w-4" />
               Nueva
@@ -206,7 +206,7 @@ export function PqrsList({ role }: PqrsListProps) {
             placeholder="N° PQRS"
             value={searchNumero}
             onChange={(e) => setSearchNumero(e.target.value)}
-            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 w-24 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           />
           <input
             type="number"
@@ -220,7 +220,7 @@ export function PqrsList({ role }: PqrsListProps) {
             }}
             min={1}
             max={12}
-            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 w-24 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           />
           <input
             type="text"
@@ -231,7 +231,7 @@ export function PqrsList({ role }: PqrsListProps) {
               setSearchApto(val);
             }}
             maxLength={3}
-            className="h-10 w-24 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 w-24 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           />
         </div>
       )}
@@ -242,7 +242,7 @@ export function PqrsList({ role }: PqrsListProps) {
         <select
           value={estadoFilter}
           onChange={(e) => setEstadoFilter(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         >
           {isResidente ? (
             <>
@@ -265,7 +265,7 @@ export function PqrsList({ role }: PqrsListProps) {
         <select
           value={mes}
           onChange={(e) => setMes(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         >
           <option value="">Mes</option>
           {MESES.map((m) => (
@@ -276,7 +276,7 @@ export function PqrsList({ role }: PqrsListProps) {
         <select
           value={year}
           onChange={(e) => setYear(e.target.value)}
-          className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+          className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         >
           <option value="">Año</option>
           {getYears().map((y) => (
@@ -288,7 +288,7 @@ export function PqrsList({ role }: PqrsListProps) {
           <select
             value={asuntoFilter}
             onChange={(e) => setAsuntoFilter(e.target.value)}
-            className="h-10 text-sm px-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
+            className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
             <option value="">Asunto</option>
             {ASUNTOS.map((a) => (
@@ -308,7 +308,7 @@ export function PqrsList({ role }: PqrsListProps) {
               setSearchApto("");
               setSearchNumero("");
             }}
-            className="h-10 text-sm px-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+            className="h-10 text-sm px-3 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors"
           >
             Limpiar
           </button>
@@ -318,25 +318,25 @@ export function PqrsList({ role }: PqrsListProps) {
       {/* Error */}
       {error && (
         <div className="text-center py-16">
-          <p className="text-red-600">{error}</p>
-          <button onClick={fetchPqrs} className="mt-3 text-sm text-green-700 underline">Reintentar</button>
+          <p className="text-destructive">{error}</p>
+          <button onClick={fetchPqrs} className="mt-3 text-sm text-success underline">Reintentar</button>
         </div>
       )}
 
       {/* Loading */}
       {loading && (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-success" />
         </div>
       )}
 
       {/* No results */}
       {!loading && pqrs.length === 0 && (
         <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <FileText className="h-8 w-8 text-gray-400" />
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             {isResidente
               ? "No tienes solicitudes con los filtros seleccionados."
               : "No hay PQRS con los filtros seleccionados."}
@@ -346,7 +346,7 @@ export function PqrsList({ role }: PqrsListProps) {
 
       {!loading && pqrs.length > 0 && (
         <>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {pqrs.length} solicitud{pqrs.length !== 1 ? "es" : ""}
           </p>
 
@@ -357,26 +357,26 @@ export function PqrsList({ role }: PqrsListProps) {
 
               return (
                 <Link key={p.id} href={`/pqrs/${p.id}`}>
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-green-200 transition-all duration-200 group">
+                  <div className="bg-white rounded-2xl border border-border p-4 hover:shadow-md hover:border-success/30 transition-all duration-200 group">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-mono text-xs text-gray-400">
+                          <span className="font-mono text-xs text-muted-foreground">
                             #{p.numero}
                           </span>
                           <span
-                            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${ec?.bg || "bg-gray-100"} ${ec?.text || "text-gray-600"}`}
+                            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${ec?.bg || "bg-muted"} ${ec?.text || "text-muted-foreground"}`}
                           >
                             <EstadoIcon className="h-3 w-3" />
                             {ec?.label || p.estado}
                           </span>
                         </div>
 
-                        <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
+                        <p className="font-semibold text-foreground text-sm line-clamp-2 mb-1">
                           {p.asunto || p.descripcion.substring(0, 80)}
                         </p>
 
-                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {!isResidente && (
                             <span>
                               {p.nombreResidente} · B{p.bloque}-{p.apto}
@@ -386,7 +386,7 @@ export function PqrsList({ role }: PqrsListProps) {
                         </div>
                       </div>
 
-                      <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-green-600 transition-colors shrink-0 mt-1" />
+                      <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-success transition-colors shrink-0 mt-1" />
                     </div>
                   </div>
                 </Link>
