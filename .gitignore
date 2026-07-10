@@ -44,6 +44,5 @@ next-env.d.ts
 
 # local dev server log
 .next-dev.log
-
-.next-dev-3002.log
-.next-dev-3002.err.log
+.next-dev-*.log
+.next-dev-*.err.log
