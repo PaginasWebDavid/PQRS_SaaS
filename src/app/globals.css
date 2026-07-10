@@ -1,4 +1,6 @@
-﻿@tailwind base;
+﻿@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -55,6 +57,28 @@
   ::selection {
     background: #EAEEF6;
     color: #122545;
+  }
+
+  a {
+    color: #122545;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #0B1A33;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #8E8E93;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: #122545 !important;
+    box-shadow: 0 0 0 3.5px rgba(18,37,69,0.12);
   }
 }
 
@@ -130,3 +154,14 @@
 .pqrs-animate-up {
   animation: pqrs-up 620ms cubic-bezier(.2,.7,.2,1) both;
 }
+
+@keyframes apl-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes apl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes apl-sheet { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes apl-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes apl-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes apl-float { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(16px,-20px) scale(1.05); } }
+
+.apl-up { animation: apl-up 600ms cubic-bezier(.2,.7,.2,1) both; }
+.apl-fade { animation: apl-fade 250ms ease both; }
+.apl-sheet { animation: apl-sheet 300ms cubic-bezier(.2,.7,.2,1) both; }
