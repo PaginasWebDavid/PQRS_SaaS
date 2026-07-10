@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
 
   if (!file) {
-    return NextResponse.json({ error: "No se enviÃ³ ningÃºn archivo" }, { status: 400 });
+    return NextResponse.json({ error: "No se enviÃƒÂ³ ningÃƒÂºn archivo" }, { status: 400 });
+  }
+
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+  if (!allowedTypes.has(file.type)) {
+    return NextResponse.json({ error: "Solo se permiten JPG, PNG, WEBP o PDF" }, { status: 400 });
+  }
+  if (file.name.length > 180 || /[\/]/.test(file.name)) {
+    return NextResponse.json({ error: "Nombre de archivo invalido" }, { status: 400 });
   }
 
   if (file.size > 2 * 1024 * 1024) {

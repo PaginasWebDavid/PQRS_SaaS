@@ -1,85 +1,16 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Loader2,
-  Users,
-  Search,
-  Shield,
-  ShieldCheck,
-  User as UserIcon,
-  Crown,
-  Trash2,
-  ChevronDown,
-  FileText,
-  ArrowLeft,
-  Pencil,
-  Check,
-  X,
-} from "lucide-react";
+import { Check, Loader2, Pencil, Search, Trash2, Users, X } from "lucide-react";
+import { EmptyState, MetricCard, StatusBadge } from "@/components/pqrs/design-system";
 
-interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  bloque: number | null;
-  apto: number | null;
-  createdAt: string;
-  _count: { pqrsCreated: number };
-}
+interface UserData { id: string; name: string; email: string; role: string; bloque: number | null; apto: number | null; createdAt: string; _count: { pqrsCreated: number } }
 
-const roleConfig: Record<
-  string,
-  {
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    bg: string;
-    text: string;
-    border: string;
-  }
-> = {
-  ADMIN: {
-    label: "Administrador",
-    icon: ShieldCheck,
-    bg: "bg-destructive/10",
-    text: "text-destructive",
-    border: "border-destructive/30",
-  },
-  ASISTENTE: {
-    label: "Asistente",
-    icon: Shield,
-    bg: "bg-purple-50",
-    text: "text-purple-700",
-    border: "border-purple-200",
-  },
-  CONSEJO: {
-    label: "Consejo",
-    icon: Crown,
-    bg: "bg-accent",
-    text: "text-primary",
-    border: "border-accent",
-  },
-  RESIDENTE: {
-    label: "Residente",
-    icon: UserIcon,
-    bg: "bg-success/10",
-    text: "text-success",
-    border: "border-success/30",
-  },
-};
+const roleLabels: Record<string, string> = { ADMIN: "Administrador", ASISTENTE: "Asistente", CONSEJO: "Consejo", RESIDENTE: "Residente" };
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
+function formatDate(dateStr: string) { return new Date(dateStr).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }); }
 
 export function UsuariosList({ currentUserId }: { currentUserId: string }) {
-  const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState("");
@@ -98,377 +29,45 @@ export function UsuariosList({ currentUserId }: { currentUserId: string }) {
     const params = new URLSearchParams();
     if (roleFilter) params.set("role", roleFilter);
     if (search) params.set("search", search);
-
     const res = await fetch(`/api/users?${params.toString()}`);
-    const data = await res.json();
-    setUsers(data);
+    setUsers(await res.json());
     setLoading(false);
   }, [roleFilter, search]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => { const timer = setTimeout(() => setSearch(searchInput), 300); return () => clearTimeout(timer); }, [searchInput]);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(searchInput), 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  async function handleRoleChange(userId: string, newRole: string) {
-    setSaving(true);
-    setError("");
-    const res = await fetch(`/api/users/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al cambiar rol");
-    } else {
-      await fetchUsers();
-    }
-    setSaving(false);
-    setEditingId(null);
-  }
-
-  async function handleLocationSave(userId: string) {
-    setSaving(true);
-    setError("");
-    const bloque = editBloque ? parseInt(editBloque) : null;
-    const apto = editApto ? parseInt(editApto) : null;
-
-    if (bloque !== null && (bloque < 1 || bloque > 12)) {
-      setError("Bloque debe ser entre 1 y 12");
-      setSaving(false);
-      return;
-    }
-    if (apto !== null && (apto < 1 || apto > 999)) {
-      setError("Apto debe ser entre 1 y 999");
-      setSaving(false);
-      return;
-    }
-
-    const res = await fetch(`/api/users/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bloque, apto }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al actualizar ubicación");
-    } else {
-      await fetchUsers();
-    }
-    setSaving(false);
-    setEditLocationId(null);
+  async function patchUser(userId: string, body: Record<string, unknown>) {
+    setSaving(true); setError("");
+    const res = await fetch(`/api/users/${userId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) setError((await res.json()).error || "No se pudo actualizar el usuario."); else await fetchUsers();
+    setSaving(false); setEditingId(null); setEditLocationId(null);
   }
 
   async function handleDelete(userId: string) {
-    setSaving(true);
-    setError("");
+    setSaving(true); setError("");
     const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Error al eliminar usuario");
-    } else {
-      await fetchUsers();
-    }
-    setSaving(false);
-    setDeleteConfirm(null);
+    if (!res.ok) setError((await res.json()).error || "No se pudo eliminar el usuario."); else await fetchUsers();
+    setSaving(false); setDeleteConfirm(null);
   }
 
-  const counts = {
-    total: users.length,
-    admin: users.filter((u) => u.role === "ADMIN").length,
-    consejo: users.filter((u) => u.role === "CONSEJO").length,
-    residente: users.filter((u) => u.role === "RESIDENTE").length,
-  };
+  const counts = { total: users.length, admin: users.filter((u) => u.role === "ADMIN").length, consejo: users.filter((u) => u.role === "CONSEJO").length, residente: users.filter((u) => u.role === "RESIDENTE").length };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-          <Users className="h-5 w-5 text-success" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Usuarios</h1>
-          <p className="text-sm text-muted-foreground">
-            {counts.total} usuario{counts.total !== 1 ? "s" : ""} registrado
-            {counts.total !== 1 ? "s" : ""}
-          </p>
-        </div>
+    <div className="space-y-7">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div><p className="pqrs-eyebrow">MODULO USUARIOS</p><h1 className="pqrs-title mt-2">Usuarios del tenant</h1><p className="pqrs-subtitle mt-2">Gestiona roles, ubicaciones y usuarios registrados.</p></div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-border p-3 text-center">
-          <p className="text-xs text-muted-foreground">Admin</p>
-          <p className="text-xl font-bold text-destructive">{counts.admin}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-border p-3 text-center">
-          <p className="text-xs text-muted-foreground">Consejo</p>
-          <p className="text-xl font-bold text-primary">{counts.consejo}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-border p-3 text-center">
-          <p className="text-xs text-muted-foreground">Residentes</p>
-          <p className="text-xl font-bold text-success">{counts.residente}</p>
-        </div>
-      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricCard label="Total" value={counts.total} /><MetricCard label="Admins" value={counts.admin} /><MetricCard label="Consejo" value={counts.consejo} /><MetricCard label="Residentes" value={counts.residente} /></div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o correo..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full h-10 text-sm pl-9 pr-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          />
-        </div>
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="h-10 text-sm px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="">Todos los roles</option>
-          <option value="ADMIN">Administrador</option>
-          <option value="ASISTENTE">Asistente</option>
-          <option value="CONSEJO">Consejo</option>
-          <option value="RESIDENTE">Residente</option>
-        </select>
-      </div>
+      <section className="pqrs-panel p-4"><div className="flex flex-col gap-2 md:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8E8E93]" /><input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Buscar por nombre o correo" className="pqrs-input h-10 pl-9" /></div><select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="pqrs-input h-10 w-full py-0 md:w-[220px]"><option value="">Todos los roles</option><option value="ADMIN">Administrador</option><option value="ASISTENTE">Asistente</option><option value="CONSEJO">Consejo</option><option value="RESIDENTE">Residente</option></select></div></section>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error ? <div className="rounded-2xl bg-[#FBEAEA] p-4 text-sm font-bold text-[#B3261E]">{error}</div> : null}
+      {loading ? <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-[#122545]" /></div> : null}
+      {!loading && users.length === 0 ? <EmptyState title="No hay usuarios" description="No se encontraron usuarios con los filtros seleccionados." /> : null}
 
-      {/* Loading */}
-      {loading && (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-success" />
-        </div>
-      )}
-
-      {/* No results */}
-      {!loading && users.length === 0 && (
-        <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <Users className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground">No se encontraron usuarios.</p>
-        </div>
-      )}
-
-      {/* User list */}
-      {!loading && users.length > 0 && (
-        <div className="space-y-3">
-          {users.map((u) => {
-            const rc = roleConfig[u.role] || roleConfig.RESIDENTE;
-            const RoleIcon = rc.icon;
-            const isCurrentUser = u.id === currentUserId;
-            const isConsejo = u.role === "CONSEJO";
-
-            return (
-              <div
-                key={u.id}
-                className={`bg-white rounded-2xl border p-4 transition-all ${
-                  isCurrentUser
-                    ? "border-success/40 bg-success/10/30"
-                    : isConsejo
-                    ? "border-accent bg-accent/20"
-                    : "border-border"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${rc.bg} ${rc.text}`}
-                  >
-                    <RoleIcon className="h-6 w-6" />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-semibold text-foreground text-sm truncate">
-                        {u.name}
-                      </p>
-                      {isCurrentUser && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/10 text-success">
-                          Tú
-                        </span>
-                      )}
-                      {isConsejo && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent text-primary">
-                          Solo lectura
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                      {/* Role badge or selector */}
-                      {editingId === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <select
-                            defaultValue={u.role}
-                            onChange={(e) =>
-                              handleRoleChange(u.id, e.target.value)
-                            }
-                            disabled={saving}
-                            className="h-7 text-xs px-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                          >
-                            <option value="ADMIN">Administrador</option>
-                            <option value="ASISTENTE">Asistente</option>
-                            <option value="CONSEJO">Consejo</option>
-                            <option value="RESIDENTE">Residente</option>
-                          </select>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-xs text-muted-foreground hover:text-muted-foreground px-1"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            !isCurrentUser && !isConsejo && setEditingId(u.id)
-                          }
-                          disabled={isCurrentUser || isConsejo}
-                          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg ${rc.bg} ${rc.text} ${rc.border} border ${
-                            isCurrentUser || isConsejo
-                              ? "cursor-default"
-                              : "hover:opacity-80 cursor-pointer"
-                          }`}
-                        >
-                          {rc.label}
-                          {!isCurrentUser && !isConsejo && (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
-                        </button>
-                      )}
-
-                      {/* Location: display or edit */}
-                      {editLocationId === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">B</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={12}
-                            value={editBloque}
-                            onChange={(e) => setEditBloque(e.target.value)}
-                            className="w-12 h-7 text-xs px-1 border border-input rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="—"
-                          />
-                          <span className="text-xs text-muted-foreground">Apto</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={999}
-                            value={editApto}
-                            onChange={(e) => setEditApto(e.target.value)}
-                            className="w-14 h-7 text-xs px-1 border border-input rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="—"
-                          />
-                          <button
-                            onClick={() => handleLocationSave(u.id)}
-                            disabled={saving}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-success hover:bg-success/10 transition-colors"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setEditLocationId(null)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditLocationId(u.id);
-                            setEditBloque(u.bloque ? String(u.bloque) : "");
-                            setEditApto(u.apto ? String(u.apto) : "");
-                          }}
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-muted-foreground transition-colors"
-                          title="Editar ubicación"
-                        >
-                          {u.bloque ? (
-                            <span>B{u.bloque}-{u.apto}</span>
-                          ) : (
-                            <span className="text-muted-foreground/40">Sin ubicación</span>
-                          )}
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      )}
-
-                      {u._count.pqrsCreated > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <FileText className="h-3 w-3" />
-                          {u._count.pqrsCreated}
-                        </span>
-                      )}
-                      <span className="text-xs text-muted-foreground/40">
-                        Desde {formatDate(u.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Delete - not for current user or CONSEJO */}
-                  {!isCurrentUser && !isConsejo && (
-                    <div className="shrink-0">
-                      {deleteConfirm === u.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleDelete(u.id)}
-                            disabled={saving}
-                            className="text-xs font-medium px-2 py-1 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                          >
-                            {saving ? "..." : "Confirmar"}
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="text-xs text-muted-foreground hover:text-muted-foreground px-1"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(u.id)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          title="Eliminar usuario"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {!loading && users.length > 0 ? <section className="pqrs-panel overflow-hidden"><div className="flex items-center justify-between border-b border-black/[0.06] p-5"><div><p className="pqrs-eyebrow">DIRECTORIO</p><h2 className="mt-1 text-lg font-extrabold">Usuarios registrados</h2></div><Users className="h-5 w-5 text-[#8E8E93]" /></div><div className="overflow-x-auto"><table className="pqrs-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Ubicacion</th><th>PQRS</th><th>Desde</th><th>Acciones</th></tr></thead><tbody>{users.map((u) => { const isCurrent = u.id === currentUserId; const isConsejo = u.role === "CONSEJO"; return <tr key={u.id}><td><p className="font-extrabold text-[#1D1D1F]">{u.name}</p><p className="text-xs text-[#6E6E73]">{u.email}</p></td><td>{editingId === u.id ? <select disabled={saving} defaultValue={u.role} onChange={(e) => patchUser(u.id, { role: e.target.value })} className="pqrs-input h-9 min-w-[150px] py-0"><option value="ADMIN">Administrador</option><option value="ASISTENTE">Asistente</option><option value="CONSEJO">Consejo</option><option value="RESIDENTE">Residente</option></select> : <button disabled={isCurrent || isConsejo} onClick={() => setEditingId(u.id)}><StatusBadge status={isConsejo ? "Consejo solo lectura" : roleLabels[u.role] || u.role} /></button>}</td><td>{editLocationId === u.id ? <div className="flex items-center gap-1"><input value={editBloque} onChange={(e) => setEditBloque(e.target.value)} placeholder="B" className="pqrs-input h-8 w-14 px-2" /><input value={editApto} onChange={(e) => setEditApto(e.target.value)} placeholder="Apto" className="pqrs-input h-8 w-20 px-2" /><button onClick={() => patchUser(u.id, { bloque: editBloque ? parseInt(editBloque) : null, apto: editApto ? parseInt(editApto) : null })} className="text-[#1A6B3A]"><Check className="h-4 w-4" /></button><button onClick={() => setEditLocationId(null)} className="text-[#8E8E93]"><X className="h-4 w-4" /></button></div> : <button onClick={() => { setEditLocationId(u.id); setEditBloque(u.bloque ? String(u.bloque) : ""); setEditApto(u.apto ? String(u.apto) : ""); }} className="inline-flex items-center gap-2 text-sm font-bold text-[#424245]">{u.bloque ? `B${u.bloque}-${u.apto}` : "Sin ubicacion"}<Pencil className="h-3 w-3" /></button>}</td><td>{u._count.pqrsCreated}</td><td>{formatDate(u.createdAt)}</td><td>{!isCurrent && !isConsejo ? deleteConfirm === u.id ? <div className="flex gap-2"><button disabled={saving} onClick={() => handleDelete(u.id)} className="text-xs font-extrabold text-[#B3261E]">Confirmar</button><button onClick={() => setDeleteConfirm(null)} className="text-xs font-bold text-[#8E8E93]">No</button></div> : <button onClick={() => setDeleteConfirm(u.id)} className="text-[#8E8E93] hover:text-[#B3261E]"><Trash2 className="h-4 w-4" /></button> : <span className="text-xs text-[#8E8E93]">Protegido</span>}</td></tr>; })}</tbody></table></div></section> : null}
     </div>
   );
 }

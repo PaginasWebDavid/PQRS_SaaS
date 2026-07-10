@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import crypto from "crypto";
@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendEmail({
+        tenantId: user.tenantId,
+        template: "password_reset",
         to: email,
         subject: "Restablecer contraseÃ±a - PQRS SaaS",
         html: `

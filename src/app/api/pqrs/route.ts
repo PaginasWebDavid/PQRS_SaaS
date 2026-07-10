@@ -4,7 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
-import { Prisma } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
+import { registerAuditLog } from "@/domains/platform/audit.service";
+import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
+import { pqrsScopeForUser } from "@/domains/pqrs/pqrs-permissions";
+
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -15,6 +20,10 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  if (session.user.role === "SUPER_ADMIN") {
+    return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
   const tenantAccessResponse = await getTenantAccessResponse(session);
@@ -32,12 +41,7 @@ export async function GET(req: NextRequest) {
   const searchNumero = searchParams.get("numero");
 
   // Construir filtros
-  const where: Prisma.PqrsWhereInput = { tenantId };
-
-  // RESIDENTE solo ve sus propias PQRS
-  if (session.user.role === "RESIDENTE") {
-    where.creadoPorId = session.user.id;
-  }
+  const where: Prisma.PqrsWhereInput = pqrsScopeForUser({ tenantId, userId: session.user.id, role: session.user.role });
 
   // Scope: active = EN_ESPERA + EN_PROGRESO, historial = TERMINADO
   if (scope === "active") {
@@ -97,15 +101,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
-
-  const tenantId = getTenantIdFromSession(session);
-
   // Solo ADMIN y RESIDENTE pueden crear
   if (session.user.role !== "ADMIN" && session.user.role !== "RESIDENTE") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
+
+  const tenantAccessResponse = await getTenantAccessResponse(session);
+  if (tenantAccessResponse) return tenantAccessResponse;
+
+  const tenantId = getTenantIdFromSession(session);
 
   const body = await req.json();
   const { asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
@@ -149,15 +153,21 @@ export async function POST(req: NextRequest) {
   const fotosArray: { data: string; nombre: string; tipo: string; orden: number }[] = [];
   if (fotos && Array.isArray(fotos)) {
     if (fotos.length > 3) {
-      return NextResponse.json({ error: "MÃ¡ximo 3 fotos permitidas" }, { status: 400 });
+      return NextResponse.json({ error: "MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ximo 3 fotos permitidas" }, { status: 400 });
     }
     for (let i = 0; i < fotos.length; i++) {
       const foto = fotos[i];
       if (!foto.data || !foto.nombre || !foto.tipo) {
         return NextResponse.json({ error: "Datos de foto incompletos" }, { status: 400 });
       }
-      if (!foto.tipo.startsWith("image/")) {
-        return NextResponse.json({ error: "Solo se permiten archivos de imagen" }, { status: 400 });
+      if (!ALLOWED_IMAGE_TYPES.has(foto.tipo)) {
+        return NextResponse.json({ error: "Solo se permiten imagenes JPG, PNG o WEBP" }, { status: 400 });
+      }
+      if (foto.nombre.length > 180 || /[\/]/.test(foto.nombre)) {
+        return NextResponse.json({ error: "Nombre de archivo invalido" }, { status: 400 });
+      }
+      if (!foto.data.startsWith("data:" + foto.tipo + ";base64,")) {
+        return NextResponse.json({ error: "El contenido no coincide con el tipo de archivo" }, { status: 400 });
       }
       const base64Data = foto.data.replace(/^data:[^;]+;base64,/, "");
       const sizeBytes = Math.ceil(base64Data.length * 0.75);
@@ -253,5 +263,35 @@ export async function POST(req: NextRequest) {
     return nuevoPqrs;
   });
 
+  await registerAuditLog({
+    actorUserId: session.user.id,
+    tenantId,
+    action: AuditAction.PQRS_CREATED,
+    targetType: "Pqrs",
+    targetId: pqrs.id,
+    metadata: { numero: pqrs.numero, asunto: pqrs.asunto, estado: pqrs.estado },
+  });
+
+  const recipients = await prisma.user.findMany({
+    where: { tenantId, role: { in: ["ADMIN", "ASISTENTE"] } },
+    select: { id: true },
+  });
+
+  await Promise.allSettled(
+    recipients.map((recipient) =>
+      createNotification({
+        tenantId,
+        userId: recipient.id,
+        type: NotificationTypes.PQRS_CREATED,
+        title: "Nueva PQRS recibida",
+        message: `Se creo la PQRS #${pqrs.numero}.`,
+        resourceType: "Pqrs",
+        resourceId: pqrs.id,
+      })
+    )
+  );
+
   return NextResponse.json(pqrs, { status: 201 });
 }
+
+

@@ -4,199 +4,49 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { BrandMark } from "@/components/pqrs/design-system";
 
 export default function RegistroPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    name: "",
-    bloque: "",
-    apto: "",
-  });
+  const [form, setForm] = useState({ email: "", password: "", name: "", bloque: "", apto: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  function handleChange(field: string, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+  function handleChange(field: string, value: string) { setForm((prev) => ({ ...prev, [field]: value })); }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    if (!form.bloque) {
-      setError("Selecciona tu bloque");
-      return;
-    }
-
+    e.preventDefault(); setError("");
+    if (!form.bloque) return setError("Selecciona tu bloque.");
     setLoading(true);
-
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: form.email,
-        password: form.password,
-        name: form.name,
-        bloque: parseInt(form.bloque),
-        apto: parseInt(form.apto),
-      }),
-    });
-
+    const res = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.email, password: form.password, name: form.name, bloque: parseInt(form.bloque), apto: parseInt(form.apto) }) });
     const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error);
-      setLoading(false);
-      return;
-    }
-
-    const result = await signIn("credentials", {
-      email: form.email,
-      password: form.password,
-      redirect: false,
-    });
-
+    if (!res.ok) { setError(data.error || "No se pudo crear la cuenta."); setLoading(false); return; }
+    const result = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
     setLoading(false);
-
-    if (result?.error) {
-      setError("Cuenta creada. Intenta iniciar sesion manualmente.");
-    } else {
-      router.push("/");
-      router.refresh();
-    }
+    if (result?.error) setError("Cuenta creada. Intenta iniciar sesion manualmente."); else { router.push("/"); router.refresh(); }
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-white">
-      <div className="w-full max-w-md">
-        <div className="mb-6">
-          <Link href="/" className="text-sm underline">
-            PQRS SaaS
-          </Link>
-        </div>
-
-        <div className="bg-white border border-input p-6">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground">Crear cuenta</h1>
-            <p className="text-muted-foreground mt-1">Registro basico para residentes.</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="name" className="block text-base font-medium text-foreground">
-                Nombre completo
-              </label>
-              <input
-                id="name"
-                type="text"
-                placeholder="Tu nombre completo"
-                value={form.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                required
-                className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-base font-medium text-foreground">
-                Correo electronico
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="tu@correo.com"
-                value={form.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-                required
-                className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-base font-medium text-foreground">
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimo 6 caracteres"
-                  value={form.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full h-12 text-base px-4 pr-12 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-base font-medium text-foreground">Bloque</label>
-                <select
-                  value={form.bloque}
-                  onChange={(e) => handleChange("bloque", e.target.value)}
-                  required
-                  className="w-full h-12 text-base px-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white"
-                >
-                  <option value="">Selecciona</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={String(n)}>
-                      Bloque {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="apto" className="block text-base font-medium text-foreground">
-                  Apartamento
-                </label>
-                <input
-                  id="apto"
-                  type="number"
-                  placeholder="Ej: 218"
-                  value={form.apto}
-                  onChange={(e) => handleChange("apto", e.target.value)}
-                  required
-                  min={1}
-                  className="w-full h-12 text-base px-4 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-
-            {error && <div className="border border-input p-3 text-sm text-foreground text-center">{error}</div>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 text-base font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Registrarse"}
-            </button>
+    <main className="flex min-h-screen items-center justify-center bg-white px-5 py-12">
+      <section className="w-full max-w-[460px]">
+        <Link href="/" className="mb-10 inline-flex"><BrandMark /></Link>
+        <div className="pqrs-panel p-6 md:p-8">
+          <p className="pqrs-eyebrow">REGISTRO RESIDENTE</p>
+          <h1 className="mt-3 text-[30px] font-extrabold tracking-[-0.03em]">Crear cuenta</h1>
+          <p className="pqrs-subtitle mt-2">Completa tus datos para radicar y consultar solicitudes.</p>
+          {error ? <div className="mt-5 rounded-2xl bg-[#FBEAEA] p-3 text-sm font-bold text-[#B3261E]">{error}</div> : null}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <input className="pqrs-input" placeholder="Nombre completo" value={form.name} onChange={(e) => handleChange("name", e.target.value)} required />
+            <input className="pqrs-input" type="email" placeholder="Correo electronico" value={form.email} onChange={(e) => handleChange("email", e.target.value)} required />
+            <div className="relative"><input className="pqrs-input pr-12" type={showPassword ? "text" : "password"} placeholder="Contrasena" value={form.password} onChange={(e) => handleChange("password", e.target.value)} required minLength={6} /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E8E93]" aria-label="Mostrar contrasena">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div>
+            <div className="grid grid-cols-2 gap-3"><select className="pqrs-input py-0" value={form.bloque} onChange={(e) => handleChange("bloque", e.target.value)} required><option value="">Bloque</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={String(n)}>Bloque {n}</option>)}</select><input className="pqrs-input" type="number" min={1} placeholder="Apartamento" value={form.apto} onChange={(e) => handleChange("apto", e.target.value)} required /></div>
+            <button disabled={loading} className="pqrs-button-primary h-12 w-full">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Crear cuenta"}</button>
           </form>
-
-          <div className="mt-5 text-center">
-            <p className="text-muted-foreground">
-              Ya tienes cuenta?{" "}
-              <Link href="/auth/login" className="font-bold text-success hover:text-success hover:underline">
-                Inicia sesion
-              </Link>
-            </p>
-          </div>
+          <p className="mt-6 text-center text-sm font-medium text-[#6E6E73]">Ya tienes cuenta? <Link href="/auth/login" className="font-extrabold text-[#1D1D1F]">Inicia sesion</Link></p>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

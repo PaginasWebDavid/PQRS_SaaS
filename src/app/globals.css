@@ -1,41 +1,41 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 8% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 8% 11%;
+    --foreground: 240 3% 12%;
+    --card: 240 9% 96%;
+    --card-foreground: 240 3% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 8% 11%;
-    --primary: 217 55% 18%;
+    --popover-foreground: 240 3% 12%;
+    --primary: 217 58% 17%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 95%;
-    --secondary-foreground: 217 55% 18%;
-    --muted: 240 8% 97%;
-    --muted-foreground: 240 3% 45%;
+    --secondary: 240 9% 96%;
+    --secondary-foreground: 240 3% 12%;
+    --muted: 240 9% 96%;
+    --muted-foreground: 240 2% 43%;
     --accent: 220 33% 94%;
-    --accent-foreground: 217 55% 18%;
-    --success: 152 33% 26%;
+    --accent-foreground: 217 58% 17%;
+    --success: 145 61% 26%;
     --success-foreground: 0 0% 100%;
-    --success-muted: 152 40% 94%;
+    --success-muted: 141 45% 95%;
     --warning: 39 100% 27%;
     --warning-foreground: 0 0% 100%;
-    --warning-muted: 42 61% 92%;
-    --destructive: 5 66% 41%;
+    --warning-muted: 42 79% 93%;
+    --destructive: 4 72% 41%;
     --destructive-foreground: 0 0% 100%;
-    --destructive-muted: 4 71% 95%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 217 55% 18%;
+    --destructive-muted: 0 73% 95%;
+    --border: 240 11% 92%;
+    --input: 240 11% 92%;
+    --ring: 217 58% 17%;
     --radius: 1rem;
-    --chart-1: 217 55% 18%;
-    --chart-2: 152 33% 26%;
-    --chart-3: 39 61% 45%;
-    --chart-4: 220 33% 80%;
-    --chart-5: 240 3% 60%;
+    --chart-1: 217 58% 17%;
+    --chart-2: 145 61% 26%;
+    --chart-3: 39 100% 27%;
+    --chart-4: 220 33% 75%;
+    --chart-5: 240 2% 43%;
   }
 
   * {
@@ -44,9 +44,89 @@
 
   html {
     background: #ffffff;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  ::selection {
+    background: #EAEEF6;
+    color: #122545;
+  }
+}
+
+@layer components {
+  .pqrs-page {
+    @apply min-h-screen bg-white text-[#1D1D1F];
+  }
+
+  .pqrs-card {
+    @apply rounded-[18px] border border-black/[0.06] bg-[#F5F5F7];
+  }
+
+  .pqrs-panel {
+    @apply rounded-[18px] border border-black/[0.06] bg-white;
+  }
+
+  .pqrs-eyebrow {
+    @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-[#8E8E93];
+  }
+
+  .pqrs-title {
+    @apply text-[28px] font-extrabold leading-[1.08] tracking-[-0.025em] text-[#1D1D1F] md:text-[32px];
+  }
+
+  .pqrs-subtitle {
+    @apply text-[14px] font-medium leading-relaxed text-[#6E6E73];
+  }
+
+  .pqrs-button-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-[#122545] px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#0B1A33] disabled:translate-y-0 disabled:bg-[#E8E8ED] disabled:text-[#8E8E93];
+  }
+
+  .pqrs-button-ghost {
+    @apply inline-flex items-center justify-center rounded-full border border-black/[0.08] bg-white px-5 py-2.5 text-sm font-bold text-[#1D1D1F] transition-colors hover:bg-[#F5F5F7];
+  }
+
+  .pqrs-input {
+    @apply h-12 w-full rounded-xl border-[1.5px] border-[#E8E8ED] bg-white px-4 text-[14px] font-medium outline-none transition focus:border-[#122545] focus:ring-[3.5px] focus:ring-[#122545]/10;
+  }
+
+  .pqrs-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold;
+  }
+
+  .pqrs-table {
+    @apply w-full border-separate border-spacing-0 text-left text-[13px];
+  }
+
+  .pqrs-table th {
+    @apply border-b border-black/[0.06] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8E8E93];
+  }
+
+  .pqrs-table td {
+    @apply border-b border-black/[0.06] px-4 py-3.5 align-middle font-medium text-[#424245];
+  }
+}
+
+@keyframes pqrs-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pqrs-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pqrs-pop {
+  0% { transform: scale(.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.pqrs-animate-up {
+  animation: pqrs-up 620ms cubic-bezier(.2,.7,.2,1) both;
 }

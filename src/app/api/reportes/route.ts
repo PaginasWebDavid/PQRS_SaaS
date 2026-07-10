@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  if (session.user.role === "RESIDENTE") {
+  if (session.user.role === "RESIDENTE" || session.user.role === "SUPER_ADMIN") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
