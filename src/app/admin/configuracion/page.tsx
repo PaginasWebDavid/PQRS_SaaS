@@ -9,9 +9,10 @@ export default function ConfiguracionConjuntoPage() {
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
+  const [email, setEmail] = useState('');
   const { toast, showToast } = useToast();
 
-  useEffect(() => { fetch('/api/me').then((r) => r.ok ? r.json() : null).then((data) => { if (!data) return; setName(data.tenant?.name || ''); setCity(data.tenant?.city || ''); setAddress(data.tenant?.address || ''); }).catch(() => {}); }, []);
+  useEffect(() => { fetch('/api/me').then((r) => r.ok ? r.json() : null).then((data) => { if (!data) return; setName(data.tenant?.name || ''); setCity(data.tenant?.city || ''); setAddress(data.tenant?.address || ''); setEmail(data.user?.email || ''); }).catch(() => {}); }, []);
   async function saveTenant() { const res = await fetch('/api/tenant', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, city, address }) }); showToast(res.ok ? 'Configuración guardada ✓' : 'No se pudo guardar la configuración'); }
 
   const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: '#FFFFFF' };
@@ -36,7 +37,8 @@ export default function ConfiguracionConjuntoPage() {
               <input value={address} onChange={(e) => setAddress(e.target.value)} style={inputStyle} />
             </div>
           </div>
-          <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '11px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600 }}>El número de unidades y el plan de precio los administra PQRS Services.</div>
+          <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '11px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, marginBottom: 14 }}>El número de unidades y el plan de precio los administra PQRS Services.</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.textSecondary }}>Correo de la cuenta: <span style={{ color: COLORS.textPrimary, fontWeight: 800 }}>{email}</span></div>
         </div>
 
         <button onClick={saveTenant} style={{ border: 0, background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', maxWidth: 220, width: '100%' }}>Guardar cambios</button>
