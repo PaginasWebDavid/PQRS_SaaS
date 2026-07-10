@@ -154,7 +154,7 @@ export function AppShell({ children, user }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-white text-[#1D1D1F]">
-      <header className="sticky top-0 z-40 flex h-13 items-center gap-3 border-b border-black/[0.06] bg-white/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-black/[0.06] bg-white/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#F5F5F7]"
