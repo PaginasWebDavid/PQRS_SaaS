@@ -23,36 +23,35 @@ type Role = "SUPER_ADMIN" | "ADMIN" | "ASISTENTE" | "CONSEJO" | "RESIDENTE";
 interface NavItem {
   href: string;
   label: string;
-  description: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const navByRole: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
-    { href: "/super-admin", label: "Plataforma", description: "Tenants, licencias, pagos y auditoria", icon: Shield },
+    { href: "/super-admin", label: "Plataforma", icon: Shield },
   ],
   ADMIN: [
-    { href: "/dashboard", label: "Dashboard", description: "Indicadores y licencia", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", description: "Gestion y seguimiento", icon: FileText },
-    { href: "/pqrs/nuevo", label: "Crear PQRS", description: "Radicacion manual", icon: Plus },
-    { href: "/historial", label: "Historial", description: "Solicitudes cerradas", icon: History },
-    { href: "/reportes", label: "Reportes", description: "Exportes y metricas", icon: BarChart3 },
-    { href: "/usuarios", label: "Usuarios", description: "Roles y ubicaciones", icon: Users },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", icon: FileText },
+    { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
+    { href: "/historial", label: "Historial", icon: History },
+    { href: "/reportes", label: "Reportes", icon: BarChart3 },
+    { href: "/usuarios", label: "Usuarios", icon: Users },
   ],
   ASISTENTE: [
-    { href: "/dashboard", label: "Dashboard", description: "Indicadores operativos", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", description: "Consulta de solicitudes", icon: FileText },
-    { href: "/historial", label: "Historial", description: "Seguimiento cerrado", icon: History },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", icon: FileText },
+    { href: "/historial", label: "Historial", icon: History },
   ],
   CONSEJO: [
-    { href: "/dashboard", label: "Dashboard", description: "Vista de control", icon: LayoutDashboard },
-    { href: "/pqrs", label: "PQRS", description: "Consulta de gestion", icon: FileText },
-    { href: "/historial", label: "Historial", description: "Casos cerrados", icon: History },
-    { href: "/reportes", label: "Reportes", description: "Auditoria y exportes", icon: BarChart3 },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/pqrs", label: "PQRS", icon: FileText },
+    { href: "/historial", label: "Historial", icon: History },
+    { href: "/reportes", label: "Reportes", icon: BarChart3 },
   ],
   RESIDENTE: [
-    { href: "/pqrs", label: "Mis PQRS", description: "Estado de solicitudes", icon: FileText },
-    { href: "/pqrs/nuevo", label: "Crear PQRS", description: "Nueva solicitud", icon: Plus },
+    { href: "/pqrs", label: "Mis PQRS", icon: FileText },
+    { href: "/pqrs/nuevo", label: "Crear PQRS", icon: Plus },
   ],
 };
 
