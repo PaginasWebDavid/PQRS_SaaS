@@ -9,6 +9,7 @@
     "release:check": "prisma validate && npm run build",
     "start": "next start",
     "lint": "next lint",
+    "test": "tsx --test tests/**/*.test.ts",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:migrate:deploy": "npx prisma migrate deploy",

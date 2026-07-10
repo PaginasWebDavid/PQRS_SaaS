@@ -1,519 +1,541 @@
-import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { isSuperAdmin } from "@/domains/platform/permissions";
-import { getSuperAdminOverview } from "@/domains/platform/super-admin.service";
-import { formatMoneyFromCents, getSubscriptionStatusLabel, renewSubscriptionWithSimulatedPayment } from "@/domains/billing/billing.service";
-import { createMercadoPagoSubscriptionForTenant } from "@/domains/billing/mercado-pago.service";
-import {
-  createTenantWithAdmin,
-  normalizeSlug,
-  updateTenantStatusForSuperAdmin,
-} from "@/domains/platform/tenant-admin.service";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Building2,
-  CalendarClock,
-  CheckCircle2,
-  CreditCard,
-  DollarSign,
-  Eye,
-  PauseCircle,
-  PlayCircle,
-  Shield,
-  Users,
-} from "lucide-react";
+'use client';
+import { useEffect, useState } from 'react';
+import { SuperAdminShell, NavGroup } from '@/components/design-export/SuperAdminShell';
+import { Sheet, CloseButton } from '@/components/design-export/Sheet';
+import { Toast, useToast } from '@/components/design-export/Toast';
+import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design-export/tokens';
 
-type SearchParams = {
-  tenantId?: string;
-  createdTenant?: string;
-  adminEmail?: string;
-  tempPassword?: string;
+const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
+  { header: 'PLATAFORMA' },
+  { key: 'resumen', label: 'Resumen' },
+  { key: 'conjuntos', label: 'Conjuntos' },
+  { key: 'financiero', label: 'Licencias y pagos' },
+  { header: 'NEGOCIO' },
+  { key: 'precios', label: 'Reglas de precio' },
+  { key: 'analytics', label: 'Analytics' },
+  { header: 'SISTEMA' },
+  { key: 'usuarios', label: 'Usuarios' },
+  { key: 'auditoria', label: 'AuditorÃ­a' },
+  { key: 'soporte', label: 'Soporte' },
+  { key: 'config', label: 'ConfiguraciÃ³n' },
+];
+
+type TenantGroup = 'active' | 'trial' | 'suspended' | 'cancelled';
+type Tenant = {
+  id: string; name: string; city: string; units: number; plan: string; group: TenantGroup;
+  adminName: string; adminEmail: string; adminPhone: string; startDate: string;
+  pqrsTotal: number; pqrsOpen: number; licenseEnd: string; paymentStatus: 'al_dia' | 'mora'; moraDays: number;
 };
 
-export default async function SuperAdminPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const session = await auth();
+type ApiTenant = {
+  id: string;
+  name: string;
+  city?: string | null;
+  units?: number | null;
+  status?: string | null;
+  createdAt?: string | null;
+  users?: { name?: string | null; email?: string | null }[];
+  subscription?: { status?: string | null; unitsSnapshot?: number | null; currentPeriodEnd?: string | null } | null;
+  _count?: { users?: number; pqrs?: number };
+};
 
-  if (!session?.user) {
-    redirect("/auth/login");
-  }
+type ApiPricingRule = { id: string; minUnits: number; maxUnits: number | null; priceCents: number; currency: string; isActive: boolean };
+type ApiAuditLog = { action: string; targetType: string; createdAt: string };
+type BillingOverview = { monthlyRevenueCents: number; pendingPayments: number; upcomingRenewals: number; activeLicenses: number };
 
-  if (!isSuperAdmin(session.user.role)) {
-    redirect("/dashboard");
-  }
+const TENANT_BADGE: Record<TenantGroup, React.CSSProperties> = {
+  active: badgeStyle(COLORS.successSoft, COLORS.success), trial: badgeStyle(COLORS.navySoft, COLORS.navy),
+  suspended: badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt), cancelled: badgeStyle(COLORS.dangerSoft, COLORS.danger),
+};
+const TENANT_LABEL: Record<TenantGroup, string> = { active: 'Activo', trial: 'Trial', suspended: 'Suspendido', cancelled: 'Cancelado' };
 
-  const { stats, tenants, selectedTenant, recentAuditLogs, billing } = await getSuperAdminOverview(
-    searchParams.tenantId
-  );
+const AUDIT_ICON_STYLE = { width: 26, height: 26, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1 } as const;
 
-  async function createTenantAction(formData: FormData) {
-    "use server";
+export default function DashboardSuperAdminPage() {
+  const [nav, setNav] = useState('resumen');
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [filter, setFilter] = useState<'all' | TenantGroup>('all');
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createPhase, setCreatePhase] = useState<'form' | 'progress' | 'done'>('form');
+  const [createStep, setCreateStep] = useState(0);
+  const [newName, setNewName] = useState(''); const [newCity, setNewCity] = useState(''); const [newUnits, setNewUnits] = useState('');
+  const [newAdminName, setNewAdminName] = useState(''); const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [tiers, setTiers] = useState<{ id: string; from: string; to: string; price: string }[]>([]);
+  const [finSubTab, setFinSubTab] = useState<'licencia' | 'pagos'>('licencia');
+  const [auditLog, setAuditLog] = useState<{ icon: string; action: string; time: string }[]>([]);
+  const { toast, showToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ totalTenants: 0, activeTenants: 0, suspendedTenants: 0, trialTenants: 0, totalUsers: 0, totalPqrs: 0, closedPqrs: 0 });
+  const [billing, setBilling] = useState<BillingOverview | null>(null);
 
-    const actionSession = await auth();
-    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
-      redirect("/dashboard");
-    }
+  const addAudit = (icon: string, action: string) => setAuditLog((l) => [{ icon, action, time: 'ahora' }, ...l]);
 
-    const name = readText(formData, "name");
-    const slug = normalizeSlug(readText(formData, "slug") || name);
-    const city = readText(formData, "city");
-    const address = readText(formData, "address");
-    const units = Number(readText(formData, "units"));
-    const adminName = readText(formData, "adminName");
-    const adminEmail = readText(formData, "adminEmail");
-    const adminPhone = readText(formData, "adminPhone");
+  const toTenantGroup = (status?: string | null): TenantGroup => {
+    if (status === 'TRIAL') return 'trial';
+    if (status === 'SUSPENDED') return 'suspended';
+    if (status === 'CANCELLED') return 'cancelled';
+    return 'active';
+  };
 
-    if (!name || !slug || !adminName || !adminEmail || !Number.isInteger(units) || units < 1) {
-      redirect("/super-admin?error=invalid-create");
-    }
+  const formatDate = (value?: string | null) => {
+    if (!value) return '-';
+    return new Date(value).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
-    const result = await createTenantWithAdmin(actionSession.user.id, {
-      name,
-      slug,
-      city,
-      address,
+  const formatMoney = (cents: number, currency = 'COP') => new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(cents / 100);
+
+  const mapTenant = (tenant: ApiTenant): Tenant => {
+    const admin = tenant.users?.[0];
+    const subscription = tenant.subscription;
+    const units = Number(tenant.units || subscription?.unitsSnapshot || 0);
+    const open = Number(tenant._count?.pqrs || 0);
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      city: tenant.city || '-',
       units,
-      adminName,
-      adminEmail,
-      adminPhone,
+      plan: units <= 50 ? '1-50' : units <= 100 ? '51-100' : units <= 200 ? '101-200' : '201+',
+      group: toTenantGroup(tenant.status),
+      adminName: admin?.name || '-',
+      adminEmail: admin?.email || '-',
+      adminPhone: '-',
+      startDate: formatDate(tenant.createdAt),
+      pqrsTotal: Number(tenant._count?.pqrs || 0),
+      pqrsOpen: open,
+      licenseEnd: formatDate(subscription?.currentPeriodEnd),
+      paymentStatus: subscription?.status === 'ACTIVE' || subscription?.status === 'TRIAL' ? 'al_dia' : 'mora',
+      moraDays: 0,
+    };
+  };
+
+  const fetchOverview = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/platform/super-admin', { cache: 'no-store' });
+      if (!response.ok) throw new Error('No se pudo cargar SUPER_ADMIN');
+      const data = await response.json();
+      setStats(data.stats);
+      setBilling(data.billing);
+      setTiers((data.pricingRules || []).map((rule: ApiPricingRule) => ({
+        id: rule.id,
+        from: String(rule.minUnits),
+        to: rule.maxUnits ? String(rule.maxUnits) : '+',
+        price: rule.isActive ? `${formatMoney(rule.priceCents, rule.currency)}/mes` : `${formatMoney(rule.priceCents, rule.currency)}/mes (inactiva)`,
+      })));
+      setTenants((data.tenants || []).map(mapTenant));
+      setAuditLog((data.recentAuditLogs || []).map((entry: ApiAuditLog) => ({
+        icon: 'A',
+        action: `${entry.action} sobre ${entry.targetType}`,
+        time: formatDate(entry.createdAt),
+      })));
+    } catch (error) {
+      console.error(error);
+      showToast('No se pudieron cargar los datos reales');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTenantStatus = async (id: string, status: 'ACTIVE' | 'SUSPENDED') => {
+    const response = await fetch('/api/platform/super-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'updateTenantStatus', tenantId: id, status }),
     });
-
-    revalidatePath("/super-admin");
-    redirect(
-      `/super-admin?tenantId=${result.tenantId}&createdTenant=${encodeURIComponent(
-        result.tenantSlug
-      )}&adminEmail=${encodeURIComponent(result.adminEmail)}&tempPassword=${encodeURIComponent(
-        result.temporaryPassword
-      )}`
-    );
-  }
-
-  async function suspendTenantAction(formData: FormData) {
-    "use server";
-
-    const actionSession = await auth();
-    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
-      redirect("/dashboard");
+    if (!response.ok) {
+      showToast('No se pudo actualizar el conjunto');
+      return;
     }
+    await fetchOverview();
+    showToast(status === 'ACTIVE' ? 'Conjunto reactivado' : 'Conjunto suspendido');
+  };
 
-    const tenantId = readText(formData, "tenantId");
-    if (tenantId) {
-      await updateTenantStatusForSuperAdmin(actionSession.user.id, tenantId, "SUSPENDED");
-    }
+  useEffect(() => {
+    void fetchOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    revalidatePath("/super-admin");
-    redirect(`/super-admin?tenantId=${tenantId}`);
-  }
+  const selected = tenants.find((t) => t.id === selectedId);
+  const kpis = [
+    { label: 'Total conjuntos', value: String(stats.totalTenants), color: '#1D1D1F' },
+    { label: 'Activos', value: String(stats.activeTenants), color: COLORS.success },
+    { label: 'Suspendidos', value: String(stats.suspendedTenants), color: COLORS.textSecondaryAlt },
+    { label: 'Trial', value: String(stats.trialTenants), color: COLORS.navy },
+    { label: 'Usuarios totales', value: String(stats.totalUsers), color: COLORS.navy },
+    { label: 'PQRS abiertas', value: String(Math.max(0, stats.totalPqrs - stats.closedPqrs)), color: COLORS.warning },
+    { label: 'PQRS totales', value: String(stats.totalPqrs), color: '#1D1D1F' },
+    { label: 'Ingresos del mes', value: billing ? formatMoney(billing.monthlyRevenueCents) : '', color: COLORS.success },
+    { label: 'Pagos pendientes', value: String(billing?.pendingPayments ?? 0), color: COLORS.warning },
+    { label: 'Renovaciones próximas', value: String(billing?.upcomingRenewals ?? 0), color: COLORS.navy },
+  ];
+  const q = search.trim().toLowerCase();
+  const filteredTenants = tenants.filter((t) => (filter === 'all' || t.group === filter) && (!q || t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q)));
 
+  const suspend = async (id: string) => { await updateTenantStatus(id, 'SUSPENDED'); };
+  const reactivate = async (id: string) => { await updateTenantStatus(id, 'ACTIVE'); };
+  const cancelTenant = async (id: string) => { await updateTenantStatus(id, 'SUSPENDED'); setConfirmingCancel(false); };
 
-
-  async function createMercadoPagoSubscriptionAction(formData: FormData) {
-    "use server";
-
-    const actionSession = await auth();
-    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
-      redirect("/dashboard");
-    }
-
-    const tenantId = readText(formData, "tenantId");
-    if (tenantId) {
-      await createMercadoPagoSubscriptionForTenant({
-        actorUserId: actionSession.user.id,
-        tenantId,
+  const submitCreate = async () => {
+    if (!newName.trim() || !newUnits || !newAdminEmail.trim()) return;
+    setCreatePhase('progress');
+    setCreateStep(1);
+    try {
+      const response = await fetch('/api/platform/super-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createTenant',
+          name: newName,
+          slug: newName,
+          city: newCity,
+          units: Number(newUnits),
+          adminName: newAdminName || newAdminEmail,
+          adminEmail: newAdminEmail,
+        }),
       });
+      if (!response.ok) throw new Error('No se pudo crear el conjunto');
+      setCreateStep(5);
+      await fetchOverview();
+      setCreatePhase('done');
+      showToast('Conjunto creado con datos reales');
+    } catch (error) {
+      console.error(error);
+      setCreatePhase('form');
+      showToast('No se pudo crear el conjunto');
     }
+  };
 
-    revalidatePath("/super-admin");
-    redirect(`/super-admin?tenantId=${tenantId}`);
-  }
-  async function renewSubscriptionAction(formData: FormData) {
-    "use server";
+  const createSteps = ['Creando el conjuntoâ€¦', 'Creando el administradorâ€¦', 'Calculando la tarifaâ€¦', 'Generando la licencia (trial)â€¦', 'Enviando invitaciÃ³n por correoâ€¦'];
 
-    const actionSession = await auth();
-    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
-      redirect("/dashboard");
-    }
-
-    const tenantId = readText(formData, "tenantId");
-    if (tenantId) {
-      await renewSubscriptionWithSimulatedPayment({
-        actorUserId: actionSession.user.id,
-        tenantId,
-      });
-    }
-
-    revalidatePath("/super-admin");
-    redirect(`/super-admin?tenantId=${tenantId}`);
-  }
-  async function reactivateTenantAction(formData: FormData) {
-    "use server";
-
-    const actionSession = await auth();
-    if (!actionSession?.user || !isSuperAdmin(actionSession.user.role)) {
-      redirect("/dashboard");
-    }
-
-    const tenantId = readText(formData, "tenantId");
-    if (tenantId) {
-      await updateTenantStatusForSuperAdmin(actionSession.user.id, tenantId, "ACTIVE");
-    }
-
-    revalidatePath("/super-admin");
-    redirect(`/super-admin?tenantId=${tenantId}`);
-  }
+  const navGroups: NavGroup[] = NAV_DEFS.map((n) => n.key ? { key: n.key, label: n.label, onClick: () => setNav(n.key!) } : { header: n.header });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Plataforma</h1>
-          <p className="text-sm text-muted-foreground">Dashboard SUPER_ADMIN</p>
-        </div>
-      </div>
+    <SuperAdminShell navGroups={navGroups} activeKey={nav} mobileTitle="Plataforma">
 
-      {searchParams.createdTenant && searchParams.adminEmail && searchParams.tempPassword && (
-        <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
-          <p className="font-semibold">Tenant creado: {searchParams.createdTenant}</p>
-          <p className="mt-1">ADMIN: {searchParams.adminEmail}</p>
-          <p className="mt-1 font-mono">Contraseña temporal: {searchParams.tempPassword}</p>
+      {nav === 'resumen' && (
+        <div className="apl-up">
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Resumen de la plataforma</h1>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>{loading ? 'Cargando datos reales...' : stats.totalTenants + ' conjuntos administrados'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12, marginBottom: 24 }}>
+            {kpis.map((k) => (
+              <div key={k.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 16 }}>
+                <div style={{ fontSize: 11, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 9 }}>{k.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+              <span style={{ fontSize: 15, fontWeight: 800 }}>Conjuntos recientes</span>
+              <span onClick={() => setNav('conjuntos')} style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver todos â€º</span>
+            </div>
+            {tenants.slice(0, 5).map((t) => (
+              <div key={t.id} onClick={() => setSelectedId(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer' }}>
+                <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 56 }}>{t.units}</span>
+                <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <Stat label="Tenant" value={stats.totalTenants} icon={Building2} />
-        <Stat label="Activos" value={stats.activeTenants} icon={CheckCircle2} />
-        <Stat label="Trial" value={stats.trialTenants} icon={CalendarClock} />
-        <Stat label="Suspendidos" value={stats.suspendedTenants} icon={PauseCircle} />
-        <Stat label="Usuarios" value={stats.totalUsers} icon={Users} />
-        <Stat label="PQRS" value={stats.totalPqrs} icon={Shield} />
-        <Stat label="Cerradas" value={stats.closedPqrs} icon={CheckCircle2} />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MoneyStat label="Ingreso mensual" value={billing.monthlyRevenueCents} icon={DollarSign} />
-        <Stat label="Pagos pendientes" value={billing.pendingPayments} icon={CreditCard} />
-        <Stat label="Renovaciones próximas" value={billing.upcomingRenewals} icon={CalendarClock} />
-        <Stat label="Licencias activas" value={billing.activeLicenses} icon={CheckCircle2} />
-      </div>
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Gestión de Tenant</h2>
-          <div className="overflow-x-auto rounded-lg border bg-white">
-            <table className="w-full min-w-[860px] text-sm">
-              <thead className="bg-muted text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Nombre</th>
-                  <th className="px-4 py-3 font-medium">Slug</th>
-                  <th className="px-4 py-3 font-medium">Estado</th>
-                  <th className="px-4 py-3 font-medium">Unidades</th>
-                  <th className="px-4 py-3 font-medium">Administrador</th>
-                  <th className="px-4 py-3 font-medium">Licencia</th>
-                  <th className="px-4 py-3 font-medium">Precio</th>
-                  <th className="px-4 py-3 font-medium">Renueva</th>
-                  <th className="px-4 py-3 font-medium">Creado</th>
-                  <th className="px-4 py-3 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {tenants.map((tenant) => {
-                  const admin = tenant.users[0];
-                  return (
-                    <tr key={tenant.id}>
-                      <td className="px-4 py-3 font-medium text-foreground">{tenant.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{tenant.slug}</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={tenant.status} />
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{tenant.units}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {admin ? `${admin.name} · ${admin.email}` : "Sin ADMIN"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {tenant.subscription ? getSubscriptionStatusLabel(tenant.subscription.status) : "Sin licencia"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {tenant.subscription ? formatMoneyFromCents(tenant.subscription.priceCents, tenant.subscription.currency) : "N/A"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {tenant.subscription ? tenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO") : "N/A"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {tenant.createdAt.toLocaleDateString("es-CO")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Link
-                            href={`/super-admin?tenantId=${tenant.id}`}
-                            className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border px-2.5 text-[0.8rem] font-medium text-foreground transition-colors hover:bg-muted"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Ver
-                          </Link>
-                          {tenant.subscription && (
-                            <form action={renewSubscriptionAction}>
-                              <input type="hidden" name="tenantId" value={tenant.id} />
-                              <Button size="sm" variant="outline" type="submit">
-                                <CreditCard className="h-3.5 w-3.5" />
-                                Renovar
-                              </Button>
-                            </form>
-                          )}
-                          {tenant.subscription && (
-                            <form action={createMercadoPagoSubscriptionAction}>
-                              <input type="hidden" name="tenantId" value={tenant.id} />
-                              <Button size="sm" variant="outline" type="submit">
-                                <CreditCard className="h-3.5 w-3.5" />
-                                Mercado Pago
-                              </Button>
-                            </form>
-                          )}
-                          {tenant.status === "SUSPENDED" ? (
-                            <form action={reactivateTenantAction}>
-                              <input type="hidden" name="tenantId" value={tenant.id} />
-                              <Button size="sm" variant="outline" type="submit">
-                                <PlayCircle className="h-3.5 w-3.5" />
-                                Reactivar
-                              </Button>
-                            </form>
-                          ) : (
-                            <form action={suspendTenantAction}>
-                              <input type="hidden" name="tenantId" value={tenant.id} />
-                              <Button size="sm" variant="destructive" type="submit">
-                                <PauseCircle className="h-3.5 w-3.5" />
-                                Suspender
-                              </Button>
-                            </form>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {nav === 'conjuntos' && (
+        <div className="apl-up">
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+            <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
+            <div onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>+ Crear conjunto</div>
+          </div>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administradorâ€¦" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+            {(['all', 'active', 'trial', 'suspended', 'cancelled'] as const).map((f) => <div key={f} onClick={() => setFilter(f)} style={tabStyle(filter === f)}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</div>)}
+          </div>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {filteredTenants.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>NingÃºn conjunto coincide con esta bÃºsqueda o filtro.</div>}
+            {filteredTenants.map((t) => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <span style={{ flex: 1, minWidth: 150, fontSize: 13, fontWeight: 700 }}>{t.name}</span>
+                <span style={{ width: 90, fontSize: 12, color: COLORS.textSecondary }}>{t.city}</span>
+                <span style={{ width: 120, fontSize: 12, color: COLORS.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.adminName}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 56 }}>{t.units}</span>
+                <span style={{ width: 90, fontSize: 12, color: COLORS.textSecondary }}>{t.plan}</span>
+                <span style={{ width: 90 }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></span>
+                <span style={{ width: 170, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+                  <span onClick={() => setSelectedId(t.id)} style={{ fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</span>
+                  <span onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ fontSize: 12, fontWeight: 700, color: t.group === 'suspended' ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</span>
+                </span>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        <form action={createTenantAction} className="space-y-4 rounded-lg border bg-white p-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Crear Tenant</h2>
-          </div>
-          <Field name="name" label="Nombre del conjunto" required />
-          <Field name="slug" label="Slug" />
-          <Field name="city" label="Ciudad" />
-          <Field name="address" label="Dirección" />
-          <Field name="units" label="Número de unidades" type="number" min="1" required />
-          <Field name="adminName" label="Nombre del administrador" required />
-          <Field name="adminEmail" label="Correo del administrador" type="email" required />
-          <Field name="adminPhone" label="Teléfono del administrador" />
-          <Button type="submit" className="w-full">
-            Crear Tenant
-          </Button>
-        </form>
-      </section>
-
-      {selectedTenant && (
-        <section className="space-y-3 rounded-lg border bg-white p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Detalle de Tenant</h2>
-              <p className="text-sm text-muted-foreground">
-                {selectedTenant.name} · {selectedTenant.slug}
-              </p>
-            </div>
-            <StatusBadge status={selectedTenant.status} />
+      {nav === 'financiero' && (
+        <div className="apl-up">
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Licencias y pagos</h1>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Estado de licencias e historial de cobro</p>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+            <div onClick={() => setFinSubTab('licencia')} style={tabStyle(finSubTab === 'licencia')}>Licencia</div>
+            <div onClick={() => setFinSubTab('pagos')} style={tabStyle(finSubTab === 'pagos')}>Pagos</div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Detail label="Ciudad" value={selectedTenant.city || "N/A"} />
-            <Detail label="Dirección" value={selectedTenant.address || "N/A"} />
-            <Detail label="Usuarios" value={selectedTenant._count.users} />
-            <Detail label="PQRS" value={selectedTenant._count.pqrs} />
-          </div>
-
-          {selectedTenant.subscription && (
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Detail label="Licencia" value={getSubscriptionStatusLabel(selectedTenant.subscription.status)} />
-                <Detail label="Precio mensual" value={formatMoneyFromCents(selectedTenant.subscription.priceCents, selectedTenant.subscription.currency)} />
-                <Detail label="Unidades facturadas" value={selectedTenant.subscription.unitsSnapshot} />
-                <Detail label="Próximo pago" value={selectedTenant.subscription.currentPeriodEnd.toLocaleDateString("es-CO")} />
-              </div>
-              {selectedTenant.subscription.mercadoPagoInitPoint && (
-                <a
-                  href={selectedTenant.subscription.mercadoPagoInitPoint}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  Abrir autorización Mercado Pago
-                </a>
-              )}
-            </div>
-          )}
-
-          {selectedTenant.subscription && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-foreground">Pagos recientes</h3>
-              <div className="divide-y rounded-lg border">
-                {selectedTenant.subscription.payments.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">Sin pagos registrados.</p>
-                ) : (
-                  selectedTenant.subscription.payments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                      <div>
-                        <p className="font-medium text-foreground">{formatMoneyFromCents(payment.amountCents, payment.currency)}</p>
-                        <p className="text-muted-foreground">{payment.provider} · {payment.createdAt.toLocaleDateString("es-CO")}</p>
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground">{getSubscriptionStatusLabel(payment.status)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
-              <h3 className="font-medium text-foreground">Usuarios</h3>
-              <div className="divide-y rounded-lg border">
-                {selectedTenant.users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium text-foreground">{user.name}</p>
-                      <p className="text-muted-foreground">{user.email}</p>
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground">{user.role}</span>
+          {finSubTab === 'licencia' && (
+            <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              {tenants.map((t) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
+                  <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
+                  <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 170 }}>{t.licenseEnd}</span>
+                  {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
+                  <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                    <div onClick={() => { setTenants((ts) => ts.map((x) => x.id === t.id ? { ...x, paymentStatus: 'al_dia', moraDays: 0, group: x.group === 'suspended' ? 'active' : x.group, licenseEnd: '+30 dÃ­as desde hoy' } : x)); showToast('Licencia renovada âœ“'); addAudit('â—†', 'RenovÃ³ una licencia'); }} style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Renovar</div>
+                    <div onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ fontSize: 12, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-medium text-foreground">PQRS recientes</h3>
-              <div className="divide-y rounded-lg border">
-                {selectedTenant.pqrs.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">Sin PQRS registradas.</p>
-                ) : (
-                  selectedTenant.pqrs.map((pqrs) => (
-                    <div key={pqrs.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                      <div>
-                        <p className="font-medium text-foreground">#{pqrs.numero} · {pqrs.asunto || "Sin asunto"}</p>
-                        <p className="text-muted-foreground">{pqrs.nombreResidente}</p>
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground">{pqrs.estado}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Auditoría reciente</h2>
-        <div className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">
-          {recentAuditLogs.length === 0 ? (
-            <p>No hay eventos de auditoría registrados.</p>
-          ) : (
-            <ul className="space-y-2">
-              {recentAuditLogs.map((log) => (
-                <li key={log.id} className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
-                  <span>{log.action}</span>
-                  <span className="text-muted-foreground">{log.createdAt.toLocaleString("es-CO")}</span>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
+          )}
+
+          {finSubTab === 'pagos' && (
+            <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              {[
+                { conjunto: 'Torres del Prado', date: '05 jul', amount: '$2.100.000', method: 'PSE', status: 'Aprobado' },
+                { conjunto: 'Parque Residencial Calle 100', date: '05 jul', amount: '$1.240.000', method: 'PSE', status: 'Aprobado' },
+                { conjunto: 'Mirador de la Sabana', date: '01 jul', amount: '$1.100.000', method: 'PSE', status: 'Pendiente' },
+                { conjunto: 'Alameda Real', date: '15 jun', amount: '$1.950.000', method: 'PSE', status: 'Rechazado' },
+              ].map((tx, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                  <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{tx.conjunto}</span>
+                  <span style={{ fontSize: 12, color: COLORS.textSecondary, width: 80 }}>{tx.method}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 70 }}>{tx.date}</span>
+                  <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 100, textAlign: 'right' }}>{tx.amount}</span>
+                  <span style={tx.status === 'Aprobado' ? badgeStyle(COLORS.successSoft, COLORS.success) : tx.status === 'Pendiente' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{tx.status}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      </section>
-    </div>
+      )}
+
+      {nav === 'precios' && (
+        <div className="apl-up" style={{ maxWidth: 680 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Reglas de precio</h1>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+            <div style={{ display: 'flex', padding: '0 16px 8px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>
+              <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tiers.map((p) => (
+                <div key={p.id} style={{ background: COLORS.bgCard, borderRadius: 11, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{p.from}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{p.to}</span>
+                  <span style={{ flex: 2, fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 600 }}>{p.price}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 12 }}>Estos rangos alimentan el cÃ¡lculo automÃ¡tico de precio al crear un conjunto nuevo. EdiciÃ³n inline: conectar a tu API de tarifas.</p>
+        </div>
+      )}
+
+      {nav === 'analytics' && (
+        <div className="apl-up" style={{ maxWidth: 900 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Analytics</h1>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 20 }}>
+            {[
+              { title: 'PQRS por estado', subtitle: 'DistribuciÃ³n actual', data: [340, 210, 1900], labels: ['Abiertas', 'En proceso', 'Cerradas'], color: COLORS.navy },
+              { title: 'Tiempo promedio de respuesta', subtitle: 'DÃ­as para cerrar, por mes', data: [3.1, 2.8, 2.6, 2.5, 2.3, 2.1], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: COLORS.warning },
+              { title: 'Usuarios', subtitle: 'Registrados en toda la plataforma', data: [8200, 9100, 9800, 10600, 11500, 12400], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: '#4A6FA5' },
+              { title: 'Ingresos', subtitle: 'MRR en millones de pesos', data: [142, 156, 149, 168, 172, 184], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: COLORS.success },
+            ].map((c) => {
+              const max = Math.max(...c.data);
+              return (
+                <div key={c.title} style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>{c.title}</div>
+                  <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>{c.subtitle}</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 110 }}>
+                    {c.data.map((v, i) => (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700 }}>{v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}</div>
+                        <div style={{ width: '100%', maxWidth: 28, height: `${Math.max(10, (v / max) * 100)}%`, background: c.color, borderRadius: '5px 5px 0 0' }} />
+                        <div style={{ fontSize: 9.5, color: COLORS.textMuted }}>{c.labels[i]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {nav === 'usuarios' && (
+        <div className="apl-up">
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Usuarios</h1>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {tenants.map((t) => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{t.adminName.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
+                <span style={{ flex: 1, minWidth: 120, fontSize: 13.5, fontWeight: 700 }}>{t.adminName}</span>
+                <span style={{ fontSize: 12.5, color: COLORS.textSecondary, width: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>Admin</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {nav === 'auditoria' && (
+        <div className="apl-up">
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>AuditorÃ­a</h1>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {auditLog.length === 0
+              ? <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>AÃºn no hay acciones registradas en esta sesiÃ³n.</div>
+              : auditLog.map((e, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                  <div style={AUDIT_ICON_STYLE}>{e.icon}</div>
+                  <div><div style={{ fontSize: 13, fontWeight: 700 }}>{e.action}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>SofÃ­a PeÃ±a (Super Admin) Â· {e.time}</div></div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {nav === 'soporte' && (
+        <div className="apl-up">
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Centro de soporte</h1>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            {[
+              { subject: 'No puedo generar el reporte mensual', conjunto: 'Mirador de la Sabana', date: '07 jul', status: 'Abierta' },
+              { subject: 'Duda sobre facturaciÃ³n de unidades nuevas', conjunto: 'Torres del Prado', date: '05 jul', status: 'Respondida' },
+            ].map((tk, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <span style={{ flex: 1, minWidth: 160 }}><div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>{tk.conjunto} Â· {tk.date}</div></span>
+                <span style={tk.status === 'Abierta' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : badgeStyle(COLORS.navySoft, COLORS.navy)}>{tk.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {nav === 'config' && (
+        <div className="apl-up" style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>ConfiguraciÃ³n</h1>
+          <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Branding</div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre de la plataforma</label>
+            <input defaultValue="PQRS Services" style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 14, fontFamily: 'inherit', background: '#FFFFFF' }} />
+          </div>
+          <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Feature flags</div>
+            {['Adjuntar evidencias en PQRS', 'Auto-registro de residentes'].map((label) => {
+              const on = true;
+              return (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</span>
+                  <div style={toggleTrackStyle(on)}><div style={toggleDotStyle(on)} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Create tenant sheet */}
+      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} maxWidth={480}>
+        {createPhase === 'form' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Crear conjunto</h2>
+              <CloseButton onClick={() => setCreateOpen(false)} />
+            </div>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se crearÃ¡ el conjunto, su administrador y la licencia automÃ¡ticamente.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label><input value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label><input value={newCity} onChange={(e) => setNewCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }} /></div>
+            </div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>NÃºmero de unidades</label>
+            <input type="number" value={newUnits} onChange={(e) => setNewUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+            <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, marginBottom: 6, fontSize: 12, color: COLORS.textMuted, fontWeight: 700 }}>ADMINISTRADOR PRINCIPAL</div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre</label>
+            <input value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Correo</label>
+            <input value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 24 }} />
+            <div onClick={submitCreate} style={{ textAlign: 'center', background: (newName.trim() && newUnits && newAdminEmail.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (newName.trim() && newUnits && newAdminEmail.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Crear conjunto</div>
+          </>
+        )}
+        {createPhase === 'progress' && (
+          <div>
+            <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 22px' }}>Creando &quot;{newName}&quot;â€¦</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {createSteps.map((label, i) => {
+                const done = i < createStep;
+                return (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 999, background: done ? COLORS.success : COLORS.neutralSoft, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? 'âœ“' : ''}</div>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: done ? '#1D1D1F' : '#B0B0B5' }}>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {createPhase === 'done' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 999, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto 18px' }}>âœ“</div>
+            <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px' }}>Conjunto creado</h2>
+            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 24px' }}>Se enviÃ³ una invitaciÃ³n a {newAdminEmail} para activar su cuenta de administrador.</p>
+            <div onClick={() => setCreateOpen(false)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Listo</div>
+          </div>
+        )}
+      </Sheet>
+
+      {/* Tenant detail sheet */}
+      <Sheet open={!!selected} onClose={() => { setSelectedId(null); setConfirmingCancel(false); }} maxWidth={600}>
+        {selected && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={TENANT_BADGE[selected.group]}>{TENANT_LABEL[selected.group]}</span>
+              <CloseButton onClick={() => { setSelectedId(null); setConfirmingCancel(false); }} />
+            </div>
+            <h2 style={{ fontSize: 21, fontWeight: 800, margin: '12px 0 4px' }}>{selected.name}</h2>
+            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>{selected.city} Â· Cliente desde {selected.startDate}</p>
+
+            {!confirmingCancel && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                <div onClick={() => (selected.group === 'suspended' ? reactivate(selected.id) : suspend(selected.id))} style={{ background: selected.group === 'suspended' ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{selected.group === 'suspended' ? 'Reactivar conjunto' : 'Suspender conjunto'}</div>
+                <div onClick={() => setConfirmingCancel(true)} style={{ border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</div>
+              </div>
+            )}
+            {confirmingCancel && (
+              <div style={{ border: `1.5px solid #F3D9B1`, background: COLORS.warningSoft, borderRadius: 14, padding: 18, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>Â¿Cancelar este conjunto?</div>
+                <div style={{ fontSize: 12.5, color: COLORS.warning, marginBottom: 14 }}>Esta acciÃ³n no se puede deshacer.</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div onClick={() => cancelTenant(selected.id)} style={{ background: COLORS.warning, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>SÃ­, cancelar</div>
+                  <div onClick={() => setConfirmingCancel(false)} style={{ color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '10px 10px', cursor: 'pointer' }}>Volver</div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÃ“N GENERAL</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
+              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
+              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
+              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PQRS ABIERTAS</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.pqrsOpen}</div></div>
+            </div>
+            <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{selected.adminName}</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{selected.adminEmail} Â· {selected.adminPhone}</div>
+            </div>
+          </>
+        )}
+      </Sheet>
+
+      <Toast message={toast} />
+    </SuperAdminShell>
   );
-}
-
-function Stat({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="rounded-lg border bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <Icon className="h-4 w-4 text-success" />
-      </div>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
-    </div>
-  );
-}
-
-
-function MoneyStat({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="rounded-lg border bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <Icon className="h-4 w-4 text-success" />
-      </div>
-      <p className="mt-1 text-2xl font-bold text-foreground">{formatMoneyFromCents(value)}</p>
-    </div>
-  );
-}
-function Field({ label, name, type = "text", ...props }: React.ComponentProps<typeof Input> & { label: string; name: string }) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} {...props} />
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border bg-muted p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-medium text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const className =
-    status === "ACTIVE"
-      ? "bg-success/10 text-success ring-success/30"
-      : status === "SUSPENDED"
-        ? "bg-destructive/10 text-destructive ring-destructive/30"
-        : "bg-muted text-foreground ring-border";
-
-  return (
-    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1 ${className}`}>
-      {status}
-    </span>
-  );
-}
-
-function readText(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
 }

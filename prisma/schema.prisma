@@ -19,12 +19,16 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  users        User[]
-  pqrs         Pqrs[]
-  fotos        PqrsFoto[]
-  historial    HistorialPqrs[]
-  subscription Subscription?
-  payments     Payment[]
+  users         User[]
+  pqrs          Pqrs[]
+  fotos         PqrsFoto[]
+  historial     HistorialPqrs[]
+  subscription  Subscription?
+  payments      Payment[]
+  invitations   Invitation[]
+  notifications Notification[]
+  emailLogs     EmailLog[]
+  auditLogs     AuditLog[]
 
   @@index([slug])
   @@index([status])
@@ -51,17 +55,24 @@ model User {
   haCorregidoUbicacion  Boolean    @default(false)
   emailVerified         DateTime?
   image                 String?
+  phone                 String?
+  isActive              Boolean    @default(true)
+  onboardingCompletedAt DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   pqrsCreated           Pqrs[]     @relation("CreatedBy")
   pqrsManaged           Pqrs[]     @relation("ManagedBy")
-  auditLogs             AuditLog[] @relation("AuditActor")
+  auditLogs             AuditLog[]        @relation("AuditActor")
+  invitedInvitations    Invitation[]      @relation("InvitationInvitedBy")
+  notifications         Notification[]
+  updatedSettings       PlatformSetting[] @relation("PlatformSettingUpdatedBy")
   sessions              Session[]
   accounts              Account[]
 
   @@index([tenantId])
   @@index([role])
   @@index([tenantId, role])
+  @@index([tenantId, isActive])
   @@index([tenantId, bloque, apto])
 }
 
@@ -74,19 +85,26 @@ enum Role {
 }
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  actorUserId String?
-  actor       User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
-  action      AuditAction
-  targetType  String?
-  targetId    String?
-  metadata    Json?
-  createdAt   DateTime    @default(now())
+  id           String      @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actorUserId  String?
+  actor        User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action       AuditAction
+  targetType   String?
+  targetId     String?
+  resourceType String?
+  resourceId   String?
+  origin       String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
 
+  @@index([tenantId])
   @@index([actorUserId])
   @@index([action])
   @@index([createdAt])
   @@index([targetType, targetId])
+  @@index([resourceType, resourceId])
 }
 
 enum AuditAction {
@@ -100,8 +118,23 @@ enum AuditAction {
   PAYMENT_SIMULATED
   MERCADO_PAGO_SUBSCRIPTION_CREATED
   MERCADO_PAGO_WEBHOOK_PROCESSED
+  INVITATION_CREATED
+  INVITATION_RESENT
+  INVITATION_ACCEPTED
+  INVITATION_CANCELLED
+  INVITATION_EXPIRED
+  NOTIFICATION_CREATED
+  EMAIL_SENT
+  EMAIL_FAILED
+  PQRS_CREATED
+  PQRS_UPDATED
+  PQRS_CLOSED
+  USER_UPDATED
+  USER_DEACTIVATED
+  USER_REACTIVATED
+  ONBOARDING_COMPLETED
+  PROFILE_UPDATED
 }
-
 
 model PricingRule {
   id        String   @id @default(cuid())
@@ -310,6 +343,95 @@ model HistorialPqrs {
   @@index([tenantId, pqrsId, creadoAt])
 }
 
+
+model Invitation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        Role
+  tokenHash   String           @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  invitedById String?
+  invitedBy   User?            @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@index([tenantId, status])
+  @@index([expiresAt])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String
+  title        String
+  message      String    @db.Text
+  resourceType String?
+  resourceId   String?
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tenantId, userId, readAt])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id                String         @id @default(cuid())
+  tenantId          String?
+  tenant            Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  recipient         String
+  template          String
+  provider          String         @default("RESEND")
+  providerMessageId String?
+  status            EmailLogStatus
+  errorMessage      String?        @db.Text
+  sentAt            DateTime?
+  createdAt         DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([recipient])
+  @@index([template])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum EmailLogStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  isSecret    Boolean  @default(false)
+  updatedById String?
+  updatedBy   User?    @relation("PlatformSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isSecret])
+  @@index([updatedById])
+}
 // NextAuth tables
 model Account {
   id                String  @id @default(cuid())
@@ -344,3 +466,5 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+

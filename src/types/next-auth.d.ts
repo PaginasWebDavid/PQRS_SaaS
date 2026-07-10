@@ -13,6 +13,8 @@ declare module "next-auth" {
       subscriptionStatus: SubscriptionStatus | null;
       bloque: number | null;
       apto: number | null;
+      isActive: boolean;
+      onboardingCompletedAt: string | null;
     };
   }
 }
@@ -26,5 +28,7 @@ declare module "next-auth/jwt" {
     subscriptionStatus?: SubscriptionStatus | null;
     bloque?: number | null;
     apto?: number | null;
+    isActive?: boolean;
+    onboardingCompletedAt?: string | null;
   }
 }

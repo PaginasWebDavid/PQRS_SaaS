@@ -12,7 +12,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "credentials",
       credentials: {
         email: { label: "Correo", type: "email" },
-        password: { label: "Contraseña", type: "password" },
+        password: { label: "ContraseÃ±a", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
@@ -21,7 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email: credentials.email as string },
         });
 
-        if (!user) return null;
+        if (!user || !user.isActive) return null;
 
         const passwordMatch = await bcrypt.compare(
           credentials.password as string,
@@ -56,6 +56,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             tenantId: true,
             bloque: true,
             apto: true,
+            isActive: true,
+            onboardingCompletedAt: true,
             tenant: {
               select: {
                 status: true,
@@ -71,6 +73,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.subscriptionStatus = dbUser?.tenant?.subscription?.status ?? null;
         token.bloque = dbUser?.bloque ?? null;
         token.apto = dbUser?.apto ?? null;
+        token.isActive = dbUser?.isActive ?? false;
+        token.onboardingCompletedAt = dbUser?.onboardingCompletedAt?.toISOString() ?? null;
       }
 
       return token;
@@ -84,6 +88,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.subscriptionStatus = (token.subscriptionStatus as SubscriptionStatus | null | undefined) ?? null;
         session.user.bloque = (token.bloque as number | null | undefined) ?? null;
         session.user.apto = (token.apto as number | null | undefined) ?? null;
+        session.user.isActive = Boolean(token.isActive);
+        session.user.onboardingCompletedAt = (token.onboardingCompletedAt as string | null | undefined) ?? null;
       }
       return session;
     },

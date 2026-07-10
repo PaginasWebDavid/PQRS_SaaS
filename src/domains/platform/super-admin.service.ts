@@ -4,7 +4,7 @@ import { getTenantDetailForSuperAdmin, listTenantsForSuperAdmin } from "./tenant
 import { getBillingPlatformOverview } from "@/domains/billing/billing.service";
 
 export async function getSuperAdminOverview(selectedTenantId?: string | null) {
-  const [stats, tenants, selectedTenant, recentAuditLogs, billing] = await Promise.all([
+  const [stats, tenants, selectedTenant, recentAuditLogs, billing, pricingRules] = await Promise.all([
     getPlatformStats(),
     listTenantsForSuperAdmin(),
     getTenantDetailForSuperAdmin(selectedTenantId),
@@ -16,7 +16,8 @@ export async function getSuperAdminOverview(selectedTenantId?: string | null) {
       },
     }),
     getBillingPlatformOverview(),
+    prisma.pricingRule.findMany({ orderBy: { minUnits: "asc" } }),
   ]);
 
-  return { stats, tenants, selectedTenant, recentAuditLogs, billing };
+  return { stats, tenants, selectedTenant, recentAuditLogs, billing, pricingRules };
 }

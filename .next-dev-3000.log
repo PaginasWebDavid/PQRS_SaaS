@@ -1,0 +1,81 @@
+
+> pqrs-saa-s@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 5.9s
+ ○ Compiling /auth/login ...
+ ✓ Compiled /auth/login in 19.8s (516 modules)
+ GET /auth/login 200 in 12078ms
+ ✓ Compiled in 689ms (252 modules)
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1224ms (413 modules)
+ GET /api/auth/session 200 in 5497ms
+ GET /api/auth/session 200 in 992ms
+ GET /api/auth/session 200 in 1712ms
+ GET /api/auth/session 200 in 1441ms
+ GET /api/auth/csrf 200 in 34ms
+ POST /api/auth/callback/credentials 302 in 3183ms
+ ✓ Compiled /api/me in 176ms (417 modules)
+ GET /api/me 200 in 1734ms
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1082ms (200 modules)
+ ○ Compiling /super-admin ...
+ ✓ Compiled /super-admin in 1320ms (723 modules)
+ GET /super-admin 200 in 3166ms
+ GET /api/auth/session 200 in 1744ms
+ GET /auth/login 200 in 207ms
+ ○ Compiling /icon.svg ...
+ ✓ Compiled /icon.svg in 1240ms (484 modules)
+ GET /icon.svg?38aac8ea9cda47f1 200 in 2543ms
+ GET /api/auth/session 200 in 3891ms
+ GET /api/auth/session 200 in 1337ms
+ GET /api/auth/session 200 in 1138ms
+ GET /api/auth/session 200 in 1069ms
+ GET /api/auth/providers 200 in 99ms
+ GET /api/auth/csrf 200 in 62ms
+ POST /api/auth/callback/credentials? 200 in 3052ms
+ GET /api/auth/session 200 in 1061ms
+ GET /api/me 200 in 1244ms
+ GET /super-admin 200 in 1207ms
+ GET /api/auth/session 200 in 2716ms
+ ○ Compiling /api/platform/super-admin ...
+ ✓ Compiled /api/platform/super-admin in 668ms (489 modules)
+ GET /api/auth/session 200 in 6170ms
+ GET /api/auth/session 200 in 2411ms
+ GET /api/platform/super-admin 200 in 9032ms
+ GET /api/platform/super-admin 200 in 9093ms
+ GET /api/auth/session 200 in 1224ms
+ GET /api/auth/session 200 in 1282ms
+ GET /api/auth/session 200 in 1182ms
+ GET /api/auth/session 200 in 999ms
+ GET /api/auth/session 200 in 1117ms
+ GET /api/auth/session 200 in 1047ms
+ ✓ Compiled in 238ms (447 modules)
+ ✓ Compiled in 2.7s (929 modules)
+ GET /super-admin?_rsc=1ikut 200 in 7138ms
+ GET /super-admin?_rsc=1ikut 200 in 5117ms
+ GET /super-admin?_rsc=1ikut 200 in 5106ms
+ GET /super-admin?_rsc=1ikut 200 in 5101ms
+ GET /super-admin?_rsc=1ikut 200 in 5112ms
+ GET /super-admin?_rsc=1ikut 200 in 5113ms
+ GET /super-admin?_rsc=1ikut 200 in 2150ms
+ ✓ Compiled in 462ms (282 modules)
+ GET /super-admin?_rsc=1ikut 200 in 1628ms
+ ✓ Compiled in 385ms (282 modules)
+ GET /super-admin?_rsc=1ikut 200 in 1673ms
+ ✓ Compiled in 346ms (282 modules)
+ ✓ Compiled in 237ms (282 modules)
+ ✓ Compiled in 200ms (282 modules)
+ ✓ Compiled in 545ms (282 modules)
+ ✓ Compiled in 622ms (282 modules)
+ ✓ Compiled in 471ms (282 modules)
+ ✓ Compiled in 390ms (647 modules)
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1308ms (451 modules)
+ GET /api/auth/session 200 in 4450ms
+ GET /api/auth/session 200 in 760ms
