@@ -10,6 +10,7 @@ export default function OlvidarContrasenaPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
   const canRequest = Boolean(email.trim());
 
   async function submitRequest() {
@@ -54,12 +55,28 @@ export default function OlvidarContrasenaPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
               placeholder="tucorreo@ejemplo.com"
-              style={{ width: '100%', height: 48, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14.5, fontFamily: 'inherit', marginBottom: 22 }}
-            />
-            <div
-              onClick={() => !loading && submitRequest()}
               style={{
+                width: '100%',
+                height: 48,
+                padding: '0 15px',
+                border: `1.5px solid ${emailFocused ? COLORS.navy : COLORS.inputBorder}`,
+                borderRadius: RADIUS.input,
+                fontSize: 14.5,
+                fontFamily: 'inherit',
+                marginBottom: 22,
+                outline: 'none',
+                boxShadow: emailFocused ? '0 0 0 3.5px rgba(18,37,69,0.12)' : 'none',
+              }}
+            />
+            <button
+              type="button"
+              onClick={submitRequest}
+              disabled={!canRequest || loading}
+              style={{
+                width: '100%',
                 textAlign: 'center',
                 background: canRequest && !loading ? COLORS.navy : COLORS.neutralSoft,
                 color: canRequest && !loading ? '#FFFFFF' : COLORS.textMuted,
@@ -67,11 +84,13 @@ export default function OlvidarContrasenaPage() {
                 fontWeight: 700,
                 padding: '13px 0',
                 borderRadius: RADIUS.pill,
+                border: 'none',
+                fontFamily: 'inherit',
                 cursor: canRequest && !loading ? 'pointer' : 'default',
               }}
             >
               {loading ? 'Enviando…' : 'Enviar enlace'}
-            </div>
+            </button>
             <p style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500, marginTop: 24, textAlign: 'center' }}>
               <Link href="/auth/login" style={{ fontWeight: 700, color: COLORS.navy }}>← Volver a iniciar sesión</Link>
             </p>
@@ -88,7 +107,15 @@ export default function OlvidarContrasenaPage() {
               Volver al login
             </Link>
             <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500 }}>
-              ¿No llegó? <span onClick={() => !loading && submitRequest()} style={{ fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Reenviar correo</span>
+              ¿No llegó?{' '}
+              <button
+                type="button"
+                onClick={submitRequest}
+                disabled={loading}
+                style={{ fontWeight: 700, color: COLORS.navy, cursor: loading ? 'default' : 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 'inherit' }}
+              >
+                Reenviar correo
+              </button>
             </p>
           </div>
         )}
