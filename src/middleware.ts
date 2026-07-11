@@ -63,6 +63,7 @@ export const config = {
     "/reportes/:path*",
     "/usuarios/:path*",
     "/super-admin/:path*",
+    "/cambiar-contrasena/:path*",
   ],
 };
 
