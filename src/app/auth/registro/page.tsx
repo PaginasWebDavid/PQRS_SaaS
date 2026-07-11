@@ -85,13 +85,13 @@ export default function RegistroPage() {
 
         <div
           style={{
-            background: COLORS.bgCard,
+            background: COLORS.white,
             border: `1px solid ${COLORS.border}`,
             borderRadius: RADIUS.card,
             padding: 32,
           }}
         >
-          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: COLORS.textSecondary, textTransform: 'uppercase', margin: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, fontFamily: FONTS.mono, letterSpacing: '0.12em', color: COLORS.textMuted, textTransform: 'uppercase', margin: 0 }}>
             Registro residente
           </p>
           <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.03em', margin: '10px 0 8px' }}>Crear cuenta</h1>
