@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { SuperAdminShell, NavGroup } from '@/components/design-export/SuperAdminShell';
-import { Sheet, CloseButton } from '@/components/design-export/Sheet';
-import { Toast, useToast } from '@/components/design-export/Toast';
-import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design-export/tokens';
+import { SuperAdminShell, NavGroup } from '@/components/shell/SuperAdminShell';
+import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Toast, useToast } from '@/components/shell/Toast';
+import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
 
 const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { header: 'PLATAFORMA' },
@@ -15,9 +15,9 @@ const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { key: 'analytics', label: 'Analytics' },
   { header: 'SISTEMA' },
   { key: 'usuarios', label: 'Usuarios' },
-  { key: 'auditoria', label: 'AuditorÃ­a' },
+  { key: 'auditoria', label: 'Auditoría' },
   { key: 'soporte', label: 'Soporte' },
-  { key: 'config', label: 'ConfiguraciÃ³n' },
+  { key: 'config', label: 'Configuración' },
 ];
 
 type TenantGroup = 'active' | 'trial' | 'suspended' | 'cancelled';
@@ -208,7 +208,7 @@ export default function DashboardSuperAdminPage() {
     }
   };
 
-  const createSteps = ['Creando el conjuntoâ€¦', 'Creando el administradorâ€¦', 'Calculando la tarifaâ€¦', 'Generando la licencia (trial)â€¦', 'Enviando invitaciÃ³n por correoâ€¦'];
+  const createSteps = ['Creando el conjunto…', 'Creando el administrador…', 'Calculando la tarifa…', 'Generando la licencia (trial)…', 'Enviando invitación por correo…'];
 
   const navGroups: NavGroup[] = NAV_DEFS.map((n) => n.key ? { key: n.key, label: n.label, onClick: () => setNav(n.key!) } : { header: n.header });
 
@@ -230,14 +230,14 @@ export default function DashboardSuperAdminPage() {
           <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
               <span style={{ fontSize: 15, fontWeight: 800 }}>Conjuntos recientes</span>
-              <span onClick={() => setNav('conjuntos')} style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver todos â€º</span>
+              <button type="button" onClick={() => setNav('conjuntos')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver todos ›</button>
             </div>
             {tenants.slice(0, 5).map((t) => (
-              <div key={t.id} onClick={() => setSelectedId(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer' }}>
+              <button key={t.id} type="button" onClick={() => setSelectedId(t.id)} style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 14, padding: '14px 22px', cursor: 'pointer', background: 'none', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, borderRadius: 0, font: 'inherit', textAlign: 'left' }}>
                 <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 56 }}>{t.units}</span>
                 <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -247,14 +247,14 @@ export default function DashboardSuperAdminPage() {
         <div className="apl-up">
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
             <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
-            <div onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>+ Crear conjunto</div>
+            <button type="button" onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: COLORS.navy, border: 'none', color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
           </div>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administradorâ€¦" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administrador…" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-            {(['all', 'active', 'trial', 'suspended', 'cancelled'] as const).map((f) => <div key={f} onClick={() => setFilter(f)} style={tabStyle(filter === f)}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</div>)}
+            {(['all', 'active', 'trial', 'suspended', 'cancelled'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} style={{ ...tabStyle(filter === f), border: 'none', font: 'inherit', cursor: 'pointer' }}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</button>)}
           </div>
           <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
-            {filteredTenants.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>NingÃºn conjunto coincide con esta bÃºsqueda o filtro.</div>}
+            {filteredTenants.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>}
             {filteredTenants.map((t) => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <span style={{ flex: 1, minWidth: 150, fontSize: 13, fontWeight: 700 }}>{t.name}</span>
@@ -264,8 +264,8 @@ export default function DashboardSuperAdminPage() {
                 <span style={{ width: 90, fontSize: 12, color: COLORS.textSecondary }}>{t.plan}</span>
                 <span style={{ width: 90 }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></span>
                 <span style={{ width: 170, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-                  <span onClick={() => setSelectedId(t.id)} style={{ fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</span>
-                  <span onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ fontSize: 12, fontWeight: 700, color: t.group === 'suspended' ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</span>
+                  <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
+                  <button type="button" onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: t.group === 'suspended' ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</button>
                 </span>
               </div>
             ))}
@@ -278,8 +278,8 @@ export default function DashboardSuperAdminPage() {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Licencias y pagos</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Estado de licencias e historial de cobro</p>
           <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-            <div onClick={() => setFinSubTab('licencia')} style={tabStyle(finSubTab === 'licencia')}>Licencia</div>
-            <div onClick={() => setFinSubTab('pagos')} style={tabStyle(finSubTab === 'pagos')}>Pagos</div>
+            <button type="button" onClick={() => setFinSubTab('licencia')} style={{ ...tabStyle(finSubTab === 'licencia'), border: 'none', font: 'inherit', cursor: 'pointer' }}>Licencia</button>
+            <button type="button" onClick={() => setFinSubTab('pagos')} style={{ ...tabStyle(finSubTab === 'pagos'), border: 'none', font: 'inherit', cursor: 'pointer' }}>Pagos</button>
           </div>
 
           {finSubTab === 'licencia' && (
@@ -291,8 +291,8 @@ export default function DashboardSuperAdminPage() {
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 170 }}>{t.licenseEnd}</span>
                   {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
                   <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                    <div onClick={() => { setTenants((ts) => ts.map((x) => x.id === t.id ? { ...x, paymentStatus: 'al_dia', moraDays: 0, group: x.group === 'suspended' ? 'active' : x.group, licenseEnd: '+30 dÃ­as desde hoy' } : x)); showToast('Licencia renovada âœ“'); addAudit('â—†', 'RenovÃ³ una licencia'); }} style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Renovar</div>
-                    <div onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ fontSize: 12, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</div>
+                    <button type="button" onClick={() => { setTenants((ts) => ts.map((x) => x.id === t.id ? { ...x, paymentStatus: 'al_dia', moraDays: 0, group: x.group === 'suspended' ? 'active' : x.group, licenseEnd: '+30 días desde hoy' } : x)); showToast('Licencia renovada ✓'); addAudit('◆', 'Renovó una licencia'); }} style={{ border: 'none', font: 'inherit', fontSize: 12, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Renovar</button>
+                    <button type="button" onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '7px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</button>
                   </div>
                 </div>
               ))}
@@ -337,7 +337,7 @@ export default function DashboardSuperAdminPage() {
               ))}
             </div>
           </div>
-          <p style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 12 }}>Estos rangos alimentan el cÃ¡lculo automÃ¡tico de precio al crear un conjunto nuevo. EdiciÃ³n inline: conectar a tu API de tarifas.</p>
+          <p style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 12 }}>Estos rangos alimentan el cálculo automático de precio al crear un conjunto nuevo. Edición inline: conectar a tu API de tarifas.</p>
         </div>
       )}
 
@@ -346,8 +346,8 @@ export default function DashboardSuperAdminPage() {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Analytics</h1>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 20 }}>
             {[
-              { title: 'PQRS por estado', subtitle: 'DistribuciÃ³n actual', data: [340, 210, 1900], labels: ['Abiertas', 'En proceso', 'Cerradas'], color: COLORS.navy },
-              { title: 'Tiempo promedio de respuesta', subtitle: 'DÃ­as para cerrar, por mes', data: [3.1, 2.8, 2.6, 2.5, 2.3, 2.1], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: COLORS.warning },
+              { title: 'PQRS por estado', subtitle: 'Distribución actual', data: [340, 210, 1900], labels: ['Abiertas', 'En proceso', 'Cerradas'], color: COLORS.navy },
+              { title: 'Tiempo promedio de respuesta', subtitle: 'Días para cerrar, por mes', data: [3.1, 2.8, 2.6, 2.5, 2.3, 2.1], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: COLORS.warning },
               { title: 'Usuarios', subtitle: 'Registrados en toda la plataforma', data: [8200, 9100, 9800, 10600, 11500, 12400], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: '#4A6FA5' },
               { title: 'Ingresos', subtitle: 'MRR en millones de pesos', data: [142, 156, 149, 168, 172, 184], labels: ['Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'], color: COLORS.success },
             ].map((c) => {
@@ -390,14 +390,14 @@ export default function DashboardSuperAdminPage() {
 
       {nav === 'auditoria' && (
         <div className="apl-up">
-          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>AuditorÃ­a</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 20px' }}>Auditoría</h1>
           <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
             {auditLog.length === 0
-              ? <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>AÃºn no hay acciones registradas en esta sesiÃ³n.</div>
+              ? <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Aún no hay acciones registradas en esta sesión.</div>
               : auditLog.map((e, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                   <div style={AUDIT_ICON_STYLE}>{e.icon}</div>
-                  <div><div style={{ fontSize: 13, fontWeight: 700 }}>{e.action}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>SofÃ­a PeÃ±a (Super Admin) Â· {e.time}</div></div>
+                  <div><div style={{ fontSize: 13, fontWeight: 700 }}>{e.action}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Sofía Peña (Super Admin) · {e.time}</div></div>
                 </div>
               ))}
           </div>
@@ -410,10 +410,10 @@ export default function DashboardSuperAdminPage() {
           <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
             {[
               { subject: 'No puedo generar el reporte mensual', conjunto: 'Mirador de la Sabana', date: '07 jul', status: 'Abierta' },
-              { subject: 'Duda sobre facturaciÃ³n de unidades nuevas', conjunto: 'Torres del Prado', date: '05 jul', status: 'Respondida' },
+              { subject: 'Duda sobre facturación de unidades nuevas', conjunto: 'Torres del Prado', date: '05 jul', status: 'Respondida' },
             ].map((tk, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                <span style={{ flex: 1, minWidth: 160 }}><div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>{tk.conjunto} Â· {tk.date}</div></span>
+                <span style={{ flex: 1, minWidth: 160 }}><div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div><div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>{tk.conjunto} · {tk.date}</div></span>
                 <span style={tk.status === 'Abierta' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : badgeStyle(COLORS.navySoft, COLORS.navy)}>{tk.status}</span>
               </div>
             ))}
@@ -423,7 +423,7 @@ export default function DashboardSuperAdminPage() {
 
       {nav === 'config' && (
         <div className="apl-up" style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>ConfiguraciÃ³n</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>Configuración</h1>
           <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Branding</div>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre de la plataforma</label>
@@ -452,30 +452,30 @@ export default function DashboardSuperAdminPage() {
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Crear conjunto</h2>
               <CloseButton onClick={() => setCreateOpen(false)} />
             </div>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se crearÃ¡ el conjunto, su administrador y la licencia automÃ¡ticamente.</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se creará el conjunto, su administrador y la licencia automáticamente.</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label><input value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }} /></div>
               <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label><input value={newCity} onChange={(e) => setNewCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }} /></div>
             </div>
-            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>NÃºmero de unidades</label>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Número de unidades</label>
             <input type="number" value={newUnits} onChange={(e) => setNewUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
             <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, marginBottom: 6, fontSize: 12, color: COLORS.textMuted, fontWeight: 700 }}>ADMINISTRADOR PRINCIPAL</div>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre</label>
             <input value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Correo</label>
             <input value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 24 }} />
-            <div onClick={submitCreate} style={{ textAlign: 'center', background: (newName.trim() && newUnits && newAdminEmail.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (newName.trim() && newUnits && newAdminEmail.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Crear conjunto</div>
+            <button type="button" onClick={submitCreate} disabled={!(newName.trim() && newUnits && newAdminEmail.trim())} style={{ width: '100%', border: 'none', font: 'inherit', textAlign: 'center', background: (newName.trim() && newUnits && newAdminEmail.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (newName.trim() && newUnits && newAdminEmail.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Crear conjunto</button>
           </>
         )}
         {createPhase === 'progress' && (
           <div>
-            <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 22px' }}>Creando &quot;{newName}&quot;â€¦</h2>
+            <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 22px' }}>Creando &quot;{newName}&quot;…</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {createSteps.map((label, i) => {
                 const done = i < createStep;
                 return (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 999, background: done ? COLORS.success : COLORS.neutralSoft, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? 'âœ“' : ''}</div>
+                    <div style={{ width: 22, height: 22, borderRadius: 999, background: done ? COLORS.success : COLORS.neutralSoft, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : ''}</div>
                     <span style={{ fontSize: 13.5, fontWeight: 600, color: done ? '#1D1D1F' : '#B0B0B5' }}>{label}</span>
                   </div>
                 );
@@ -485,10 +485,10 @@ export default function DashboardSuperAdminPage() {
         )}
         {createPhase === 'done' && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 999, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto 18px' }}>âœ“</div>
+            <div style={{ width: 52, height: 52, borderRadius: 999, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto 18px' }}>✓</div>
             <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px' }}>Conjunto creado</h2>
-            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 24px' }}>Se enviÃ³ una invitaciÃ³n a {newAdminEmail} para activar su cuenta de administrador.</p>
-            <div onClick={() => setCreateOpen(false)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Listo</div>
+            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 24px' }}>Se envió una invitación a {newAdminEmail} para activar su cuenta de administrador.</p>
+            <button type="button" onClick={() => setCreateOpen(false)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Listo</button>
           </div>
         )}
       </Sheet>
@@ -502,26 +502,26 @@ export default function DashboardSuperAdminPage() {
               <CloseButton onClick={() => { setSelectedId(null); setConfirmingCancel(false); }} />
             </div>
             <h2 style={{ fontSize: 21, fontWeight: 800, margin: '12px 0 4px' }}>{selected.name}</h2>
-            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>{selected.city} Â· Cliente desde {selected.startDate}</p>
+            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>{selected.city} · Cliente desde {selected.startDate}</p>
 
             {!confirmingCancel && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                <div onClick={() => (selected.group === 'suspended' ? reactivate(selected.id) : suspend(selected.id))} style={{ background: selected.group === 'suspended' ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{selected.group === 'suspended' ? 'Reactivar conjunto' : 'Suspender conjunto'}</div>
-                <div onClick={() => setConfirmingCancel(true)} style={{ border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</div>
+                <button type="button" onClick={() => (selected.group === 'suspended' ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: selected.group === 'suspended' ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{selected.group === 'suspended' ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
+                <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
               </div>
             )}
             {confirmingCancel && (
               <div style={{ border: `1.5px solid #F3D9B1`, background: COLORS.warningSoft, borderRadius: 14, padding: 18, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>Â¿Cancelar este conjunto?</div>
-                <div style={{ fontSize: 12.5, color: COLORS.warning, marginBottom: 14 }}>Esta acciÃ³n no se puede deshacer.</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>¿Cancelar este conjunto?</div>
+                <div style={{ fontSize: 12.5, color: COLORS.warning, marginBottom: 14 }}>Esta acción no se puede deshacer.</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <div onClick={() => cancelTenant(selected.id)} style={{ background: COLORS.warning, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>SÃ­, cancelar</div>
-                  <div onClick={() => setConfirmingCancel(false)} style={{ color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '10px 10px', cursor: 'pointer' }}>Volver</div>
+                  <button type="button" onClick={() => cancelTenant(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.warning, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, cancelar</button>
+                  <button type="button" onClick={() => setConfirmingCancel(false)} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '10px 10px', cursor: 'pointer' }}>Volver</button>
                 </div>
               </div>
             )}
 
-            <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÃ“N GENERAL</div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÓN GENERAL</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
@@ -529,7 +529,7 @@ export default function DashboardSuperAdminPage() {
             </div>
             <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{selected.adminName}</div>
-              <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{selected.adminEmail} Â· {selected.adminPhone}</div>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{selected.adminEmail} · {selected.adminPhone}</div>
             </div>
           </>
         )}
