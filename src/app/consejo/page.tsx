@@ -1,9 +1,9 @@
 ﻿'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { COLORS, badgeStyle, tabStyle } from '@/lib/design-export/tokens';
-import { BrandLockup } from '@/components/design-export/Logo';
-import { Sheet, CloseButton, useIsMobile } from '@/components/design-export/Sheet';
+import { COLORS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { BrandLockup } from '@/components/shell/Logo';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Row = { id: string; numero: number; asunto?: string | null; nombreResidente: string; estado: Estado; fechaRecibido: string; descripcion: string; gestionadoPor?: { name?: string | null } | null };
