@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ResidentShell } from '@/components/design-export/ResidentShell';
-import { Sheet, CloseButton } from '@/components/design-export/Sheet';
-import { Toast, useToast } from '@/components/design-export/Toast';
-import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design-export/tokens';
+import { ResidentShell } from '@/components/shell/ResidentShell';
+import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Toast, useToast } from '@/components/shell/Toast';
+import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design/tokens';
 
 type State = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Pqrs = { id: string; numero: number; asunto?: string | null; descripcion: string; estado: State; fechaRecibido: string; updatedAt: string; fechaPrimerContacto?: string | null; gestionadoPorId?: string | null; numeroRadicacion?: string | null; historial?: { id: string; nota?: string | null; estadoDespues: State; creadoAt: string }[]; fotos?: { id: string; nombre: string; tipo: string }[] };
