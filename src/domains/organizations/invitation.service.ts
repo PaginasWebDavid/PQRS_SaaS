@@ -147,6 +147,37 @@ export async function createInvitation({
   return { invitation, token, invitationUrl: invitationUrl(token), emailResult };
 }
 
+export type BulkInvitationResult = { email: string; ok: boolean; error?: string };
+
+export async function createBulkInvitations({
+  tenantId,
+  emails,
+  role,
+  invitedById,
+  origin,
+}: {
+  tenantId: string;
+  emails: string[];
+  role: Role;
+  invitedById?: string | null;
+  origin?: string | null;
+}): Promise<BulkInvitationResult[]> {
+  ensureInvitableRole(role);
+  const uniqueEmails = Array.from(new Set(emails.map(normalizeEmail))).filter(Boolean);
+
+  const results: BulkInvitationResult[] = [];
+  for (const email of uniqueEmails) {
+    try {
+      await createInvitation({ tenantId, email, role, invitedById, origin });
+      results.push({ email, ok: true });
+    } catch (error) {
+      results.push({ email, ok: false, error: error instanceof Error ? error.message : "No se pudo invitar" });
+    }
+  }
+
+  return results;
+}
+
 export async function resendInvitation({
   tenantId,
   invitationId,

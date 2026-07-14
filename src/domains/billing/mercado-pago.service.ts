@@ -47,9 +47,11 @@ type WebhookPayload = {
 export async function createMercadoPagoSubscriptionForTenant({
   actorUserId,
   tenantId,
+  backUrl,
 }: {
   actorUserId: string;
   tenantId: string;
+  backUrl?: string;
 }) {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -82,7 +84,7 @@ export async function createMercadoPagoSubscriptionForTenant({
       reason: `Licencia PQRS Services - ${tenant.name}`,
       external_reference: tenant.subscription.id,
       payer_email: admin.email,
-      back_url: `${appUrl}/super-admin?tenantId=${tenant.id}`,
+      back_url: backUrl || `${appUrl}/super-admin?tenantId=${tenant.id}`,
       notification_url: notificationUrl,
       auto_recurring: {
         frequency: 1,
@@ -99,6 +101,7 @@ export async function createMercadoPagoSubscriptionForTenant({
       unitsSnapshot: price.units,
       priceCents: price.priceCents,
       currency: price.currency,
+      autoRenew: true,
       mercadoPagoPreapprovalId: preapproval.id,
       mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || null,
       mercadoPagoStatus: preapproval.status || null,
@@ -107,6 +110,7 @@ export async function createMercadoPagoSubscriptionForTenant({
 
   await registerAuditLog({
     actorUserId,
+    tenantId,
     action: AuditAction.MERCADO_PAGO_SUBSCRIPTION_CREATED,
     targetType: "Subscription",
     targetId: updated.id,
@@ -157,6 +161,40 @@ export async function processMercadoPagoWebhook({
   }
 
   return { processed: false, topic, dataId, reason: "unsupported-topic" };
+}
+
+export async function disableAutoRenewForTenant({
+  actorUserId,
+  tenantId,
+}: {
+  actorUserId: string;
+  tenantId: string;
+}) {
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+  if (!subscription) throw new Error("El tenant no tiene suscripción");
+
+  if (subscription.mercadoPagoPreapprovalId) {
+    await mercadoPagoRequest(`/preapproval/${subscription.mercadoPagoPreapprovalId}`, {
+      method: "PUT",
+      body: JSON.stringify({ status: "cancelled" }),
+    }).catch(() => null);
+  }
+
+  const updated = await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: { autoRenew: false },
+  });
+
+  await registerAuditLog({
+    actorUserId,
+    tenantId,
+    action: AuditAction.SUBSCRIPTION_AUTO_RENEW_DISABLED,
+    targetType: "Subscription",
+    targetId: updated.id,
+    metadata: { tenantId },
+  });
+
+  return updated;
 }
 
 async function getMercadoPagoPreapproval(id: string) {

@@ -2,7 +2,6 @@ import { AuditAction, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
@@ -12,8 +11,8 @@ export async function POST(req: NextRequest) {
   if (!session?.user || !["ADMIN", "RESIDENTE"].includes(session.user.role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
+  // No se aplica el bloqueo de acceso por licencia aqui: completar el onboarding
+  // (paso previo al pago) debe ser posible incluso con la suscripcion en PENDING_PAYMENT.
   const tenantId = getTenantIdFromSession(session);
   const current = await prisma.user.findFirst({ where: { id: session.user.id, tenantId } });
   if (!current) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });

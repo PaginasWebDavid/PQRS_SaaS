@@ -1,10 +1,50 @@
 import { AuditAction, PaymentStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
 
 const DEFAULT_TRIAL_DAYS = 15;
 const BILLING_PERIOD_DAYS = 30;
 const RENEWAL_WINDOW_DAYS = 15;
+export const DEFAULT_GRACE_PERIOD_DAYS = 5;
+export const DEFAULT_MIN_PRICING_RULE_CENTS = 50_000 * 100;
+export const DEFAULT_MAX_PRICING_RULE_CENTS = 1_000_000 * 100;
+
+export async function getPricingRuleCaps() {
+  const [minSetting, maxSetting] = await Promise.all([
+    prisma.platformSetting.findUnique({ where: { key: "pricingRuleMinCents" } }),
+    prisma.platformSetting.findUnique({ where: { key: "pricingRuleMaxCents" } }),
+  ]);
+  return {
+    minCents: typeof minSetting?.value === "number" ? minSetting.value : DEFAULT_MIN_PRICING_RULE_CENTS,
+    maxCents: typeof maxSetting?.value === "number" ? maxSetting.value : DEFAULT_MAX_PRICING_RULE_CENTS,
+  };
+}
+
+export async function updatePricingRuleCaps(actorUserId: string, input: { minCents: number; maxCents: number }) {
+  if (input.minCents <= 0) {
+    throw new Error("El tope mínimo debe ser mayor que cero");
+  }
+  if (input.maxCents <= input.minCents) {
+    throw new Error("El tope máximo debe ser mayor que el tope mínimo");
+  }
+
+  const activeRules = await prisma.pricingRule.findMany({ where: { isActive: true } });
+  const outOfBounds = activeRules.filter((r) => r.priceCents < input.minCents || r.priceCents > input.maxCents);
+  if (outOfBounds.length > 0) {
+    const example = outOfBounds[0];
+    throw new Error(
+      `No se puede: ya existe una regla activa (${example.minUnits}+ unidades, ${formatMoneyFromCents(example.priceCents)}) que quedaría fuera de los nuevos topes. Ajusta o desactiva esa regla primero.`
+    );
+  }
+
+  await Promise.all([
+    upsertPlatformSetting({ key: "pricingRuleMinCents", value: input.minCents, updatedById: actorUserId }),
+    upsertPlatformSetting({ key: "pricingRuleMaxCents", value: input.maxCents, updatedById: actorUserId }),
+  ]);
+
+  return getPricingRuleCaps();
+}
 
 export async function calculatePriceForUnits(units: number) {
   const normalizedUnits = Math.max(1, units);
@@ -72,6 +112,7 @@ export async function createInitialSubscriptionForTenant({
 
   await registerAuditLog({
     actorUserId,
+    tenantId,
     action: AuditAction.SUBSCRIPTION_CREATED,
     targetType: "Subscription",
     targetId: subscription.id,
@@ -97,7 +138,7 @@ export async function renewSubscriptionWithSimulatedPayment({
 }) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
-    include: { tenant: { select: { units: true } } },
+    include: { tenant: { select: { name: true, units: true } } },
   });
 
   if (!subscription) {
@@ -138,11 +179,13 @@ export async function renewSubscriptionWithSimulatedPayment({
 
   await registerAuditLog({
     actorUserId,
+    tenantId,
     action: AuditAction.SUBSCRIPTION_RENEWED,
     targetType: "Subscription",
     targetId: updated.id,
     metadata: {
       tenantId,
+      name: subscription.tenant.name,
       units: price.units,
       priceCents: price.priceCents,
       currency: price.currency,
@@ -156,15 +199,38 @@ export async function renewSubscriptionWithSimulatedPayment({
 export async function getBillingPlatformOverview() {
   const now = new Date();
   const renewalLimit = addDays(now, RENEWAL_WINDOW_DAYS);
+  const thisMonthStart = startOfMonth(now);
+  const nextMonthStart = startOfNextMonth(now);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const [approvedPayments, pendingPayments, upcomingRenewals, activeLicenses] = await Promise.all([
+  const [
+    approvedPayments,
+    lastMonthApprovedPayments,
+    totalApprovedPayments,
+    pendingPayments,
+    upcomingRenewals,
+    activeLicenses,
+    churnThisMonth,
+    avgCloseTime,
+  ] = await Promise.all([
     prisma.payment.aggregate({
       where: {
         status: "APPROVED",
-        paidAt: { gte: startOfMonth(now), lt: startOfNextMonth(now) },
+        paidAt: { gte: thisMonthStart, lt: nextMonthStart },
       },
       _sum: { amountCents: true },
       _count: true,
+    }),
+    prisma.payment.aggregate({
+      where: {
+        status: "APPROVED",
+        paidAt: { gte: lastMonthStart, lt: thisMonthStart },
+      },
+      _sum: { amountCents: true },
+    }),
+    prisma.payment.aggregate({
+      where: { status: "APPROVED" },
+      _sum: { amountCents: true },
     }),
     prisma.payment.count({ where: { status: "PENDING" } }),
     prisma.subscription.count({
@@ -174,15 +240,88 @@ export async function getBillingPlatformOverview() {
       },
     }),
     prisma.subscription.count({ where: { status: { in: ["TRIAL", "ACTIVE"] } } }),
+    prisma.tenant.count({
+      where: { cancelledAt: { gte: thisMonthStart, lt: nextMonthStart } },
+    }),
+    prisma.pqrs.aggregate({
+      where: { estado: "TERMINADO" },
+      _avg: { tiempoRespuestaCierre: true },
+    }),
   ]);
 
+  const monthlyRevenueCents = approvedPayments._sum.amountCents || 0;
+  const lastMonthRevenueCents = lastMonthApprovedPayments._sum.amountCents || 0;
+  const mrrGrowthPercent =
+    lastMonthRevenueCents > 0
+      ? ((monthlyRevenueCents - lastMonthRevenueCents) / lastMonthRevenueCents) * 100
+      : null;
+
   return {
-    monthlyRevenueCents: approvedPayments._sum.amountCents || 0,
+    monthlyRevenueCents,
+    totalRevenueCents: totalApprovedPayments._sum.amountCents || 0,
     monthlyApprovedPayments: approvedPayments._count,
     pendingPayments,
     upcomingRenewals,
     activeLicenses,
+    mrrGrowthPercent,
+    churnThisMonth,
+    avgPqrsCloseTimeDays: avgCloseTime._avg.tiempoRespuestaCierre,
   };
+}
+
+export async function applyOverdueLicenseRules(actorUserId: string | null) {
+  const now = new Date();
+  const graceDaysSetting = await prisma.platformSetting.findUnique({ where: { key: "gracePeriodDays" } });
+  const graceDays = typeof graceDaysSetting?.value === "number" ? graceDaysSetting.value : DEFAULT_GRACE_PERIOD_DAYS;
+
+  // Subscriptions whose current period already ended enter grace period.
+  const overdue = await prisma.subscription.findMany({
+    where: {
+      status: { in: ["ACTIVE", "TRIAL"] },
+      currentPeriodEnd: { lt: now },
+    },
+    select: { id: true, tenantId: true },
+  });
+
+  if (overdue.length > 0) {
+    await prisma.subscription.updateMany({
+      where: { id: { in: overdue.map((s) => s.id) } },
+      data: { status: "GRACE_PERIOD", graceEndsAt: addDays(now, graceDays) },
+    });
+    await prisma.tenant.updateMany({
+      where: { id: { in: overdue.map((s) => s.tenantId) } },
+      data: { status: "GRACE_PERIOD" },
+    });
+  }
+
+  // Subscriptions whose grace period already ended get suspended.
+  const expired = await prisma.subscription.findMany({
+    where: {
+      status: "GRACE_PERIOD",
+      graceEndsAt: { lt: now },
+    },
+    select: { id: true, tenantId: true },
+  });
+
+  if (expired.length > 0) {
+    await prisma.subscription.updateMany({
+      where: { id: { in: expired.map((s) => s.id) } },
+      data: { status: "SUSPENDED" },
+    });
+    await prisma.tenant.updateMany({
+      where: { id: { in: expired.map((s) => s.tenantId) } },
+      data: { status: "SUSPENDED" },
+    });
+  }
+
+  await registerAuditLog({
+    actorUserId,
+    action: AuditAction.TENANT_OVERDUE_RULES_APPLIED,
+    targetType: "Platform",
+    metadata: { movedToGracePeriod: overdue.length, movedToSuspended: expired.length },
+  });
+
+  return { movedToGracePeriod: overdue.length, movedToSuspended: expired.length };
 }
 
 export async function getTenantLicenseSummary(tenantId: string) {
@@ -202,6 +341,7 @@ export async function getTenantLicenseSummary(tenantId: string) {
 
   return {
     status: subscription.status,
+    autoRenew: subscription.autoRenew,
     currentPeriodEnd: subscription.currentPeriodEnd,
     trialEndsAt: subscription.trialEndsAt,
     graceEndsAt: subscription.graceEndsAt,
@@ -222,6 +362,108 @@ export async function getTenantLicenseSummary(tenantId: string) {
   };
 }
 
+async function assertValidPricingRule(candidate: { id?: string; minUnits: number; maxUnits: number | null; priceCents: number }) {
+  const caps = await getPricingRuleCaps();
+  if (candidate.priceCents < caps.minCents || candidate.priceCents > caps.maxCents) {
+    throw new Error(
+      `El precio debe estar entre ${formatMoneyFromCents(caps.minCents)} y ${formatMoneyFromCents(caps.maxCents)}`
+    );
+  }
+  if (candidate.maxUnits !== null && candidate.maxUnits <= candidate.minUnits) {
+    throw new Error("El rango 'hasta' debe ser mayor que 'desde'");
+  }
+
+  const otherRules = await prisma.pricingRule.findMany({
+    where: candidate.id ? { id: { not: candidate.id }, isActive: true } : { isActive: true },
+  });
+
+  for (const other of otherRules) {
+    if (candidate.minUnits > other.minUnits && candidate.priceCents < other.priceCents) {
+      throw new Error(
+        `Un conjunto de más unidades no puede costar menos que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`
+      );
+    }
+    if (candidate.minUnits < other.minUnits && candidate.priceCents > other.priceCents) {
+      throw new Error(
+        `Un conjunto de menos unidades no puede costar más que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`
+      );
+    }
+  }
+}
+
+export async function createPricingRule(
+  actorUserId: string,
+  input: { minUnits: number; maxUnits: number | null; priceCents: number; currency?: string }
+) {
+  await assertValidPricingRule({ minUnits: input.minUnits, maxUnits: input.maxUnits, priceCents: input.priceCents });
+
+  const rule = await prisma.pricingRule.create({
+    data: {
+      minUnits: input.minUnits,
+      maxUnits: input.maxUnits,
+      priceCents: input.priceCents,
+      currency: input.currency || "COP",
+    },
+  });
+
+  await registerAuditLog({
+    actorUserId,
+    action: AuditAction.PRICING_RULE_CHANGED,
+    targetType: "PricingRule",
+    targetId: rule.id,
+    metadata: { change: "created", minUnits: rule.minUnits, maxUnits: rule.maxUnits, priceCents: rule.priceCents },
+  });
+
+  return rule;
+}
+
+export async function updatePricingRule(
+  actorUserId: string,
+  ruleId: string,
+  input: { minUnits?: number; maxUnits?: number | null; priceCents?: number; isActive?: boolean }
+) {
+  const existing = await prisma.pricingRule.findUniqueOrThrow({ where: { id: ruleId } });
+
+  const data: { minUnits?: number; maxUnits?: number | null; priceCents?: number; isActive?: boolean } = {};
+  if (input.minUnits !== undefined) data.minUnits = input.minUnits;
+  if (input.maxUnits !== undefined) data.maxUnits = input.maxUnits;
+  if (input.priceCents !== undefined) data.priceCents = input.priceCents;
+  if (input.isActive !== undefined) data.isActive = input.isActive;
+
+  await assertValidPricingRule({
+    id: ruleId,
+    minUnits: data.minUnits ?? existing.minUnits,
+    maxUnits: data.maxUnits !== undefined ? data.maxUnits : existing.maxUnits,
+    priceCents: data.priceCents ?? existing.priceCents,
+  });
+
+  const rule = await prisma.pricingRule.update({ where: { id: ruleId }, data });
+
+  await registerAuditLog({
+    actorUserId,
+    action: AuditAction.PRICING_RULE_CHANGED,
+    targetType: "PricingRule",
+    targetId: rule.id,
+    metadata: { change: "updated", ...data },
+  });
+
+  return rule;
+}
+
+export async function deletePricingRule(actorUserId: string, ruleId: string) {
+  const rule = await prisma.pricingRule.delete({ where: { id: ruleId } });
+
+  await registerAuditLog({
+    actorUserId,
+    action: AuditAction.PRICING_RULE_CHANGED,
+    targetType: "PricingRule",
+    targetId: ruleId,
+    metadata: { change: "deleted", minUnits: rule.minUnits, maxUnits: rule.maxUnits, priceCents: rule.priceCents },
+  });
+
+  return { id: ruleId };
+}
+
 export function formatMoneyFromCents(amountCents: number, currency = "COP") {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -232,6 +474,7 @@ export function formatMoneyFromCents(amountCents: number, currency = "COP") {
 
 export function getSubscriptionStatusLabel(status: SubscriptionStatus | PaymentStatus | string) {
   const labels: Record<string, string> = {
+    PENDING_PAYMENT: "Falta primer pago",
     TRIAL: "Trial",
     ACTIVE: "Activa",
     GRACE_PERIOD: "Periodo de gracia",

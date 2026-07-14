@@ -1,6 +1,7 @@
 import { AuditAction, EmailLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import { isFeatureEnabled } from "@/domains/platform/platform-setting.service";
 
 interface Attachment {
   filename: string;
@@ -57,23 +58,30 @@ async function logEmailAttempt({
     },
   });
 
-  await registerAuditLog({
-    tenantId,
-    action: status === "SENT" ? AuditAction.EMAIL_SENT : AuditAction.EMAIL_FAILED,
-    targetType: "EmailLog",
-    targetId: emailLog.id,
-    metadata: {
-      recipient,
-      template,
-      provider: "RESEND",
-      status,
-    },
-  });
+  if (status !== "SKIPPED") {
+    await registerAuditLog({
+      tenantId,
+      action: status === "SENT" ? AuditAction.EMAIL_SENT : AuditAction.EMAIL_FAILED,
+      targetType: "EmailLog",
+      targetId: emailLog.id,
+      metadata: {
+        recipient,
+        template,
+        provider: "RESEND",
+        status,
+      },
+    });
+  }
 
   return emailLog;
 }
 
 export async function sendEmail({ to, subject, html, attachments, tenantId, template = "generic" }: SendEmailOptions) {
+  const transactionalEmailEnabled = await isFeatureEnabled("transactionalEmailEnabled");
+  if (!transactionalEmailEnabled) {
+    return logEmailAttempt({ tenantId, recipient: to, template, status: "SKIPPED" });
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL || "PQRS Services <notificaciones@pqrs-services.com>";
 

@@ -165,3 +165,22 @@
 .apl-up { animation: apl-up 600ms cubic-bezier(.2,.7,.2,1) both; }
 .apl-fade { animation: apl-fade 250ms ease both; }
 .apl-sheet { animation: apl-sheet 300ms cubic-bezier(.2,.7,.2,1) both; }
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+.info-tip { position: relative; display: inline-flex; }
+.info-tip .info-tip-bubble {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+  background: #1D1D1F; color: #FFFFFF; font-size: 11.5px; font-weight: 500; line-height: 1.4;
+  padding: 8px 11px; border-radius: 10px; width: max-content; max-width: 240px;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 150ms ease, transform 150ms ease;
+  z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+.info-tip .info-tip-bubble::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: #1D1D1F;
+}
+.info-tip:hover .info-tip-bubble, .info-tip:focus-within .info-tip-bubble {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}

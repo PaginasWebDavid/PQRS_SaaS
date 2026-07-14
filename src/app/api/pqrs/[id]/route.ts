@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { sendEmail } from "@/lib/email";
-import { downloadFromStorage } from "@/lib/storage";
+import { downloadFromStorage, uploadToStorage, dataUrlToBuffer } from "@/lib/storage";
 import { AuditAction } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
@@ -33,6 +33,8 @@ async function notifyOtherAdministrators({
     resourceId: pqrsId,
   })));
 }
+
+const ALLOWED_EVIDENCE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
 const ASUNTOS_VALIDOS = [
   "AREA COMUN",
@@ -210,11 +212,14 @@ export async function PATCH(
       },
     });
 
+    const prioridad = ["ALTA", "MEDIA", "BAJA"].includes(body.prioridad) ? body.prioridad : undefined;
+
     const updated = await prisma.pqrs.update({
       where: { id: params.id },
       data: {
         estado: "EN_PROGRESO",
         asunto,
+        ...(prioridad ? { prioridad } : {}),
         fechaPrimerContacto: ahora,
         tiempoRespuestaPrimerContacto: diffDays,
         notaPrimerContacto: nota,
@@ -296,13 +301,68 @@ export async function PATCH(
     }
 
     const { faseActual, faseTipo, fase1Nota, fase2Nota, fase3Nota, fase4Nota } = body;
+    const requestedFase = Number(faseActual);
+    const requestedTipo = faseTipo as "INSUMOS" | "PROVEEDOR" | undefined;
+
+    if (![1, 2, 3, 4, 5].includes(requestedFase)) {
+      return NextResponse.json({ error: "Fase invalida" }, { status: 400 });
+    }
+
+    const current = pqrs.faseActual || 0;
+    const existingTipo = pqrs.faseTipo as "INSUMOS" | "PROVEEDOR" | null;
+
+    if (existingTipo && requestedTipo && requestedTipo !== existingTipo) {
+      return NextResponse.json({ error: "El tipo de gestion (insumos/proveedor) ya fue definido y no se puede cambiar" }, { status: 400 });
+    }
+
+    const notesByFase: Record<number, string | undefined> = { 1: fase1Nota, 2: fase2Nota, 3: fase3Nota, 4: fase4Nota };
+    const existingNotesByFase: Record<number, string | null | undefined> = {
+      1: pqrs.fase1Nota, 2: pqrs.fase2Nota, 3: pqrs.fase3Nota, 4: pqrs.fase4Nota,
+    };
+    const finalCurrentNota = (notesByFase[current] ?? existingNotesByFase[current])?.trim?.();
+
+    // Valid forward transitions per branch: 1->2 (INSUMOS) or 1->3 (PROVEEDOR); then INSUMOS skips to 2->4; PROVEEDOR goes 3->4; both converge 4->5.
+    const validNextFase: Record<number, number[]> = {
+      0: [1],
+      1: [2, 3],
+      2: [4],
+      3: [4],
+      4: [5],
+    };
+
+    if (requestedFase === current) {
+      if (current < 1 || current > 4) {
+        return NextResponse.json({ error: "Esta fase no admite nota" }, { status: 400 });
+      }
+    } else if ((validNextFase[current] || []).includes(requestedFase)) {
+      if (current === 1) {
+        if (requestedFase === 2 && requestedTipo !== "INSUMOS") {
+          return NextResponse.json({ error: "Para avanzar a fase II debes elegir la ruta de insumos" }, { status: 400 });
+        }
+        if (requestedFase === 3 && requestedTipo !== "PROVEEDOR") {
+          return NextResponse.json({ error: "Para avanzar a fase III debes elegir la ruta de proveedor" }, { status: 400 });
+        }
+      }
+      if (current === 2 && existingTipo !== "INSUMOS") {
+        return NextResponse.json({ error: "Esta PQRS no sigue la ruta de insumos" }, { status: 400 });
+      }
+      if (current === 3 && existingTipo !== "PROVEEDOR") {
+        return NextResponse.json({ error: "Esta PQRS no sigue la ruta de proveedor" }, { status: 400 });
+      }
+      if (current >= 1 && current <= 4 && !finalCurrentNota) {
+        return NextResponse.json({ error: `Debes registrar la nota de la fase ${current} antes de avanzar` }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: "Transicion de fase invalida" }, { status: 400 });
+    }
+
     const ahora = new Date();
     const updateData: Record<string, unknown> = {
-      faseActual,
+      faseActual: requestedFase,
       gestionadoPorId: session.user.id,
     };
 
-    if (faseTipo) updateData.faseTipo = faseTipo;
+    if (requestedTipo) updateData.faseTipo = requestedTipo;
 
     // Save notes for each phase
     if (fase1Nota !== undefined) updateData.fase1Nota = fase1Nota;
@@ -311,11 +371,23 @@ export async function PATCH(
     if (fase4Nota !== undefined) updateData.fase4Nota = fase4Nota;
 
     // Set start date for the phase being activated
-    if (faseActual === 1 && !pqrs.fase1Inicio) updateData.fase1Inicio = ahora;
-    if (faseActual === 2 && !pqrs.fase2Inicio) updateData.fase2Inicio = ahora;
-    if (faseActual === 3 && !pqrs.fase3Inicio) updateData.fase3Inicio = ahora;
-    if (faseActual === 4 && !pqrs.fase4Inicio) updateData.fase4Inicio = ahora;
-    if (faseActual === 5 && !pqrs.fase5Inicio) updateData.fase5Inicio = ahora;
+    if (requestedFase === 1 && !pqrs.fase1Inicio) updateData.fase1Inicio = ahora;
+    if (requestedFase === 2 && !pqrs.fase2Inicio) updateData.fase2Inicio = ahora;
+    if (requestedFase === 3 && !pqrs.fase3Inicio) updateData.fase3Inicio = ahora;
+    if (requestedFase === 4 && !pqrs.fase4Inicio) updateData.fase4Inicio = ahora;
+    if (requestedFase === 5 && !pqrs.fase5Inicio) updateData.fase5Inicio = ahora;
+
+    if (requestedFase !== current) {
+      await prisma.historialPqrs.create({
+        data: {
+          tenantId,
+          pqrsId: pqrs.id,
+          estadoAntes: pqrs.estado,
+          estadoDespues: pqrs.estado,
+          nota: `Avanzo de fase ${current || "inicio"} a fase ${requestedFase}${requestedTipo ? ` (${requestedTipo})` : ""}`,
+        },
+      });
+    }
 
     const updated = await prisma.pqrs.update({
       where: { id: params.id },
@@ -413,12 +485,33 @@ export async function PATCH(
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
   if (queSeHizoParaCerrar !== undefined) updateData.queSeHizoParaCerrar = queSeHizoParaCerrar;
-  if (evidenciaArchivoData !== undefined) updateData.evidenciaArchivoData = evidenciaArchivoData;
-  if (evidenciaArchivoUrl !== undefined) updateData.evidenciaArchivoUrl = evidenciaArchivoUrl;
-  if (evidenciaArchivoPath !== undefined) updateData.evidenciaArchivoPath = evidenciaArchivoPath;
-  if (evidenciaArchivoSize !== undefined) updateData.evidenciaArchivoSize = evidenciaArchivoSize;
-  if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
-  if (evidenciaArchivoTipo !== undefined) updateData.evidenciaArchivoTipo = evidenciaArchivoTipo;
+
+  if (evidenciaArchivoData) {
+    const { contentType, buffer } = dataUrlToBuffer(evidenciaArchivoData);
+    if (!ALLOWED_EVIDENCE_TYPES.has(contentType)) {
+      return NextResponse.json({ error: "Tipo de archivo no permitido para evidencia de cierre" }, { status: 400 });
+    }
+    if (buffer.length > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: "El archivo de evidencia no puede superar 2MB" }, { status: 400 });
+    }
+    const stored = await uploadToStorage({
+      tenantId,
+      folder: "evidencias",
+      fileName: evidenciaArchivoNombre || "evidencia",
+      contentType,
+      buffer,
+    });
+    updateData.evidenciaArchivoPath = stored.path;
+    updateData.evidenciaArchivoNombre = stored.fileName;
+    updateData.evidenciaArchivoTipo = stored.contentType;
+    updateData.evidenciaArchivoSize = stored.size;
+  } else {
+    if (evidenciaArchivoUrl !== undefined) updateData.evidenciaArchivoUrl = evidenciaArchivoUrl;
+    if (evidenciaArchivoPath !== undefined) updateData.evidenciaArchivoPath = evidenciaArchivoPath;
+    if (evidenciaArchivoSize !== undefined) updateData.evidenciaArchivoSize = evidenciaArchivoSize;
+    if (evidenciaArchivoNombre !== undefined) updateData.evidenciaArchivoNombre = evidenciaArchivoNombre;
+    if (evidenciaArchivoTipo !== undefined) updateData.evidenciaArchivoTipo = evidenciaArchivoTipo;
+  }
 
   if (terminar) {
     updateData.estado = "TERMINADO";

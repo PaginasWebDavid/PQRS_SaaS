@@ -9,7 +9,7 @@ import { registerAuditLog } from "@/domains/platform/audit.service";
 
 const userSelect = {
   id: true, name: true, email: true, role: true, tenantId: true, bloque: true, apto: true,
-  phone: true, image: true, isActive: true, onboardingCompletedAt: true,
+  phone: true, image: true, isActive: true, onboardingCompletedAt: true, notifyNewPqrsEmail: true, createdAt: true,
 } as const;
 
 export async function GET() {
@@ -47,7 +47,10 @@ export async function PATCH(req: NextRequest) {
 
   const user = await prisma.user.update({
     where: { id: session.user.id },
-    data: { name, phone, image },
+    data: {
+      name, phone, image,
+      ...(session.user.role === "ADMIN" && typeof body.notifyNewPqrsEmail === "boolean" ? { notifyNewPqrsEmail: body.notifyNewPqrsEmail } : {}),
+    },
     select: userSelect,
   });
   await registerAuditLog({

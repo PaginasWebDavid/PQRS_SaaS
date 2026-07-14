@@ -57,6 +57,28 @@ export async function listSafePlatformSettings() {
   }));
 }
 
+const DEFAULT_PLATFORM_NAME = "PQRS Services";
+export const DEFAULT_PQRS_CLOSE_SLA_DAYS = 7;
+
+export async function getGeneralSettings() {
+  const settings = await prisma.platformSetting.findMany({
+    where: { key: { in: ["platformName", "pqrsCloseSlaDays", "supportTicketsEnabled", "transactionalEmailEnabled"] } },
+  });
+  const byKey = Object.fromEntries(settings.map((s) => [s.key, s.value]));
+
+  return {
+    platformName: typeof byKey.platformName === "string" ? byKey.platformName : DEFAULT_PLATFORM_NAME,
+    pqrsCloseSlaDays: typeof byKey.pqrsCloseSlaDays === "number" ? byKey.pqrsCloseSlaDays : DEFAULT_PQRS_CLOSE_SLA_DAYS,
+    supportTicketsEnabled: typeof byKey.supportTicketsEnabled === "boolean" ? byKey.supportTicketsEnabled : true,
+    transactionalEmailEnabled: typeof byKey.transactionalEmailEnabled === "boolean" ? byKey.transactionalEmailEnabled : true,
+  };
+}
+
+export async function isFeatureEnabled(key: "supportTicketsEnabled" | "transactionalEmailEnabled") {
+  const setting = await prisma.platformSetting.findUnique({ where: { key } });
+  return typeof setting?.value === "boolean" ? setting.value : true;
+}
+
 export async function getIntegrationStatus() {
   return {
     resend: {

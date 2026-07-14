@@ -7,6 +7,8 @@ import { useIsMobile } from './Sheet';
 
 export type NavItem = { href: string; label: string; key: string };
 
+const BLOCKING_STATUSES = ['PENDING_PAYMENT', 'SUSPENDED', 'CANCELLED'];
+
 export function AdminShell({
   navItems, activeKey, conjuntoName = 'Parque Residencial Calle 100', licenseActive = true,
   userName, userRole, initials, mobileTitle, children,
@@ -17,6 +19,8 @@ export function AdminShell({
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profile, setProfile] = useState<{ user?: { name?: string | null; role?: string | null }; tenant?: { name?: string | null; status?: string | null }; licenseSummary?: { status?: string | null } | null } | null>(null);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -29,6 +33,25 @@ export function AdminShell({
   const displayTenant = profile?.tenant?.name || conjuntoName;
   const displayInitials = useMemo(() => initialsFor(displayName, initials), [displayName, initials]);
   const displayLicenseActive = profile?.tenant?.status ? !['SUSPENDED', 'CANCELLED'].includes(profile.tenant.status) : licenseActive;
+  const blockedStatus = profile?.tenant?.status && BLOCKING_STATUSES.includes(profile.tenant.status) ? profile.tenant.status : null;
+
+  async function payNow() {
+    setPayLoading(true);
+    setPayError('');
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createPreapproval', backUrl: '/admin/licencias' }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.initPoint) throw new Error(body?.error || 'No se pudo iniciar el pago');
+      window.location.href = body.initPoint;
+    } catch (error) {
+      setPayError(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
+      setPayLoading(false);
+    }
+  }
 
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -104,7 +127,15 @@ export function AdminShell({
           </div>
         )}
         <div style={{ maxWidth: 1080, margin: '0 auto', padding: isMobile ? '24px 20px 70px' : '40px 40px 90px' }}>
-          {children}
+          {blockedStatus ? (
+            <BlockedScreen
+              status={blockedStatus}
+              role={profile?.user?.role || null}
+              payLoading={payLoading}
+              payError={payError}
+              onPay={payNow}
+            />
+          ) : children}
         </div>
       </div>
     </div>
@@ -112,6 +143,58 @@ export function AdminShell({
 }
 
 
+
+const BLOCKED_COPY: Record<string, { title: string; body: string; canPay: boolean }> = {
+  PENDING_PAYMENT: {
+    title: 'Activa tu licencia',
+    body: 'Antes de usar PQRS Services, tu conjunto debe completar el primer pago de la licencia.',
+    canPay: true,
+  },
+  SUSPENDED: {
+    title: 'Licencia suspendida',
+    body: 'La licencia de este conjunto entró en suspensión por falta de pago. Realiza el pago para reactivar el acceso.',
+    canPay: true,
+  },
+  CANCELLED: {
+    title: 'Licencia cancelada',
+    body: 'La licencia de este conjunto fue cancelada. Contacta al equipo de PQRS Services para reactivarla.',
+    canPay: false,
+  },
+};
+
+function BlockedScreen({
+  status, role, payLoading, payError, onPay,
+}: {
+  status: string; role: string | null; payLoading: boolean; payError: string; onPay: () => void;
+}) {
+  const copy = BLOCKED_COPY[status] || BLOCKED_COPY.SUSPENDED;
+  const isAdmin = role === 'ADMIN';
+  return (
+    <div style={{ maxWidth: 460, margin: '60px auto 0', textAlign: 'center' }}>
+      <div style={{ width: 56, height: 56, borderRadius: 999, background: COLORS.warningSoft, color: COLORS.warning, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, margin: '0 auto 20px' }}>!</div>
+      <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{copy.title}</h1>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 26px' }}>{copy.body}</p>
+      {payError && <p style={{ color: COLORS.danger, fontWeight: 700, fontSize: 12.5, marginBottom: 14 }}>{payError}</p>}
+      {copy.canPay && isAdmin && (
+        <button
+          type="button"
+          onClick={onPay}
+          disabled={payLoading}
+          style={{ border: 0, background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 28px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          {payLoading ? 'Redirigiendo a Mercado Pago…' : 'Pagar ahora'}
+        </button>
+      )}
+      {copy.canPay && !isAdmin && (
+        <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 600 }}>Pide al administrador de tu conjunto que complete el pago para continuar.</p>
+      )}
+      <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, marginTop: 22 }}>
+        ¿Problemas con el pago o con tu licencia?{' '}
+        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbenos</a>.
+      </p>
+    </div>
+  );
+}
 
 function initialsFor(name: string, fallback: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
