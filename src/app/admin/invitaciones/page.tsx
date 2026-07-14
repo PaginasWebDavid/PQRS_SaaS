@@ -16,16 +16,24 @@ const STATUS_META: Record<Status, { label: string; style: React.CSSProperties }>
   CANCELLED: { label: 'Cancelada', style: badgeStyle(COLORS.neutralSoft, COLORS.textMuted) },
 };
 const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const SELECTABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
 const FILTERS = [{ key: 'all', label: 'Todas' }, ...Object.entries(STATUS_META).map(([key, value]) => ({ key, label: value.label }))];
+
+type BulkResult = { total: number; created: number; failed: { email: string; error?: string }[] };
 
 export default function InvitacionesPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [filter, setFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [createTab, setCreateTab] = useState<'single' | 'bulk'>('single');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('RESIDENTE');
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState('');
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkRole, setBulkRole] = useState<Role>('RESIDENTE');
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
   const { toast, showToast } = useToast();
 
   const load = useCallback(async () => {
@@ -44,6 +52,32 @@ export default function InvitacionesPage() {
     if (!res.ok) return showToast(body?.error || 'No se pudo enviar la invitación');
     setCreateOpen(false); setEmail(''); await load();
     showToast(body?.email?.sent === false ? 'Invitación creada; el correo quedó pendiente' : 'Invitación enviada');
+  }
+  async function uploadBulk() {
+    if (!bulkFile) return;
+    setBulkLoading(true);
+    setBulkResult(null);
+    const formData = new FormData();
+    formData.append('file', bulkFile);
+    formData.append('role', bulkRole);
+    try {
+      const res = await fetch('/api/invitations/bulk', { method: 'POST', body: formData });
+      const body = await res.json().catch(() => null);
+      setBulkLoading(false);
+      if (!res.ok) return showToast(body?.error || 'No se pudo procesar el archivo');
+      setBulkResult(body);
+      setBulkFile(null);
+      await load();
+    } catch {
+      setBulkLoading(false);
+      showToast('No se pudo procesar el archivo');
+    }
+  }
+  function closeCreate() {
+    setCreateOpen(false);
+    setCreateTab('single');
+    setBulkFile(null);
+    setBulkResult(null);
   }
   async function action(invite: Invite, actionName: 'resend' | 'cancel') {
     setWorkingId(invite.id);
@@ -76,14 +110,55 @@ export default function InvitacionesPage() {
           </div>}
         </div>)}
       </div>
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} maxWidth={440}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Nueva invitación</h2><CloseButton onClick={() => setCreateOpen(false)} /></div>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se enviará un correo con el enlace de activación.</p>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Correo electrónico</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 11, marginBottom: 16 }} />
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Rol</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <button key={r} onClick={() => setRole(r)} style={{ border: 0, ...chipStyle(role === r) }}>{ROLE_LABEL[r]}</button>)}</div>
-        <button onClick={create} disabled={!email.trim()} style={{ width: '100%', border: 0, background: email.trim() ? COLORS.navy : COLORS.neutralSoft, color: email.trim() ? '#FFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill }}>Enviar invitación</button>
+      <Sheet open={createOpen} onClose={closeCreate} maxWidth={440}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Nueva invitación</h2><CloseButton onClick={closeCreate} /></div>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>Se enviará un correo con el enlace de activación a cada persona invitada.</p>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+          <button onClick={() => setCreateTab('single')} style={{ border: 0, flex: 1, ...tabStyle(createTab === 'single') }}>Uno por uno</button>
+          <button onClick={() => setCreateTab('bulk')} style={{ border: 0, flex: 1, ...tabStyle(createTab === 'bulk') }}>Subir Excel</button>
+        </div>
+
+        {createTab === 'single' && (
+          <>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Correo electrónico</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 11, marginBottom: 16 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Rol</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>{SELECTABLE_ROLES.map((r) => <button key={r} onClick={() => setRole(r)} style={{ border: 0, ...chipStyle(role === r) }}>{ROLE_LABEL[r]}</button>)}</div>
+            <button onClick={create} disabled={!email.trim()} style={{ width: '100%', border: 0, background: email.trim() ? COLORS.navy : COLORS.neutralSoft, color: email.trim() ? '#FFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill }}>Enviar invitación</button>
+          </>
+        )}
+
+        {createTab === 'bulk' && (
+          <>
+            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 14px', lineHeight: 1.6 }}>
+              Sube un archivo .xlsx con una sola columna de correos electrónicos (sin encabezado, o con un encabezado que no sea un correo — se ignora automáticamente). Se enviará una invitación a cada uno con el rol que elijas. Podrás ver quién ya ingresó y quién sigue pendiente en la lista.
+            </p>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Archivo Excel (.xlsx)</label>
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={(e) => { setBulkFile(e.target.files?.[0] || null); setBulkResult(null); }}
+              style={{ width: '100%', marginBottom: 16, fontSize: 12.5 }}
+            />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Rol para todos los correos del archivo</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>{SELECTABLE_ROLES.map((r) => <button key={r} onClick={() => setBulkRole(r)} style={{ border: 0, ...chipStyle(bulkRole === r) }}>{ROLE_LABEL[r]}</button>)}</div>
+            <button onClick={uploadBulk} disabled={!bulkFile || bulkLoading} style={{ width: '100%', border: 0, background: bulkFile && !bulkLoading ? COLORS.navy : COLORS.neutralSoft, color: bulkFile && !bulkLoading ? '#FFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginBottom: 14 }}>{bulkLoading ? 'Enviando invitaciones…' : 'Subir y enviar invitaciones'}</button>
+            {bulkResult && (
+              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14, fontSize: 12.5 }}>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>{bulkResult.created} de {bulkResult.total} invitaciones enviadas</div>
+                {bulkResult.failed.length > 0 && (
+                  <div style={{ color: COLORS.warning }}>
+                    {bulkResult.failed.length} no se pudieron enviar:
+                    <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                      {bulkResult.failed.map((f) => <li key={f.email}>{f.email} — {f.error}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </Sheet>
       <Toast message={toast} />
     </AdminShell>

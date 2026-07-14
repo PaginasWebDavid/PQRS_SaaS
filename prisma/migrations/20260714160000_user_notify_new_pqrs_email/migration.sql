@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "notifyNewPqrsEmail" BOOLEAN NOT NULL DEFAULT true;

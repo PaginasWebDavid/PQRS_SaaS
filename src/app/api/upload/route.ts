@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
 
   if (!file) {
-    return NextResponse.json({ error: "No se enviÃƒÂ³ ningÃƒÂºn archivo" }, { status: 400 });
+    return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
   }
 
   const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);

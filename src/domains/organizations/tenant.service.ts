@@ -14,8 +14,8 @@ type TenantAccessUser = {
   subscriptionStatus?: SubscriptionStatus | null;
 };
 
-const BLOCKED_TENANT_STATUSES: TenantStatus[] = ["SUSPENDED", "CANCELLED"];
-const BLOCKED_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["SUSPENDED", "CANCELLED"];
+const BLOCKED_TENANT_STATUSES: TenantStatus[] = ["PENDING_PAYMENT", "SUSPENDED", "CANCELLED"];
+const BLOCKED_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["PENDING_PAYMENT", "SUSPENDED", "CANCELLED"];
 
 export function getTenantIdFromSession(session: Session): string {
   return assertTenantId(session.user.tenantId);
@@ -32,6 +32,7 @@ export function getTenantAccessBlockedMessage(user: TenantAccessUser): string {
   if (user.isActive === false) return "Tu cuenta se encuentra desactivada. Contacta al administrador de tu conjunto.";
   if (!user.tenantId) return "Tu usuario no tiene una copropiedad asignada. Contacta al administrador de la plataforma.";
   if (user.tenantStatus === "CANCELLED" || user.subscriptionStatus === "CANCELLED") return "La licencia de esta copropiedad fue cancelada. Contacta al equipo administrador para reactivar el servicio.";
+  if (user.tenantStatus === "PENDING_PAYMENT" || user.subscriptionStatus === "PENDING_PAYMENT") return "Debes completar el pago de tu primera licencia para poder usar la plataforma.";
   return "La licencia de esta copropiedad se encuentra suspendida. Contacta al equipo administrador para reactivar el servicio.";
 }
 export async function refreshTenantAccessForUser(user: TenantAccessUser): Promise<TenantAccessUser> {

@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { LogoMark } from '@/components/shell/Logo';
 import { COLORS, RADIUS, chipStyle } from '@/lib/design/tokens';
 
-type Role = 'ADMIN' | 'ASISTENTE' | 'CONSEJO' | 'RESIDENTE';
+type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
 
-const roleLabel: Record<Role, string> = { ADMIN: 'Admin', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const roleLabel: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 
 export default function OnboardingAdminPage() {
   const router = useRouter();
@@ -96,7 +96,7 @@ export default function OnboardingAdminPage() {
               <label style={labelStyle}>Correo</label>
               <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="nombre@correo.com" style={{ ...inputStyle, marginBottom: 12 }} />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-                {(['ADMIN', 'ASISTENTE', 'CONSEJO', 'RESIDENTE'] as Role[]).map((r) => (
+                {(['ADMIN', 'CONSEJO', 'RESIDENTE'] as Role[]).map((r) => (
                   <button key={r} type="button" onClick={() => setInviteRole(r)} style={{ border: 0, ...chipStyle(inviteRole === r) }}>{roleLabel[r]}</button>
                 ))}
               </div>

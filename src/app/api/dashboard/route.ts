@@ -38,6 +38,22 @@ export async function GET(req: NextRequest) {
 
   const licenseSummary = session.user.role === "ADMIN" ? await getTenantLicenseSummary(tenantId) : null;
 
+  const recentActivityRaw = await prisma.historialPqrs.findMany({
+    where: { tenantId },
+    orderBy: { creadoAt: "desc" },
+    take: 5,
+    include: { pqrs: { select: { numero: true, nombreResidente: true, asunto: true } } },
+  });
+
+  const recentPqrsRaw = await prisma.pqrs.findMany({
+    where: { tenantId },
+    orderBy: { fechaRecibido: "desc" },
+    take: 6,
+    select: { id: true, numero: true, asunto: true, nombreResidente: true, estado: true, fechaRecibido: true },
+  });
+
+  const usersActiveCount = await prisma.user.count({ where: { tenantId, isActive: true } });
+
   const pqrs = await prisma.pqrs.findMany({
     where: {
       tenantId,
@@ -202,5 +218,24 @@ export async function GET(req: NextRequest) {
     pendientes,
     pendientesEnProceso,
     licenseSummary,
+    usersActiveCount,
+    recentPqrs: recentPqrsRaw.map((p) => ({
+      id: p.id,
+      numero: p.numero,
+      asunto: p.asunto || "Sin asunto",
+      nombreResidente: p.nombreResidente,
+      estado: p.estado,
+      fechaRecibido: p.fechaRecibido,
+    })),
+    recentActivity: recentActivityRaw.map((h) => ({
+      id: h.id,
+      numero: h.pqrs.numero,
+      nombreResidente: h.pqrs.nombreResidente,
+      asunto: h.pqrs.asunto,
+      estadoAntes: h.estadoAntes,
+      estadoDespues: h.estadoDespues,
+      nota: h.nota,
+      creadoAt: h.creadoAt,
+    })),
   });
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
+import { sendEmail, sendEmailSafe } from "@/lib/email";
 import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
@@ -274,7 +275,7 @@ export async function POST(req: NextRequest) {
 
   const recipients = await prisma.user.findMany({
     where: { tenantId, role: { in: ["ADMIN", "ASISTENTE"] } },
-    select: { id: true },
+    select: { id: true, role: true, email: true, notifyNewPqrsEmail: true },
   });
 
   await Promise.allSettled(
@@ -290,6 +291,55 @@ export async function POST(req: NextRequest) {
       })
     )
   );
+
+  await Promise.allSettled(
+    recipients
+      .filter((recipient) => recipient.role === "ADMIN" && recipient.notifyNewPqrsEmail && recipient.email)
+      .map((recipient) =>
+        sendEmailSafe({
+          tenantId,
+          template: "pqrs_created_admin_alert",
+          to: recipient.email,
+          subject: `Nueva PQRS #${pqrs.numero} radicada`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #122545;">Nueva PQRS radicada</h2>
+              <p>Se registro la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}.</p>
+              <p>Ingresa al panel de administracion para revisarla y dar el primer contacto.</p>
+              <p style="color: #666; font-size: 13px; margin-top: 20px;">Puedes desactivar este correo en Configuracion &gt; Notificaciones.</p>
+            </div>
+          `,
+        })
+      )
+  );
+
+  if (!isAdmin && session.user.email) {
+    try {
+      await sendEmail({
+        tenantId,
+        template: "pqrs_received",
+        to: session.user.email,
+        subject: `Recibimos tu solicitud #${pqrs.numero}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #122545;">Recibimos tu solicitud</h2>
+            <p>Hola <strong>${finalNombre}</strong>,</p>
+            <p>Ya recibimos tu PQRS y en breve la administracion se pondra en contacto contigo. Te avisaremos por correo tan pronto quede radicada oficialmente.</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Numero interno</td><td style="padding: 8px; border: 1px solid #ddd;">#${pqrs.numero}</td></tr>
+              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${finalBloque}, apto ${finalApto}</td></tr>
+            </table>
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="margin: 0; font-size: 14px; color: #374151;">${descripcion}</p>
+            </div>
+            <p style="color: #666; font-size: 14px;">PQRS Services</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Error enviando email de recepcion:", emailError);
+    }
+  }
 
   return NextResponse.json(pqrs, { status: 201 });
 }

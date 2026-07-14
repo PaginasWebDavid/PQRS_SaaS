@@ -12,12 +12,13 @@ model Tenant {
   id        String       @id @default(cuid())
   name      String
   slug      String       @unique
-  status    TenantStatus @default(ACTIVE)
-  units     Int          @default(0)
-  city      String?
-  address   String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  status      TenantStatus @default(ACTIVE)
+  units       Int          @default(0)
+  city        String?
+  address     String?
+  cancelledAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   users         User[]
   pqrs          Pqrs[]
@@ -29,12 +30,14 @@ model Tenant {
   notifications Notification[]
   emailLogs     EmailLog[]
   auditLogs     AuditLog[]
+  supportTickets SupportTicket[]
 
   @@index([slug])
   @@index([status])
 }
 
 enum TenantStatus {
+  PENDING_PAYMENT
   TRIAL
   ACTIVE
   GRACE_PERIOD
@@ -58,6 +61,7 @@ model User {
   phone                 String?
   isActive              Boolean    @default(true)
   onboardingCompletedAt DateTime?
+  notifyNewPqrsEmail    Boolean    @default(true)
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   pqrsCreated           Pqrs[]     @relation("CreatedBy")
@@ -66,6 +70,8 @@ model User {
   invitedInvitations    Invitation[]      @relation("InvitationInvitedBy")
   notifications         Notification[]
   updatedSettings       PlatformSetting[] @relation("PlatformSettingUpdatedBy")
+  supportTicketsCreated   SupportTicket[] @relation("SupportTicketCreatedBy")
+  supportTicketsResponded SupportTicket[] @relation("SupportTicketRespondedBy")
   sessions              Session[]
   accounts              Account[]
 
@@ -111,6 +117,9 @@ enum AuditAction {
   TENANT_CREATED
   TENANT_SUSPENDED
   TENANT_REACTIVATED
+  TENANT_CANCELLED
+  TENANT_UPDATED
+  TENANT_OVERDUE_RULES_APPLIED
   PLATFORM_SETTING_CHANGED
   PRICING_RULE_CHANGED
   SUBSCRIPTION_CREATED
@@ -134,6 +143,49 @@ enum AuditAction {
   USER_REACTIVATED
   ONBOARDING_COMPLETED
   PROFILE_UPDATED
+  SUPPORT_TICKET_CREATED
+  SUPPORT_TICKET_RESPONDED
+  SUPPORT_TICKET_CLOSED
+  REPORT_GENERATED
+  REPORT_EXPORTED
+  SUBSCRIPTION_AUTO_RENEW_DISABLED
+  SUBSCRIPTION_AUTO_RENEW_ENABLED
+  SUBSCRIPTION_PAYMENT_FAILED
+}
+
+enum SupportTicketStatus {
+  ABIERTA
+  RESPONDIDA
+  CERRADA
+}
+
+enum SupportTicketCategory {
+  TECNICO
+  FACTURACION
+  CUENTA
+  OTRO
+}
+
+model SupportTicket {
+  id                String                @id @default(cuid())
+  tenantId          String
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUserId   String
+  createdBy         User                  @relation("SupportTicketCreatedBy", fields: [createdByUserId], references: [id])
+  subject           String
+  message           String                @db.Text
+  category          SupportTicketCategory @default(OTRO)
+  status            SupportTicketStatus   @default(ABIERTA)
+  response          String?               @db.Text
+  respondedAt       DateTime?
+  respondedByUserId String?
+  respondedBy       User?                 @relation("SupportTicketRespondedBy", fields: [respondedByUserId], references: [id])
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdByUserId])
 }
 
 model PricingRule {
@@ -154,7 +206,8 @@ model Subscription {
   id                 String             @id @default(cuid())
   tenantId           String             @unique
   tenant             Tenant             @relation(fields: [tenantId], references: [id])
-  status             SubscriptionStatus @default(TRIAL)
+  status             SubscriptionStatus @default(PENDING_PAYMENT)
+  autoRenew          Boolean            @default(true)
   unitsSnapshot      Int
   priceCents         Int
   currency           String             @default("COP")
@@ -175,6 +228,7 @@ model Subscription {
 }
 
 enum SubscriptionStatus {
+  PENDING_PAYMENT
   TRIAL
   ACTIVE
   GRACE_PERIOD
@@ -234,6 +288,7 @@ model Pqrs {
   tipoPqrs                      TipoPqrs?
   asunto                        String?
   subAsunto                     String?
+  prioridad                     Prioridad       @default(MEDIA)
   descripcion                   String          @db.Text
   numeroRadicacion              String?         @unique
 
@@ -304,6 +359,12 @@ enum Estado {
   EN_ESPERA
   EN_PROGRESO
   TERMINADO
+}
+
+enum Prioridad {
+  ALTA
+  MEDIA
+  BAJA
 }
 
 model PqrsFoto {

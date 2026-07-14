@@ -11,6 +11,7 @@ export const NotificationTypes = {
   LICENSE_EXPIRING: "LICENSE_EXPIRING",
   LICENSE_SUSPENDED: "LICENSE_SUSPENDED",
   PAYMENT_APPROVED: "PAYMENT_APPROVED",
+  SUPPORT_TICKET_RESPONDED: "SUPPORT_TICKET_RESPONDED",
 } as const;
 
 export type NotificationType = (typeof NotificationTypes)[keyof typeof NotificationTypes];

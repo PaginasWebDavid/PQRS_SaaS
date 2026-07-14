@@ -1,10 +1,8 @@
 import { AuditAction, TenantStatus } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
 import { calculatePriceForUnits } from "@/domains/billing/billing.service";
-
-const TEMP_PASSWORD_LENGTH = 12;
+import { createInvitation } from "@/domains/organizations/invitation.service";
 
 export type CreateTenantInput = {
   name: string;
@@ -21,7 +19,8 @@ export type CreateTenantResult = {
   tenantId: string;
   tenantSlug: string;
   adminEmail: string;
-  temporaryPassword: string;
+  invitationSent: boolean;
+  invitationError?: string | null;
 };
 
 export async function listTenantsForSuperAdmin() {
@@ -93,21 +92,32 @@ export async function getTenantDetailForSuperAdmin(tenantId?: string | null) {
   });
 }
 
+export async function getTenantUsersForSuperAdmin(tenantId: string) {
+  return prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      id: true,
+      name: true,
+      users: {
+        select: { id: true, name: true, email: true, role: true, bloque: true, apto: true, isActive: true, createdAt: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      },
+    },
+  });
+}
+
 export async function createTenantWithAdmin(
   actorUserId: string,
   input: CreateTenantInput
 ): Promise<CreateTenantResult> {
   const slug = normalizeSlug(input.slug);
   const adminEmail = input.adminEmail.trim().toLowerCase();
-  const temporaryPassword = generateTemporaryPassword();
-  const password = await bcrypt.hash(temporaryPassword, 10);
 
   const price = await calculatePriceForUnits(input.units);
   const now = new Date();
   const periodEnd = addDays(now, 30);
-  const trialEndsAt = addDays(now, 15);
 
-  const result = await prisma.$transaction(async (tx) => {
+  const tenant = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
         name: input.name.trim(),
@@ -115,56 +125,34 @@ export async function createTenantWithAdmin(
         city: emptyToNull(input.city),
         address: emptyToNull(input.address),
         units: input.units,
-        status: "ACTIVE",
-      },
-    });
-
-    await tx.user.create({
-      data: {
-        name: input.adminName.trim(),
-        email: adminEmail,
-        password,
-        role: "ADMIN",
-        tenantId: tenant.id,
+        status: "PENDING_PAYMENT",
       },
     });
 
     const subscription = await tx.subscription.create({
       data: {
         tenantId: tenant.id,
-        status: "ACTIVE",
+        status: "PENDING_PAYMENT",
         unitsSnapshot: price.units,
         priceCents: price.priceCents,
         currency: price.currency,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-        trialEndsAt,
-        payments: {
-          create: {
-            tenantId: tenant.id,
-            amountCents: price.priceCents,
-            currency: price.currency,
-            status: "APPROVED",
-            provider: "SIMULATED",
-            dueDate: now,
-            paidAt: now,
-            periodStart: now,
-            periodEnd,
-            externalReference: "initial-simulated-payment",
-          },
-        },
       },
     });
 
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId: tenant.id,
         action: AuditAction.TENANT_CREATED,
         targetType: "Tenant",
         targetId: tenant.id,
         metadata: {
+          name: tenant.name,
           slug,
           adminEmail,
+          adminName: input.adminName.trim(),
           adminPhone: emptyToNull(input.adminPhone),
         },
       },
@@ -173,16 +161,18 @@ export async function createTenantWithAdmin(
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId: tenant.id,
         action: AuditAction.SUBSCRIPTION_CREATED,
         targetType: "Subscription",
         targetId: subscription.id,
         metadata: {
           tenantId: tenant.id,
+          name: tenant.name,
           units: price.units,
           priceCents: price.priceCents,
           currency: price.currency,
           pricingRuleId: price.pricingRuleId,
-          provider: "SIMULATED",
+          status: "PENDING_PAYMENT",
         },
       },
     });
@@ -190,33 +180,81 @@ export async function createTenantWithAdmin(
     return tenant;
   });
 
+  const invitation = await createInvitation({
+    tenantId: tenant.id,
+    email: adminEmail,
+    role: "ADMIN",
+    invitedById: actorUserId,
+    origin: "tenant-created",
+  }).catch((error) => ({ emailResult: { ok: false, errorMessage: error instanceof Error ? error.message : "No se pudo enviar la invitacion" } }));
+
   return {
-    tenantId: result.id,
-    tenantSlug: result.slug,
+    tenantId: tenant.id,
+    tenantSlug: tenant.slug,
     adminEmail,
-    temporaryPassword,
+    invitationSent: invitation.emailResult.ok,
+    invitationError: invitation.emailResult.ok ? null : invitation.emailResult.errorMessage,
   };
 }
 
 export async function updateTenantStatusForSuperAdmin(
   actorUserId: string,
   tenantId: string,
-  status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED">
+  status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED" | "CANCELLED">
 ) {
   const tenant = await prisma.tenant.update({
     where: { id: tenantId },
-    data: { status },
+    data: {
+      status,
+      cancelledAt: status === "CANCELLED" ? new Date() : undefined,
+    },
+  });
+
+  const action =
+    status === "SUSPENDED"
+      ? AuditAction.TENANT_SUSPENDED
+      : status === "CANCELLED"
+        ? AuditAction.TENANT_CANCELLED
+        : AuditAction.TENANT_REACTIVATED;
+
+  await registerAuditLog({
+    actorUserId,
+    tenantId: tenant.id,
+    action,
+    targetType: "Tenant",
+    targetId: tenant.id,
+    metadata: {
+      name: tenant.name,
+      slug: tenant.slug,
+      status,
+    },
+  });
+
+  return tenant;
+}
+
+export async function updateTenantDetails(
+  actorUserId: string,
+  tenantId: string,
+  input: { name?: string; city?: string; units?: number }
+) {
+  const data: { name?: string; city?: string; units?: number } = {};
+  if (input.name !== undefined) data.name = input.name;
+  if (input.city !== undefined) data.city = input.city;
+  if (input.units !== undefined) data.units = input.units;
+
+  const tenant = await prisma.tenant.update({
+    where: { id: tenantId },
+    data,
   });
 
   await registerAuditLog({
     actorUserId,
-    action: status === "SUSPENDED" ? AuditAction.TENANT_SUSPENDED : AuditAction.TENANT_REACTIVATED,
+    tenantId: tenant.id,
+    action: AuditAction.TENANT_UPDATED,
     targetType: "Tenant",
     targetId: tenant.id,
-    metadata: {
-      slug: tenant.slug,
-      status,
-    },
+    metadata: { name: tenant.name, slug: tenant.slug, changed: Object.keys(data) },
   });
 
   return tenant;
@@ -237,14 +275,6 @@ function emptyToNull(value?: string) {
   return trimmed ? trimmed : null;
 }
 
-function generateTemporaryPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  let password = "";
-  for (let i = 0; i < TEMP_PASSWORD_LENGTH; i++) {
-    password += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return password;
-}
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);

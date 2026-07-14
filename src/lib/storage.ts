@@ -4,7 +4,7 @@ const DEFAULT_BUCKET = "pqrs-evidencias";
 
 type UploadInput = {
   tenantId: string;
-  folder: "fotos" | "evidencias";
+  folder: "fotos" | "evidencias" | "avatares";
   fileName: string;
   contentType: string;
   buffer: Buffer;

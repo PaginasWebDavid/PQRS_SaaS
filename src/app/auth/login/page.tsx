@@ -18,6 +18,7 @@ export default function LoginPage() {
   const isMobile = useIsMobile();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -145,27 +146,51 @@ export default function LoginPage() {
               <label htmlFor="password" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 7 }}>
                 Contraseña
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                style={{
-                  width: '100%',
-                  height: 48,
-                  padding: '0 15px',
-                  border: `1.5px solid ${COLORS.inputBorder}`,
-                  borderRadius: RADIUS.input,
-                  fontSize: 14.5,
-                  fontFamily: 'inherit',
-                  fontWeight: 400,
-                  color: COLORS.textPrimary,
-                  background: '#FFFFFF',
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={handlePasswordChange}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    padding: '0 46px 0 15px',
+                    border: `1.5px solid ${COLORS.inputBorder}`,
+                    borderRadius: RADIUS.input,
+                    fontSize: 14.5,
+                    fontFamily: 'inherit',
+                    fontWeight: 400,
+                    color: COLORS.textPrimary,
+                    background: '#FFFFFF',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  style={{
+                    position: 'absolute',
+                    right: 4,
+                    top: 4,
+                    height: 40,
+                    width: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    background: 'none',
+                    color: COLORS.textMuted,
+                    cursor: 'pointer',
+                    fontSize: 17,
+                  }}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 26 }}>
