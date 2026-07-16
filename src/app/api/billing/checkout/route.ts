@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo completar la acción";
+    console.error("[billing/checkout] Error", { action, message });
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
