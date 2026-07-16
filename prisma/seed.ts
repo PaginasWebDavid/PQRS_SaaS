@@ -27,6 +27,7 @@ async function main() {
       name: INITIAL_TENANT_NAME,
       slug: INITIAL_TENANT_SLUG,
       status: "ACTIVE",
+      units: 1,
     },
   });
 
