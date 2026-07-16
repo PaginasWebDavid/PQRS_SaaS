@@ -90,6 +90,9 @@ export async function GET(req: NextRequest) {
       creadoPor: {
         select: { name: true },
       },
+      gestionadoPor: {
+        select: { name: true },
+      },
     },
   });
 
@@ -275,7 +278,7 @@ export async function POST(req: NextRequest) {
   });
 
   const recipients = await prisma.user.findMany({
-    where: { tenantId, role: { in: ["ADMIN", "ASISTENTE"] } },
+    where: { tenantId, role: "ADMIN" },
     select: { id: true, role: true, email: true, notifyNewPqrsEmail: true },
   });
 

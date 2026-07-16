@@ -1,36 +1,226 @@
-﻿'use client';
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+'use client';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { AdminShell } from '@/components/shell/AdminShell';
+import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, badgeStyle, tabStyle } from '@/lib/design/tokens';
-import { BrandLockup } from '@/components/shell/Logo';
-import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
-type Row = {
-  id: string; numero: number; asunto?: string | null; nombreResidente: string; estado: Estado; fechaRecibido: string; descripcion: string;
-  gestionadoPor?: { name?: string | null } | null;
-  faseActual?: number | null; faseTipo?: 'INSUMOS' | 'PROVEEDOR' | null;
+type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
+type Pqrs = {
+  id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
+  bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
+  notaPrimerContacto?: string | null;
+  faseActual?: number | null; faseTipo?: FaseTipo | null;
   fase1Nota?: string | null; fase2Nota?: string | null; fase3Nota?: string | null; fase4Nota?: string | null;
-  accionTomada?: string | null;
+  accionTomada?: string | null; queSeHizoParaCerrar?: string | null; evidenciaCierre?: string | null; evidenciaArchivoNombre?: string | null;
+  editadoPorResidente?: boolean;
+  creadoPor?: { name?: string | null } | null;
+  gestionadoPor?: { name?: string | null } | null;
 };
-const FASE_LABELS: Record<number, string> = { 1: 'Inspección de Campo', 2: 'Adquisición de insumos', 3: 'Firma contrato proveedor', 4: 'Ejecución', 5: 'Terminado' };
-const NAV = [{ key: 'pqrs', label: 'PQRS' }, { key: 'reportes', label: 'Reportes' }, { key: 'historial', label: 'Historial' }];
-const BADGE = { EN_ESPERA: badgeStyle(COLORS.warningSoft, COLORS.warning), EN_PROGRESO: badgeStyle(COLORS.navySoft, COLORS.navy), TERMINADO: badgeStyle(COLORS.successSoft, COLORS.success) };
-const LABEL = { EN_ESPERA: 'Abierta', EN_PROGRESO: 'En proceso', TERMINADO: 'Terminada' };
+
+const FILTERS = [
+  { key: 'all', label: 'Todas' },
+  { key: 'EN_ESPERA', label: 'En espera' },
+  { key: 'EN_PROGRESO', label: 'En proceso' },
+  { key: 'TERMINADO', label: 'Terminada' },
+];
+const STAGE_LABELS = ['En espera', 'En proceso', 'Terminada'];
+
+const ASUNTOS: { value: string; label: string }[] = [
+  { value: 'AREA COMUN', label: 'Área común' },
+  { value: 'AREA PRIVADA', label: 'Área privada' },
+  { value: 'CONTABILIDAD', label: 'Contabilidad' },
+  { value: 'CONVIVENCIA', label: 'Convivencia' },
+  { value: 'HUMEDAD/CUBIERTA', label: 'Humedad - Cubierta' },
+  { value: 'HUMEDAD/DEPOSITO', label: 'Humedad - Depósito' },
+  { value: 'HUMEDAD/VENTANAS', label: 'Humedad - Ventanas' },
+  { value: 'HUMEDAD/FACHADA', label: 'Humedad - Fachada' },
+  { value: 'HUMEDAD/GARAJE', label: 'Humedad - Garaje' },
+];
+const ASUNTO_LABEL: Record<string, string> = Object.fromEntries(ASUNTOS.map((a) => [a.value, a.label]));
+const FASE_LABELS: Record<number, string> = {
+  1: 'Inspección de Campo',
+  2: 'Adquisición de insumos',
+  3: 'Firma contrato proveedor',
+  4: 'Ejecución',
+  5: 'Terminado',
+};
+
+function stageIndex(estado: Estado) { return estado === 'EN_ESPERA' ? 0 : estado === 'EN_PROGRESO' ? 1 : 2; }
+function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success); }
+function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
 function code(n: number) { return `PQ-${String(n).padStart(4, '0')}`; }
-function short(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
+function date(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
+
+function VistaConsejoPageContent() {
+  const searchParams = useSearchParams();
+  const [data, setData] = useState<Pqrs[]>([]);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/pqrs')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Pqrs[]) => setData(rows))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(
+    () => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))),
+    [data, filter, search]
+  );
+  const selected = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
+
+  const metrics = useMemo(() => [
+    { label: 'En espera', value: data.filter((r) => r.estado === 'EN_ESPERA').length, color: COLORS.warning },
+    { label: 'En proceso', value: data.filter((r) => r.estado === 'EN_PROGRESO').length, color: COLORS.navy },
+    { label: 'Terminadas', value: data.filter((r) => r.estado === 'TERMINADO').length, color: COLORS.success },
+    { label: 'Total', value: data.length, color: '#1D1D1F' },
+  ], [data]);
+
+  const faseActual = selected?.faseActual || 0;
+  const faseTipo = selected?.faseTipo || null;
+
+  const seguimiento = useMemo(() => {
+    if (!selected) return [] as { label: string; text: string }[];
+    const entries: { label: string; text: string }[] = [];
+    if (selected.notaPrimerContacto) entries.push({ label: 'Primer contacto', text: selected.notaPrimerContacto });
+    ([1, 2, 3, 4] as const).forEach((n) => {
+      const nota = selected[`fase${n}Nota` as keyof Pqrs] as string | null | undefined;
+      if (nota) entries.push({ label: `Fase ${n} · ${FASE_LABELS[n]}`, text: nota });
+    });
+    if (selected.estado === 'TERMINADO') {
+      if (selected.accionTomada) entries.push({ label: 'Acción tomada', text: selected.accionTomada });
+      if (selected.queSeHizoParaCerrar) entries.push({ label: 'Qué se hizo para cerrar', text: selected.queSeHizoParaCerrar });
+      if (selected.evidenciaCierre) entries.push({ label: 'Evidencia de cierre', text: selected.evidenciaCierre });
+      if (selected.evidenciaArchivoNombre) entries.push({ label: 'Archivo de evidencia', text: selected.evidenciaArchivoNombre });
+    }
+    return entries;
+  }, [selected]);
+
+  return (
+    <AdminShell navItems={CONSEJO_NAV} activeKey="pqrs" userName="Consejo" userRole="Consejo de Administración" initials="CM" mobileTitle="PQRS">
+      <div className="apl-up" style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>Panel de supervisión</h1>
+        <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes…' : `${data.length} solicitudes · solo lectura`}</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+        {metrics.map((m) => (
+          <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18 }}>
+            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', color: m.color }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título, categoría, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
+        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
+          {filtered.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedId(p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
+            >
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
+              <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
+              </span>
+              <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: 100, flexShrink: 0 }}>{p.nombreResidente}</span>
+              <span style={badge(p.estado)}>{label(p.estado)}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          {selected ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{code(selected.numero)}</span>
+                <span style={badge(selected.estado)}>{label(selected.estado)}</span>
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
+              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{selected.asunto ? (ASUNTO_LABEL[selected.asunto] || selected.asunto) : 'Sin categoría'}</span></div>
+
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 22 }}>
+                {STAGE_LABELS.map((stageLabel, i) => {
+                  const idx = stageIndex(selected.estado);
+                  const done = i < idx; const current = i === idx;
+                  return (
+                    <div key={stageLabel} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 999, background: done ? COLORS.success : current ? COLORS.navy : COLORS.neutralSoft, color: done || current ? '#FFFFFF' : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : i + 1}</div>
+                      {i < STAGE_LABELS.length - 1 && <div style={{ flex: 1, height: 2, background: i < idx ? COLORS.success : COLORS.neutralSoft, margin: '0 2px' }} />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selected.estado === 'EN_PROGRESO' && (
+                <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 14, marginBottom: 18 }}>
+                  <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>FASE DE GESTIÓN (SOLO LECTURA)</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? `Fase ${faseActual} · ${FASE_LABELS[faseActual]}` : 'Sin iniciar'}</div>
+                  {faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>RESIDENTE</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.nombreResidente}</div></div>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>UBICACIÓN</div><div style={{ fontSize: 13, fontWeight: 700 }}>B{selected.bloque} · Apto {selected.apto}</div></div>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>RADICADA</div><div style={{ fontSize: 13, fontWeight: 700 }}>{date(selected.fechaRecibido)}</div></div>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>N.° RADICACIÓN</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.numeroRadicacion || '—'}</div></div>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>CREADA POR</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.creadoPor?.name || 'Residente'}</div></div>
+                <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>GESTIONADA POR</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.gestionadoPor?.name || 'Sin asignar'}</div></div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>DESCRIPCIÓN</div>
+                {selected.editadoPorResidente && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Editada por el residente</span>}
+              </div>
+              <p style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 500, lineHeight: 1.55, margin: '0 0 20px' }}>{selected.descripcion}</p>
+
+              <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>Seguimiento</div>
+              <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 20 }}>
+                {seguimiento.length === 0 && <p style={{ fontSize: 12, color: COLORS.textMuted, margin: 0 }}>Sin seguimiento registrado aún.</p>}
+                {seguimiento.map((s, i) => (
+                  <div key={s.label} style={{ display: 'flex', gap: 11 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.navy, marginTop: 5, flexShrink: 0 }} />
+                      {i < seguimiento.length - 1 && <div style={{ width: 1.5, flex: 1, background: COLORS.neutralSoft, margin: '3px 0' }} />}
+                    </div>
+                    <div style={{ paddingBottom: i < seguimiento.length - 1 ? 16 : 0 }}>
+                      <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 2 }}>{s.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600 }}>{s.text}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, textAlign: 'center', margin: 0 }}>Vista de solo lectura — la gestión de esta solicitud la realiza la administración.</p>
+            </>
+          ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
+        </div>
+      </div>
+    </AdminShell>
+  );
+}
 
 export default function VistaConsejoPage() {
-  const isMobile = useIsMobile();
-  const [nav, setNav] = useState('pqrs');
-  const [filter, setFilter] = useState('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [me, setMe] = useState<{ tenant?: { name?: string | null } | null; user?: { name?: string | null } | null } | null>(null);
-  useEffect(() => { fetch('/api/pqrs').then((r) => r.ok ? r.json() : []).then(setRows).catch(() => {}); fetch('/api/me').then((r) => r.ok ? r.json() : null).then(setMe).catch(() => {}); }, []);
-  const visible = filter === 'all' ? rows : rows.filter((r) => r.estado === filter);
-  const selected = rows.find((r) => r.id === selectedId);
-  const metrics = useMemo(() => [{ label: 'PQRS abiertas', value: rows.filter((r) => r.estado === 'EN_ESPERA').length, color: COLORS.warning }, { label: 'En proceso', value: rows.filter((r) => r.estado === 'EN_PROGRESO').length, color: COLORS.navy }, { label: 'Cerradas', value: rows.filter((r) => r.estado === 'TERMINADO').length, color: COLORS.success }, { label: 'Total', value: rows.length, color: '#1D1D1F' }], [rows]);
-  const initials = (me?.user?.name || 'CM').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
-  return <div style={{ minHeight: '100vh', background: '#FFFFFF', display: 'flex', fontFamily: "'Manrope', sans-serif", color: '#1D1D1F' }}>{!isMobile && <div style={{ width: 250, flexShrink: 0, borderRight: `1px solid ${COLORS.borderSoft}`, background: COLORS.bgSidebar, position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '24px 16px' }}><div style={{ padding: '0 8px 20px' }}><BrandLockup /></div><div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.borderSoft}`, borderRadius: 14, padding: '13px 15px', marginBottom: 18 }}><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>CONJUNTO</div><div style={{ fontSize: 13, fontWeight: 800 }}>{me?.tenant?.name || 'Conjunto'}</div></div><div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>{NAV.map((n) => <button key={n.key} type="button" onClick={() => setNav(n.key)} style={{ padding: '9px 11px', borderRadius: 9, fontSize: 13, cursor: 'pointer', fontWeight: nav === n.key ? 700 : 600, background: nav === n.key ? COLORS.navySoft : 'transparent', color: nav === n.key ? COLORS.navy : COLORS.textSecondaryAlt, border: 'none', fontFamily: 'inherit', width: '100%', textAlign: 'left' }}>{n.label}</button>)}</div><div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${COLORS.borderSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{initials}</div><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 800 }}>{me?.user?.name || 'Consejo'}</div><div style={{ fontSize: 10.5, color: COLORS.textMuted }}>Consejo de Administración</div></div><Link href="/auth/login" style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}>Salir</Link></div></div>}<div style={{ flex: 1, minWidth: 0 }}><div style={{ maxWidth: 1080, margin: '0 auto', padding: isMobile ? '24px 20px 70px' : '36px 40px 90px' }}><h1 className="apl-up" style={{ fontSize: isMobile ? 23 : 27, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Panel de supervisión</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 22px' }}>{me?.tenant?.name || 'Conjunto'} · Solo lectura</p>{nav === 'pqrs' && <><div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>{metrics.map((m) => <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18 }}><div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div><div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', color: m.color }}>{m.value}</div></div>)}</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>{[{ key: 'all', label: 'Todas' }, { key: 'EN_ESPERA', label: 'Abiertas' }, { key: 'EN_PROGRESO', label: 'En proceso' }, { key: 'TERMINADO', label: 'Terminadas' }].map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}</div><div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>{visible.map((r) => <button key={r.id} type="button" onClick={() => setSelectedId(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}><span style={{ flex: 1, minWidth: 140, fontSize: 13.5, fontWeight: 700 }}>{r.asunto || 'Solicitud'} <span style={{ color: COLORS.textMuted, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>{code(r.numero)}</span></span><span style={{ fontSize: 12.5, color: COLORS.textSecondary, width: 120 }}>{r.gestionadoPor?.name || r.nombreResidente}</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 60 }}>{short(r.fechaRecibido)}</span><span style={BADGE[r.estado]}>{LABEL[r.estado]}</span></button>)}</div></>}{nav === 'reportes' && <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}><div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>PQRS por estado</div><p style={{ fontSize: 12.5, color: COLORS.textMuted }}>Abiertas: {metrics[0].value} · En proceso: {metrics[1].value} · Cerradas: {metrics[2].value}</p></div>}{nav === 'historial' && <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}><div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18 }}>Historial general del conjunto</div>{rows.slice(0, 12).map((h) => <div key={h.id} style={{ display: 'flex', gap: 11, marginBottom: 16 }}><div style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.inputBorderStrong, marginTop: 6, flexShrink: 0 }} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>{code(h.numero)} <span style={{ fontWeight: 500, color: COLORS.textSecondary }}>— {h.asunto || 'Solicitud'} cambió a {LABEL[h.estado]}</span></div><div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{short(h.fechaRecibido)}</div></div></div>)}</div>}</div></div><Sheet open={!!selected} onClose={() => setSelectedId(null)} maxWidth={460}>{selected && <><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{code(selected.numero)}</span><CloseButton onClick={() => setSelectedId(null)} /></div><span style={BADGE[selected.estado]}>{LABEL[selected.estado]}</span><h3 style={{ fontSize: 20, fontWeight: 800, margin: '14px 0 22px' }}>{selected.asunto || 'Solicitud'}</h3><p style={{ fontSize: 13, color: COLORS.textSecondaryAlt, lineHeight: 1.55, marginBottom: 18 }}>{selected.descripcion}</p>{selected.faseActual ? <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 16, marginBottom: 14 }}><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>FASE DE GESTIÓN (SOLO LECTURA)</div><div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>Fase {selected.faseActual} · {FASE_LABELS[selected.faseActual]}</div>{selected.faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {selected.faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}</div> : null}{([1, 2, 3, 4] as const).map((n) => { const nota = selected[`fase${n}Nota` as keyof Row] as string | null | undefined; return nota ? <div key={n} style={{ marginBottom: 12 }}><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 3 }}>NOTA FASE {n} · {FASE_LABELS[n].toUpperCase()}</div><div style={{ fontSize: 12.5, fontWeight: 600 }}>{nota}</div></div> : null; })}{selected.accionTomada && <div style={{ marginTop: 6 }}><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 3 }}>ACCIÓN TOMADA</div><div style={{ fontSize: 12.5, fontWeight: 600 }}>{selected.accionTomada}</div></div>}</>}</Sheet></div>;
+  return (
+    <Suspense fallback={null}>
+      <VistaConsejoPageContent />
+    </Suspense>
+  );
 }

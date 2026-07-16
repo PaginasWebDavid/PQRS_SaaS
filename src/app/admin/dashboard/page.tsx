@@ -21,7 +21,7 @@ const BADGE_BY_ESTADO: Record<string, React.CSSProperties> = {
   EN_PROGRESO: badgeStyle(COLORS.navySoft, COLORS.navy),
   TERMINADO: badgeStyle(COLORS.successSoft, COLORS.success),
 };
-const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: 'Abierta', EN_PROGRESO: 'En proceso', TERMINADO: 'Terminada' };
+const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: 'En espera', EN_PROGRESO: 'En proceso', TERMINADO: 'Terminada' };
 
 function shortDate(value?: string) { return value ? new Date(value).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) : '—'; }
 function longDate(value: Date) { return value.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' }); }

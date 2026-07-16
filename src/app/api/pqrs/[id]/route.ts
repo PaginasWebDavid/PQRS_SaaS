@@ -20,7 +20,7 @@ async function notifyOtherAdministrators({
   tenantId, actorUserId, pqrsId, numero,
 }: { tenantId: string; actorUserId: string; pqrsId: string; numero: number }) {
   const recipients = await prisma.user.findMany({
-    where: { tenantId, role: { in: ["ADMIN", "ASISTENTE"] }, isActive: true, id: { not: actorUserId } },
+    where: { tenantId, role: "ADMIN", isActive: true, id: { not: actorUserId } },
     select: { id: true },
   });
   await Promise.allSettled(recipients.map((recipient) => createNotification({
@@ -147,7 +147,7 @@ export async function PATCH(
       metadata: { fields: ["descripcion"], beforeTaken: true },
     });
     const admins = await prisma.user.findMany({
-      where: { tenantId, role: { in: ["ADMIN", "ASISTENTE"] }, isActive: true },
+      where: { tenantId, role: "ADMIN", isActive: true },
       select: { id: true },
     });
     await Promise.allSettled(admins.map((admin) => createNotification({

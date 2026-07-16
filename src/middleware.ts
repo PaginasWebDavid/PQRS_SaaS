@@ -5,19 +5,27 @@ import { authConfig } from "@/lib/auth.config";
 const { auth } = NextAuth(authConfig);
 
 export default auth(async (req) => {
-  if (!req.auth) {
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const sessionCookieName = secureCookie
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    secureCookie,
+    cookieName: sessionCookieName,
+    salt: sessionCookieName,
+  });
+
+  if (!token) {
     const signInUrl = new URL("/auth/login", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
     return Response.redirect(signInUrl);
   }
 
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-  });
-  const role = req.auth.user?.role || token?.role;
+  const role = token.role;
   const pathname = req.nextUrl.pathname;
-  const onboardingCompletedAt = req.auth.user?.onboardingCompletedAt || token?.onboardingCompletedAt;
+  const onboardingCompletedAt = token.onboardingCompletedAt;
 
   if (!onboardingCompletedAt && role === "ADMIN" && !pathname.startsWith("/onboarding/admin")) {
     return Response.redirect(new URL("/onboarding/admin", req.url));

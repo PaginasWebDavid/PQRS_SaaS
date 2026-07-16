@@ -7,11 +7,11 @@ import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, chipStyle } from '@/lib/design/tokens';
 
-type Role = 'ADMIN' | 'ASISTENTE' | 'CONSEJO' | 'RESIDENTE';
+type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
 type User = { id: string; name: string; email: string; role: Role; bloque?: number | null; apto?: number | null; isActive: boolean; createdAt: string };
 type ProfileStats = User & { pqrsTotal: number; pqrsTerminadas: number };
 const EDITABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
-const roleLabel: Record<Role, string> = { ADMIN: 'Admin', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const roleLabel: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const AVATAR_BG = [COLORS.navySoft, COLORS.successSoft, COLORS.warningSoft, COLORS.bgCard];
 const AVATAR_COLOR = [COLORS.navy, COLORS.success, COLORS.warning, COLORS.textSecondaryAlt];

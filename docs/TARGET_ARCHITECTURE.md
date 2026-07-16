@@ -136,12 +136,6 @@ Puede:
 
 ---
 
-## ASISTENTE
-
-Apoya la operación diaria.
-
----
-
 ## CONSEJO
 
 Consulta información.

@@ -62,6 +62,7 @@ model User {
   isActive              Boolean    @default(true)
   onboardingCompletedAt DateTime?
   notifyNewPqrsEmail    Boolean    @default(true)
+  bloqueAptoEditado     Boolean    @default(false)
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   pqrsCreated           Pqrs[]     @relation("CreatedBy")
@@ -85,7 +86,6 @@ model User {
 enum Role {
   SUPER_ADMIN
   ADMIN
-  ASISTENTE
   CONSEJO
   RESIDENTE
 }
@@ -208,9 +208,13 @@ model Subscription {
   tenant             Tenant             @relation(fields: [tenantId], references: [id])
   status             SubscriptionStatus @default(PENDING_PAYMENT)
   autoRenew          Boolean            @default(true)
-  unitsSnapshot      Int
-  priceCents         Int
-  currency           String             @default("COP")
+  unitsSnapshot            Int
+  priceCents               Int
+  currency                 String             @default("COP")
+  pendingUnitsSnapshot     Int?
+  pendingPriceCents        Int?
+  pendingCurrency          String?
+  pendingPriceEffectiveAt  DateTime?
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
   trialEndsAt        DateTime?

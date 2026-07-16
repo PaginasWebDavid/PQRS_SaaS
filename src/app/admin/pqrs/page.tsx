@@ -24,11 +24,11 @@ type Pqrs = {
 
 const FILTERS = [
   { key: 'all', label: 'Todas' },
-  { key: 'EN_ESPERA', label: 'Abiertas' },
+  { key: 'EN_ESPERA', label: 'En espera' },
   { key: 'EN_PROGRESO', label: 'En proceso' },
-  { key: 'TERMINADO', label: 'Terminadas' },
+  { key: 'TERMINADO', label: 'Terminada' },
 ];
-const STAGE_LABELS = ['Abierta', 'En proceso', 'Terminada'];
+const STAGE_LABELS = ['En espera', 'En proceso', 'Terminada'];
 
 const ASUNTOS: { value: string; label: string }[] = [
   { value: 'AREA COMUN', label: 'Área común' },
@@ -55,7 +55,7 @@ const MAX_EVIDENCE_BYTES = 2 * 1024 * 1024;
 
 function stageIndex(estado: Estado) { return estado === 'EN_ESPERA' ? 0 : estado === 'EN_PROGRESO' ? 1 : 2; }
 function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success); }
-function label(status: Estado) { return status === 'EN_ESPERA' ? 'Abierta' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
+function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
 function code(n: number) { return `PQ-${String(n).padStart(4, '0')}`; }
 function date(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
 

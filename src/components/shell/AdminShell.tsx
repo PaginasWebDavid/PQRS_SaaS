@@ -210,7 +210,6 @@ function roleLabel(role: string) {
   const labels: Record<string, string> = {
     SUPER_ADMIN: 'Super Admin',
     ADMIN: 'Administradora',
-    ASISTENTE: 'Asistente',
     CONSEJO: 'Consejo',
     RESIDENTE: 'Residente',
   };

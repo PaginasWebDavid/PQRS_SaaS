@@ -1,6 +1,5 @@
-﻿'use client';
-import { ReactNode, useState } from 'react';
-import Link from 'next/link';
+'use client';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
@@ -18,13 +17,28 @@ function formatMrr(cents: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', notation: 'compact', maximumFractionDigits: 1 }).format(cents / 100);
 }
 
+function initialsFor(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts.map((p) => p[0]).slice(0, 2).join('').toUpperCase() : 'SA';
+}
+
 export function SuperAdminShell({
-  navGroups, activeKey, userName = 'Sofía Peña', mobileTitle, children, mrrWidget, platformName = 'PQRS Services',
+  navGroups, activeKey, userName: userNameProp = 'Super Admin', mobileTitle, children, mrrWidget, platformName = 'PQRS Services',
 }: { navGroups: NavGroup[]; activeKey: string; userName?: string; mobileTitle: string; children: ReactNode; mrrWidget?: MrrWidget; platformName?: string }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profile, setProfile] = useState<{ user?: { name?: string | null } } | null>(null);
   const [brandFirst, ...brandRest] = platformName.split(' ');
   const brandRestText = brandRest.join(' ');
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/me').then((res) => res.ok ? res.json() : null).then((data) => { if (alive) setProfile(data); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const userName = profile?.user?.name || userNameProp;
+  const initials = useMemo(() => initialsFor(userName), [userName]);
 
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -75,7 +89,7 @@ export function SuperAdminShell({
           <div style={{ marginTop: 'auto' }}>
             <MrrCard />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>SP</div>
+              <div style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{initials}</div>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 800, color: '#FFFFFF' }}>{userName}</div><div style={{ fontSize: 10.5, fontWeight: 500, color: '#8FA1BF' }}>Super Admin</div></div>
               <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: '#8FA1BF', cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
             </div>
@@ -97,7 +111,7 @@ export function SuperAdminShell({
             <NavLinks onNavigate={() => setDrawerOpen(false)} />
             <MrrCard />
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>SP</div>
+              <div style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{initials}</div>
               <div style={{ flex: 1 }}><div style={{ fontSize: 12.5, fontWeight: 800, color: '#FFFFFF' }}>{userName}</div><div style={{ fontSize: 11, fontWeight: 500, color: '#8FA1BF' }}>Super Admin</div></div>
               <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: '#8FA1BF', cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
             </div>
@@ -111,7 +125,7 @@ export function SuperAdminShell({
             <div style={{ padding: '0 20px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button type="button" onClick={() => setDrawerOpen(true)} style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.bgCard, border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>☰</button>
               <span style={{ fontWeight: 800, fontSize: 15 }}>{mobileTitle}</span>
-              <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>SP</div>
+              <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{initials}</div>
             </div>
           </div>
         )}

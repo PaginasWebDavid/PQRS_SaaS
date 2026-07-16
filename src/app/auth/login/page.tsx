@@ -40,7 +40,6 @@ export default function LoginPage() {
   const routeByRole = (role?: string) => {
     if (role === 'SUPER_ADMIN') return '/super-admin';
     if (role === 'ADMIN') return '/admin/dashboard';
-    if (role === 'ASISTENTE') return '/pqrs';
     if (role === 'CONSEJO') return '/consejo';
     if (role === 'RESIDENTE') return '/residente';
     return '/auth/login';

@@ -5,7 +5,7 @@ import { BrandLockup } from '@/components/shell/Logo';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
 type Details = { email: string; role: string; expiresAt: string; tenant: { name: string } };
-const roleLabel: Record<string, string> = { ADMIN: 'Administrador', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const roleLabel: Record<string, string> = { ADMIN: 'Administrador', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 
 export default function InvitacionPage() {
   const [token, setToken] = useState('');

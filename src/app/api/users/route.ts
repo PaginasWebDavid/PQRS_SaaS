@@ -6,7 +6,7 @@ import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 
-const ALLOWED_ROLES: Role[] = ["ADMIN", "ASISTENTE", "CONSEJO", "RESIDENTE"];
+const ALLOWED_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export async function GET(req: NextRequest) {
   const session = await auth();
