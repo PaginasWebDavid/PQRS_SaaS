@@ -1,0 +1,45 @@
+language: es-ES
+
+reviews:
+  profile: assertive
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - "WIP"
+      - "borrador"
+
+  path_instructions:
+    - path: "src/app/api/**"
+      instructions: >
+        Este es un SaaS multi-tenant (PQRS Services). En cada endpoint verifica:
+        1) que se valida sesión y rol (ADMIN/RESIDENTE/CONSEJO/SUPER_ADMIN) correctamente,
+        2) que toda query a Prisma filtra por tenantId (nunca debe poder leer/escribir datos
+           de otro conjunto),
+        3) que se aplica el gate de acceso por licencia (getTenantAccessResponse) donde
+           corresponde, excepto en rutas que deben seguir funcionando con la licencia
+           pendiente de pago (onboarding, checkout de Mercado Pago).
+
+    - path: "src/domains/billing/**"
+      instructions: >
+        Código de cobros reales con Mercado Pago. Señala cualquier caso donde un monto,
+        estado de suscripción o transición de licencia (PENDING_PAYMENT/ACTIVE/GRACE_PERIOD/
+        SUSPENDED/CANCELLED) pueda quedar inconsistente entre el Subscription, el Tenant y
+        el registro de auditoría (AuditLog) — no debe faltar tenantId en el audit log.
+
+    - path: "src/app/admin/**"
+      instructions: >
+        No debe haber datos hardcodeados/mock (nombres de ejemplo, arrays fijos) presentados
+        como si fueran reales. Todo debe venir de fetch a la API real.
+
+    - path: "src/app/residente/**"
+      instructions: >
+        Verifica que `asunto` (categoría, la asigna el admin) y `titulo` (nombre de la
+        solicitud, lo pone el residente) nunca se mezclen o se sobreescriban entre sí.
+
+  tools:
+    languagetool:
+      enabled: true
+
+chat:
+  auto_reply: true
