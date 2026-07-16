@@ -89,7 +89,7 @@ export async function createMercadoPagoSubscriptionForTenant({
     body: JSON.stringify({
       reason: `Licencia PQRS Services - ${tenant.name}`.slice(0, 60),
       external_reference: tenant.subscription.id,
-      payer_email: admin.email,
+      payer_email: process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || admin.email,
       back_url: backUrl || `${appUrl}/super-admin?tenantId=${tenant.id}`,
       notification_url: notificationUrl,
       auto_recurring: {
