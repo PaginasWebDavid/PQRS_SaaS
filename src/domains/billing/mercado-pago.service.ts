@@ -87,7 +87,7 @@ export async function createMercadoPagoSubscriptionForTenant({
   const preapproval = await mercadoPagoRequest<MercadoPagoPreapproval>("/preapproval", {
     method: "POST",
     body: JSON.stringify({
-      reason: `Licencia PQRS Services - ${tenant.name}`,
+      reason: `Licencia PQRS Services - ${tenant.name}`.slice(0, 60),
       external_reference: tenant.subscription.id,
       payer_email: admin.email,
       back_url: backUrl || `${appUrl}/super-admin?tenantId=${tenant.id}`,
