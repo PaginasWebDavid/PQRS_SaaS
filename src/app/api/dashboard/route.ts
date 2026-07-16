@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     where: { tenantId },
     orderBy: { fechaRecibido: "desc" },
     take: 6,
-    select: { id: true, numero: true, asunto: true, nombreResidente: true, estado: true, fechaRecibido: true },
+    select: { id: true, numero: true, titulo: true, asunto: true, nombreResidente: true, estado: true, fechaRecibido: true },
   });
 
   const usersActiveCount = await prisma.user.count({ where: { tenantId, isActive: true } });
@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
     recentPqrs: recentPqrsRaw.map((p) => ({
       id: p.id,
       numero: p.numero,
-      asunto: p.asunto || "Sin asunto",
+      asunto: p.titulo || p.asunto || "Sin título",
       nombreResidente: p.nombreResidente,
       estado: p.estado,
       fechaRecibido: p.fechaRecibido,

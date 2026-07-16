@@ -1,0 +1,1 @@
+ALTER TABLE "Pqrs" ADD COLUMN "titulo" TEXT;

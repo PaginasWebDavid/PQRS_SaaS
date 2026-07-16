@@ -6,6 +6,7 @@ import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { getTenantLicenseSummary } from "@/domains/billing/billing.service";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import { getGeneralSettings } from "@/domains/platform/platform-setting.service";
 
 const userSelect = {
   id: true, name: true, email: true, role: true, tenantId: true, bloque: true, apto: true,
@@ -25,7 +26,8 @@ export async function GET() {
     : null;
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: userSelect });
   const licenseSummary = session.user.tenantId ? await getTenantLicenseSummary(session.user.tenantId) : null;
-  return NextResponse.json({ user, tenant, licenseSummary });
+  const generalSettings = await getGeneralSettings();
+  return NextResponse.json({ user, tenant, licenseSummary, pqrsCloseSlaDays: generalSettings.pqrsCloseSlaDays });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -45,11 +47,21 @@ export async function PATCH(req: NextRequest) {
   if (phone && !/^[+0-9 ()-]{7,25}$/.test(phone)) return NextResponse.json({ error: "Telefono invalido" }, { status: 400 });
   if (image && (image.length > 2048 || !/^https?:\/\//i.test(image))) return NextResponse.json({ error: "Imagen invalida" }, { status: 400 });
 
+  let bloqueApto: { bloque: number; apto: number } | undefined;
+  if (session.user.role === "RESIDENTE" && (body.bloque !== undefined || body.apto !== undefined)) {
+    const bloque = Number(body.bloque);
+    const apto = Number(body.apto);
+    if (!Number.isInteger(bloque) || bloque < 1 || bloque > 999) return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
+    if (!Number.isInteger(apto) || apto < 1 || apto > 9999) return NextResponse.json({ error: "Apartamento invalido" }, { status: 400 });
+    bloqueApto = { bloque, apto };
+  }
+
   const user = await prisma.user.update({
     where: { id: session.user.id },
     data: {
       name, phone, image,
       ...(session.user.role === "ADMIN" && typeof body.notifyNewPqrsEmail === "boolean" ? { notifyNewPqrsEmail: body.notifyNewPqrsEmail } : {}),
+      ...(bloqueApto ? bloqueApto : {}),
     },
     select: userSelect,
   });

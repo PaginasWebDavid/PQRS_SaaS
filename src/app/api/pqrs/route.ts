@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   const tenantId = getTenantIdFromSession(session);
 
   const body = await req.json();
-  const { asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
+  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
 
   // Validaciones - solo descripcion es obligatoria
   if (!descripcion) {
@@ -146,8 +146,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (finalBloque < 1 || finalBloque > 12) {
-    return NextResponse.json({ error: "Bloque debe ser entre 1 y 12" }, { status: 400 });
+  if (finalBloque < 1 || finalBloque > 999) {
+    return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
   }
 
   // Validar fotos opcionales
@@ -230,7 +230,8 @@ export async function POST(req: NextRequest) {
         bloque: finalBloque,
         apto: finalApto,
         nombreResidente: finalNombre,
-        asunto: asunto || null,
+        titulo: titulo ? String(titulo).trim().slice(0, 120) : null,
+        asunto: isAdmin ? (asunto || null) : null,
         descripcion,
         creadoPorId: session.user.id,
       },

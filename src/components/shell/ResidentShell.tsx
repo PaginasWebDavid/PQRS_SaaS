@@ -1,8 +1,13 @@
 ﻿'use client';
 import { ReactNode } from 'react';
+import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
 import { useIsMobile } from './Sheet';
+
+function logout() {
+  void signOut({ callbackUrl: '/auth/login' });
+}
 
 export type BottomNavItem = { key: string; label: string; icon: string; onClick: () => void };
 
@@ -30,8 +35,9 @@ export function ResidentShell({
             ))}
           </div>
           <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${COLORS.borderSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{initials}</div>
-            <div style={{ fontSize: 12.5, fontWeight: 800 }}>{greetingName}</div>
+            <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{initials}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{greetingName}</div>
+            <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Salir</button>
           </div>
         </div>
       )}
@@ -44,7 +50,10 @@ export function ResidentShell({
                 <LogoMark size={20} />
                 <span style={{ fontWeight: 800, fontSize: 14 }}>PQRS <span style={{ fontWeight: 500, color: COLORS.textSecondary }}>Services</span></span>
               </div>
-              <div style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{initials}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{initials}</div>
+                <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
+              </div>
             </div>
           </div>
         )}

@@ -15,8 +15,10 @@ export default function OnboardingResidentePage() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [location, setLocation] = useState('');
+  const [bloque, setBloque] = useState('');
+  const [apto, setApto] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/me')
@@ -25,22 +27,24 @@ export default function OnboardingResidentePage() {
         if (d.user?.onboardingCompletedAt) return router.replace('/residente');
         setName(d.user?.name || '');
         setPhone(d.user?.phone || '');
-        setLocation(
-          d.user?.bloque && d.user?.apto
-            ? 'Bloque ' + d.user.bloque + ' · Apto ' + d.user.apto
-            : 'Ubicación pendiente de asignación'
-        );
+        setBloque(d.user?.bloque ? String(d.user.bloque) : '');
+        setApto(d.user?.apto ? String(d.user.apto) : '');
       })
       .catch(() => setError('No se pudieron cargar tus datos'));
   }, [router]);
 
+  const canContinueStep1 = name.trim().length >= 2 && bloque.trim() && apto.trim();
+
   async function finish() {
+    setSaving(true);
+    setError('');
     const res = await fetch('/api/onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone }),
+      body: JSON.stringify({ name, phone, bloque, apto }),
     });
     const body = await res.json().catch(() => null);
+    setSaving(false);
     if (!res.ok) return setError(body?.error || 'No se pudo finalizar');
     router.replace('/residente');
     router.refresh();
@@ -93,17 +97,35 @@ export default function OnboardingResidentePage() {
                 onChange={(e) => setPhone(e.target.value)}
                 style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }}
               />
-              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Ubicación</label>
-              <input
-                value={location}
-                disabled
-                style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: COLORS.bgCard, color: COLORS.textMuted, marginBottom: 8 }}
-              />
-              <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 26px' }}>La administración controla bloque y apartamento.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Bloque</label>
+                  <input
+                    inputMode="numeric"
+                    value={bloque}
+                    onChange={(e) => setBloque(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    placeholder="Ej. 3"
+                    style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Apartamento</label>
+                  <input
+                    inputMode="numeric"
+                    value={apto}
+                    onChange={(e) => setApto(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Ej. 402"
+                    style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit' }}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 26px' }}>Con esto identificamos tu unidad ante la administración de tu conjunto.</p>
+              {error && <p style={{ color: COLORS.warning, fontSize: 13, margin: '0 0 14px' }}>{error}</p>}
               <button
                 type="button"
-                onClick={() => name.trim() && setStep(2)}
-                style={{ width: '100%', border: 0, background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}
+                onClick={() => canContinueStep1 && setStep(2)}
+                disabled={!canContinueStep1}
+                style={{ width: '100%', border: 0, background: canContinueStep1 ? COLORS.navy : COLORS.neutralSoft, color: canContinueStep1 ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: canContinueStep1 ? 'pointer' : 'default' }}
               >
                 Continuar
               </button>
@@ -128,9 +150,10 @@ export default function OnboardingResidentePage() {
               <button
                 type="button"
                 onClick={finish}
-                style={{ width: '100%', border: 0, background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}
+                disabled={saving}
+                style={{ width: '100%', border: 0, background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: saving ? 'default' : 'pointer' }}
               >
-                Ir a mi Centro de Estado
+                {saving ? 'Guardando…' : 'Ir a mi Centro de Estado'}
               </button>
             </div>
           )}

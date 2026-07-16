@@ -1,9 +1,14 @@
 ﻿'use client';
 import { ReactNode, useState } from 'react';
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
 import { useIsMobile } from './Sheet';
+
+function logout() {
+  void signOut({ callbackUrl: '/auth/login' });
+}
 
 export type NavGroup = { header?: string; key?: string; href?: string; label?: string; onClick?: () => void };
 
@@ -72,7 +77,7 @@ export function SuperAdminShell({
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <div style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>SP</div>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 800, color: '#FFFFFF' }}>{userName}</div><div style={{ fontSize: 10.5, fontWeight: 500, color: '#8FA1BF' }}>Super Admin</div></div>
-              <Link href="/auth/login" style={{ fontSize: 11, fontWeight: 700, color: '#8FA1BF' }}>Salir</Link>
+              <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: '#8FA1BF', cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
             </div>
           </div>
         </div>
@@ -94,7 +99,7 @@ export function SuperAdminShell({
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>SP</div>
               <div style={{ flex: 1 }}><div style={{ fontSize: 12.5, fontWeight: 800, color: '#FFFFFF' }}>{userName}</div><div style={{ fontSize: 11, fontWeight: 500, color: '#8FA1BF' }}>Super Admin</div></div>
-              <Link href="/auth/login" style={{ fontSize: 11.5, fontWeight: 700, color: '#8FA1BF' }}>Salir</Link>
+              <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: '#8FA1BF', cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
             </div>
           </div>
         </>
