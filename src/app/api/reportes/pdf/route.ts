@@ -14,7 +14,6 @@ const PRIORIDAD_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Media", 
 const NAVY: [number, number, number] = [18, 37, 69];
 const SUCCESS: [number, number, number] = [26, 107, 58];
 const WARNING: [number, number, number] = [138, 90, 0];
-const DANGER: [number, number, number] = [179, 38, 30];
 const MUTED: [number, number, number] = [110, 110, 115];
 
 function fmtDate(date: Date | null) {

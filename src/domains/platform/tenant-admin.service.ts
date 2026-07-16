@@ -1,7 +1,8 @@
-import { AuditAction, TenantStatus } from "@prisma/client";
+import { AuditAction, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
 import { calculatePriceForUnits } from "@/domains/billing/billing.service";
+import { updateMercadoPagoPreapprovalAmount } from "@/domains/billing/mercado-pago.service";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 
 export type CreateTenantInput = {
@@ -110,6 +111,7 @@ export async function createTenantWithAdmin(
   actorUserId: string,
   input: CreateTenantInput
 ): Promise<CreateTenantResult> {
+  assertValidTenantInput(input);
   const slug = normalizeSlug(input.slug);
   const adminEmail = input.adminEmail.trim().toLowerCase();
 
@@ -202,12 +204,26 @@ export async function updateTenantStatusForSuperAdmin(
   tenantId: string,
   status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED" | "CANCELLED">
 ) {
-  const tenant = await prisma.tenant.update({
-    where: { id: tenantId },
-    data: {
-      status,
-      cancelledAt: status === "CANCELLED" ? new Date() : undefined,
-    },
+  const tenant = await prisma.$transaction(async (tx) => {
+    await tx.subscription.findUniqueOrThrow({ where: { tenantId }, select: { id: true } });
+
+    const updatedTenant = await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        status,
+        cancelledAt: status === "CANCELLED" ? new Date() : null,
+      },
+    });
+
+    await tx.subscription.update({
+      where: { tenantId },
+      data: {
+        status: status as SubscriptionStatus,
+        graceEndsAt: status === "ACTIVE" ? null : undefined,
+      },
+    });
+
+    return updatedTenant;
   });
 
   const action =
@@ -238,36 +254,137 @@ export async function updateTenantDetails(
   tenantId: string,
   input: { name?: string; city?: string; units?: number }
 ) {
-  const data: { name?: string; city?: string; units?: number } = {};
-  if (input.name !== undefined) data.name = input.name;
-  if (input.city !== undefined) data.city = input.city;
-  if (input.units !== undefined) data.units = input.units;
-
-  const tenant = await prisma.tenant.update({
+  const existing = await prisma.tenant.findUniqueOrThrow({
     where: { id: tenantId },
-    data,
+    include: { subscription: true },
   });
+  const data: { name?: string; city?: string | null; units?: number } = {};
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (!name) throw new Error("El nombre del conjunto es obligatorio");
+    data.name = name;
+  }
+  if (input.city !== undefined) data.city = emptyToNull(input.city);
 
-  await registerAuditLog({
-    actorUserId,
-    tenantId: tenant.id,
-    action: AuditAction.TENANT_UPDATED,
-    targetType: "Tenant",
-    targetId: tenant.id,
-    metadata: { name: tenant.name, slug: tenant.slug, changed: Object.keys(data) },
-  });
+  const unitsChanged = input.units !== undefined && input.units !== existing.units;
+  if (input.units !== undefined) {
+    if (!Number.isSafeInteger(input.units) || input.units <= 0) {
+      throw new Error("Las unidades deben ser un entero positivo");
+    }
+    data.units = input.units;
+  }
 
-  return tenant;
+  const subscription = existing.subscription;
+  if (unitsChanged && !subscription) {
+    throw new Error("El conjunto no tiene una suscripcion para programar la nueva tarifa");
+  }
+
+  const calculatedTerms = unitsChanged ? await calculatePriceForUnits(input.units as number) : null;
+  const currentTerms = subscription
+    ? { units: subscription.unitsSnapshot, priceCents: subscription.priceCents, currency: subscription.currency }
+    : null;
+  const scheduledTerms = calculatedTerms && currentTerms && (
+    calculatedTerms.units !== currentTerms.units ||
+    calculatedTerms.priceCents !== currentTerms.priceCents ||
+    calculatedTerms.currency !== currentTerms.currency
+  ) ? calculatedTerms : null;
+  const providerTerms = scheduledTerms || currentTerms;
+  const shouldSyncProvider = Boolean(unitsChanged && subscription?.mercadoPagoPreapprovalId && providerTerms);
+
+  if (shouldSyncProvider && subscription?.mercadoPagoPreapprovalId && providerTerms) {
+    await updateMercadoPagoPreapprovalAmount({
+      preapprovalId: subscription.mercadoPagoPreapprovalId,
+      priceCents: providerTerms.priceCents,
+      currency: providerTerms.currency,
+    });
+  }
+
+  try {
+    const tenant = await prisma.$transaction(async (tx) => {
+      const updatedTenant = await tx.tenant.update({ where: { id: tenantId }, data });
+
+      if (unitsChanged && subscription) {
+        await tx.subscription.update({
+          where: { id: subscription.id },
+          data: scheduledTerms
+            ? {
+                pendingUnitsSnapshot: scheduledTerms.units,
+                pendingPriceCents: scheduledTerms.priceCents,
+                pendingCurrency: scheduledTerms.currency,
+                pendingPriceEffectiveAt: subscription.currentPeriodEnd,
+              }
+            : {
+                pendingUnitsSnapshot: null,
+                pendingPriceCents: null,
+                pendingCurrency: null,
+                pendingPriceEffectiveAt: null,
+              },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          tenantId: updatedTenant.id,
+          action: AuditAction.TENANT_UPDATED,
+          targetType: "Tenant",
+          targetId: updatedTenant.id,
+          metadata: {
+            name: updatedTenant.name,
+            slug: updatedTenant.slug,
+            changed: Object.keys(data),
+            billingChange: unitsChanged
+              ? {
+                  previousUnits: existing.units,
+                  nextUnits: data.units,
+                  currentPriceCents: currentTerms?.priceCents,
+                  scheduledPriceCents: scheduledTerms?.priceCents || null,
+                  effectiveAt: subscription?.currentPeriodEnd.toISOString() || null,
+                  mercadoPagoSynchronized: shouldSyncProvider,
+                }
+              : null,
+          },
+        },
+      });
+
+      return updatedTenant;
+    });
+
+    return tenant;
+  } catch (error) {
+    if (shouldSyncProvider && subscription?.mercadoPagoPreapprovalId && currentTerms) {
+      await updateMercadoPagoPreapprovalAmount({
+        preapprovalId: subscription.mercadoPagoPreapprovalId,
+        priceCents: currentTerms.priceCents,
+        currency: currentTerms.currency,
+      }).catch(() => null);
+    }
+    throw error;
+  }
+}
+
+function assertValidTenantInput(input: CreateTenantInput) {
+  if (!input.name?.trim()) throw new Error("El nombre del conjunto es obligatorio");
+  if (!input.adminName?.trim()) throw new Error("El nombre del administrador es obligatorio");
+  if (!/^\S+@\S+\.\S+$/.test(input.adminEmail?.trim() || "")) {
+    throw new Error("El correo del administrador no es valido");
+  }
+  if (!Number.isSafeInteger(input.units) || input.units <= 0) {
+    throw new Error("Las unidades deben ser un entero positivo");
+  }
 }
 
 export function normalizeSlug(value: string) {
-  return value
+  const slug = value
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+  if (!slug) throw new Error("El identificador del conjunto es obligatorio");
+  return slug;
 }
 
 function emptyToNull(value?: string) {

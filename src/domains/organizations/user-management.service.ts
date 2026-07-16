@@ -2,7 +2,7 @@ import { AuditAction, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 
-const MANAGEABLE_ROLES: Role[] = ["ADMIN", "ASISTENTE", "CONSEJO", "RESIDENTE"];
+const MANAGEABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export async function updateManagedUser({
   tenantId, actorUserId, targetUserId, role, isActive, bloque, apto, origin,

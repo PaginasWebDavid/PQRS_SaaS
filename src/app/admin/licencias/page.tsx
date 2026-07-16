@@ -8,7 +8,7 @@ import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 type Payment = { id: string; amountCents: number; currency: string; status: string; dueDate: string; paidAt?: string | null };
 type LicenseSummary = {
   status: string; autoRenew: boolean; currentPeriodEnd: string; nextPaymentDueDate: string;
-  priceCents: number; currency: string; unitsSnapshot: number; recentPayments: Payment[];
+  priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot?: number | null; pendingPriceCents?: number | null; pendingCurrency?: string | null; pendingPriceEffectiveAt?: string | null; recentPayments: Payment[];
 };
 type MeData = { tenant?: { name?: string | null; units?: number | null } | null; licenseSummary?: LicenseSummary | null };
 
@@ -137,6 +137,9 @@ export default function ModuloLicenciasPage() {
                 Plan actual — {license ? `${license.unitsSnapshot} unidades` : '—'}<br />
                 Estado — {statusLabel}<br />
                 <strong style={{ color: '#1D1D1F' }}>Total: {money(license?.priceCents || 0, license?.currency)}</strong>
+                {license?.pendingPriceCents != null && license.pendingUnitsSnapshot != null && (
+                  <><br />Nueva tarifa desde la proxima renovacion: {money(license.pendingPriceCents, license.pendingCurrency || license.currency)} por {license.pendingUnitsSnapshot} unidades.</>
+                )}
               </div>
             )}
           </div>

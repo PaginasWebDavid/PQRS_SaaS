@@ -18,6 +18,8 @@ const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { key: 'auditoria', label: 'Auditoría' },
   { key: 'soporte', label: 'Soporte' },
   { key: 'config', label: 'Configuración' },
+  { header: 'CUENTA' },
+  { key: 'cuenta', label: 'Mi cuenta' },
 ];
 
 type TenantGroup = 'active' | 'trial' | 'pending_payment' | 'grace' | 'suspended' | 'cancelled';
@@ -92,10 +94,9 @@ type TenantUsersDetail = {
   users: { id: string; name: string; email: string; role: string; bloque: number | null; apto: number | null; isActive: boolean; createdAt: string }[];
 } | null;
 
-const ROLE_LABEL: Record<string, string> = { SUPER_ADMIN: 'Super Admin', ADMIN: 'Administrador', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const ROLE_LABEL: Record<string, string> = { SUPER_ADMIN: 'Super Admin', ADMIN: 'Administrador', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 const ROLE_BADGE = (role: string) => {
   if (role === 'ADMIN' || role === 'SUPER_ADMIN') return badgeStyle(COLORS.navySoft, COLORS.navy);
-  if (role === 'ASISTENTE') return badgeStyle(COLORS.warningSoft, COLORS.warning);
   if (role === 'CONSEJO') return badgeStyle(COLORS.successSoft, COLORS.success);
   return badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt);
 };
@@ -219,6 +220,9 @@ export default function DashboardSuperAdminPage() {
   const [responseText, setResponseText] = useState('');
   const [closeOnRespond, setCloseOnRespond] = useState(true);
   const [auditLog, setAuditLog] = useState<ApiAuditLog[]>([]);
+  const [accountName, setAccountName] = useState('');
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
   const { toast, showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalTenants: 0, activeTenants: 0, suspendedTenants: 0, trialTenants: 0, totalUsers: 0, totalPqrs: 0, closedPqrs: 0 });
@@ -717,6 +721,27 @@ export default function DashboardSuperAdminPage() {
       .finally(() => setAnalyticsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav]);
+
+  useEffect(() => {
+    if (nav !== 'cuenta') return;
+    fetch('/api/me', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.user) return;
+        setAccountName(data.user.name || '');
+        setAccountEmail(data.user.email || '');
+        setAccountCreatedAt(data.user.createdAt || null);
+      })
+      .catch(() => showToast('No se pudo cargar tu cuenta'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav]);
+
+  async function saveAccount() {
+    const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: accountName }) });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return showToast(body?.error || 'No se pudo guardar');
+    showToast('Perfil actualizado');
+  }
 
   useEffect(() => {
     if (!usersTenantId) { setUsersTenantDetail(null); return; }
@@ -1679,6 +1704,35 @@ export default function DashboardSuperAdminPage() {
               </div>
               <button type="button" onClick={() => toggleFeatureFlag('transactionalEmailEnabled')} style={{ ...toggleTrackStyle(generalSettings.transactionalEmailEnabled), border: 'none', cursor: 'pointer', flexShrink: 0 }}><div style={toggleDotStyle(generalSettings.transactionalEmailEnabled)} /></button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {nav === 'cuenta' && (
+        <div className="apl-up" style={{ maxWidth: 560 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 18px' }}>Mi cuenta</h1>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Perfil</div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '0 0 7px' }}>Nombre completo</label>
+            <input value={accountName} onChange={(e) => setAccountName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '0 0 7px' }}>Correo</label>
+            <input value={accountEmail} disabled style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: COLORS.bgCard, color: COLORS.textMuted, marginBottom: 18 }} />
+            <button type="button" onClick={saveAccount} disabled={!accountName.trim()} style={{ border: 'none', background: accountName.trim() ? COLORS.navy : COLORS.neutralSoft, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, cursor: accountName.trim() ? 'pointer' : 'default', fontFamily: 'inherit' }}>Guardar cambios</button>
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Seguridad</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>ROL</div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>Super Admin</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>MIEMBRO DESDE</div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{accountCreatedAt ? new Date(accountCreatedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</div>
+              </div>
+            </div>
+            <a href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</a>
           </div>
         </div>
       )}

@@ -12,7 +12,6 @@ const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: "Abierta", EN_PROGRESO
 const PRIORIDAD_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
 
 const NAVY = "122545";
-const GREEN = "15803D";
 const WHITE = "FFFFFF";
 const BORDER_COLOR = "D1D5DB";
 const WARN = "FBF3DF";

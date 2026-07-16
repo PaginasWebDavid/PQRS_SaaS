@@ -7,7 +7,7 @@ import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design/tokens';
 
 type Status = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
-type Role = 'ADMIN' | 'ASISTENTE' | 'CONSEJO' | 'RESIDENTE';
+type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
 type Invite = { id: string; email: string; role: Role; status: Status; createdAt: string; expiresAt: string; acceptedAt?: string | null };
 const STATUS_META: Record<Status, { label: string; style: React.CSSProperties }> = {
   PENDING: { label: 'Pendiente', style: badgeStyle(COLORS.warningSoft, COLORS.warning) },
@@ -15,7 +15,7 @@ const STATUS_META: Record<Status, { label: string; style: React.CSSProperties }>
   EXPIRED: { label: 'Expirada', style: badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt) },
   CANCELLED: { label: 'Cancelada', style: badgeStyle(COLORS.neutralSoft, COLORS.textMuted) },
 };
-const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 const SELECTABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
 const FILTERS = [{ key: 'all', label: 'Todas' }, ...Object.entries(STATUS_META).map(([key, value]) => ({ key, label: value.label }))];
 

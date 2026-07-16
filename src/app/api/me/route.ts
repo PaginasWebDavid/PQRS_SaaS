@@ -4,13 +4,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { getTenantLicenseSummary } from "@/domains/billing/billing.service";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { getGeneralSettings } from "@/domains/platform/platform-setting.service";
 
 const userSelect = {
   id: true, name: true, email: true, role: true, tenantId: true, bloque: true, apto: true,
-  phone: true, image: true, isActive: true, onboardingCompletedAt: true, notifyNewPqrsEmail: true, createdAt: true,
+  phone: true, image: true, isActive: true, onboardingCompletedAt: true, notifyNewPqrsEmail: true,
+  bloqueAptoEditado: true, createdAt: true,
 } as const;
 
 export async function GET() {
@@ -32,12 +32,12 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "RESIDENTE"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "RESIDENTE", "CONSEJO", "SUPER_ADMIN"].includes(session.user.role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
   const tenantAccessResponse = await getTenantAccessResponse(session);
   if (tenantAccessResponse) return tenantAccessResponse;
-  const tenantId = getTenantIdFromSession(session);
+  const tenantId = session.user.tenantId ?? null;
   const body = await req.json();
   const name = String(body.name ?? "").trim();
   const phone = body.phone == null || body.phone === "" ? null : String(body.phone).trim();
@@ -47,13 +47,21 @@ export async function PATCH(req: NextRequest) {
   if (phone && !/^[+0-9 ()-]{7,25}$/.test(phone)) return NextResponse.json({ error: "Telefono invalido" }, { status: 400 });
   if (image && (image.length > 2048 || !/^https?:\/\//i.test(image))) return NextResponse.json({ error: "Imagen invalida" }, { status: 400 });
 
-  let bloqueApto: { bloque: number; apto: number } | undefined;
+  let bloqueApto: { bloque: number; apto: number; bloqueAptoEditado: true } | undefined;
   if (session.user.role === "RESIDENTE" && (body.bloque !== undefined || body.apto !== undefined)) {
     const bloque = Number(body.bloque);
     const apto = Number(body.apto);
     if (!Number.isInteger(bloque) || bloque < 1 || bloque > 999) return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
     if (!Number.isInteger(apto) || apto < 1 || apto > 9999) return NextResponse.json({ error: "Apartamento invalido" }, { status: 400 });
-    bloqueApto = { bloque, apto };
+
+    const current = await prisma.user.findUnique({ where: { id: session.user.id }, select: { bloque: true, apto: true, bloqueAptoEditado: true } });
+    const changed = current?.bloque !== bloque || current?.apto !== apto;
+    if (changed) {
+      if (current?.bloqueAptoEditado) {
+        return NextResponse.json({ error: "Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio" }, { status: 409 });
+      }
+      bloqueApto = { bloque, apto, bloqueAptoEditado: true };
+    }
   }
 
   const user = await prisma.user.update({

@@ -101,8 +101,6 @@ No existe aislamiento de datos.
 
 ADMIN
 
-ASISTENTE
-
 CONSEJO
 
 RESIDENTE

@@ -8,7 +8,7 @@ import { createNotification, NotificationTypes } from "@/domains/notifications/n
 
 const INVITATION_TOKEN_BYTES = 32;
 const DEFAULT_EXPIRES_HOURS = 72;
-const INVITABLE_ROLES: Role[] = ["ADMIN", "ASISTENTE", "CONSEJO", "RESIDENTE"];
+const INVITABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export function createInvitationToken() {
   return crypto.randomBytes(INVITATION_TOKEN_BYTES).toString("base64url");

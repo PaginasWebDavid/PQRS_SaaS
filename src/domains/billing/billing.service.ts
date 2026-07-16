@@ -22,10 +22,10 @@ export async function getPricingRuleCaps() {
 }
 
 export async function updatePricingRuleCaps(actorUserId: string, input: { minCents: number; maxCents: number }) {
-  if (input.minCents <= 0) {
+  if (!Number.isSafeInteger(input.minCents) || input.minCents <= 0) {
     throw new Error("El tope mínimo debe ser mayor que cero");
   }
-  if (input.maxCents <= input.minCents) {
+  if (!Number.isSafeInteger(input.maxCents) || input.maxCents <= input.minCents) {
     throw new Error("El tope máximo debe ser mayor que el tope mínimo");
   }
 
@@ -47,7 +47,10 @@ export async function updatePricingRuleCaps(actorUserId: string, input: { minCen
 }
 
 export async function calculatePriceForUnits(units: number) {
-  const normalizedUnits = Math.max(1, units);
+  if (!Number.isSafeInteger(units) || units <= 0) {
+    throw new Error("Las unidades deben ser un entero positivo");
+  }
+  const normalizedUnits = units;
   const rule = await prisma.pricingRule.findFirst({
     where: {
       isActive: true,
@@ -145,36 +148,55 @@ export async function renewSubscriptionWithSimulatedPayment({
     throw new Error("El tenant no tiene suscripción");
   }
 
-  const price = await calculatePriceForUnits(subscription.tenant.units);
+  const price = subscription.pendingPriceCents !== null && subscription.pendingUnitsSnapshot !== null
+    ? {
+        units: subscription.pendingUnitsSnapshot,
+        priceCents: subscription.pendingPriceCents,
+        currency: subscription.pendingCurrency || subscription.currency,
+      }
+    : await calculatePriceForUnits(subscription.tenant.units);
   const now = new Date();
   const periodStart = subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
   const periodEnd = addDays(periodStart, BILLING_PERIOD_DAYS);
 
-  const updated = await prisma.subscription.update({
-    where: { id: subscription.id },
-    data: {
-      status: "ACTIVE",
-      unitsSnapshot: price.units,
-      priceCents: price.priceCents,
-      currency: price.currency,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      graceEndsAt: null,
-      payments: {
-        create: {
-          tenantId,
-          amountCents: price.priceCents,
-          currency: price.currency,
-          status: "APPROVED",
-          provider: "SIMULATED",
-          dueDate: now,
-          paidAt: now,
-          periodStart,
-          periodEnd,
-          externalReference: `simulated-renewal-${now.toISOString()}`,
+  const [updated] = await prisma.$transaction(async (tx) => {
+    const renewed = await tx.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: "ACTIVE",
+        unitsSnapshot: price.units,
+        priceCents: price.priceCents,
+        currency: price.currency,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        graceEndsAt: null,
+        pendingUnitsSnapshot: null,
+        pendingPriceCents: null,
+        pendingCurrency: null,
+        pendingPriceEffectiveAt: null,
+        payments: {
+          create: {
+            tenantId,
+            amountCents: price.priceCents,
+            currency: price.currency,
+            status: "APPROVED",
+            provider: "SIMULATED",
+            dueDate: now,
+            paidAt: now,
+            periodStart,
+            periodEnd,
+            externalReference: `simulated-renewal-${now.toISOString()}`,
+          },
         },
       },
-    },
+    });
+
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: { status: "ACTIVE", cancelledAt: null },
+    });
+
+    return [renewed];
   });
 
   await registerAuditLog({
@@ -348,6 +370,10 @@ export async function getTenantLicenseSummary(tenantId: string) {
     priceCents: subscription.priceCents,
     currency: subscription.currency,
     unitsSnapshot: subscription.unitsSnapshot,
+    pendingUnitsSnapshot: subscription.pendingUnitsSnapshot,
+    pendingPriceCents: subscription.pendingPriceCents,
+    pendingCurrency: subscription.pendingCurrency,
+    pendingPriceEffectiveAt: subscription.pendingPriceEffectiveAt,
     nextPaymentDueDate: nextPayment?.dueDate || subscription.currentPeriodEnd,
     recentPayments: subscription.payments.map((payment) => ({
       id: payment.id,
@@ -362,31 +388,48 @@ export async function getTenantLicenseSummary(tenantId: string) {
   };
 }
 
-async function assertValidPricingRule(candidate: { id?: string; minUnits: number; maxUnits: number | null; priceCents: number }) {
+export function pricingRangesOverlap(
+  left: { minUnits: number; maxUnits: number | null },
+  right: { minUnits: number; maxUnits: number | null }
+) {
+  const leftMax = left.maxUnits ?? Number.POSITIVE_INFINITY;
+  const rightMax = right.maxUnits ?? Number.POSITIVE_INFINITY;
+  return left.minUnits <= rightMax && right.minUnits <= leftMax;
+}
+
+async function assertValidPricingRule(
+  candidate: { id?: string; minUnits: number; maxUnits: number | null; priceCents: number },
+  options: { willBeActive?: boolean } = {}
+) {
+  if (!Number.isSafeInteger(candidate.minUnits) || candidate.minUnits <= 0) {
+    throw new Error("El inicio del rango debe ser un entero positivo");
+  }
+  if (candidate.maxUnits !== null && (!Number.isSafeInteger(candidate.maxUnits) || candidate.maxUnits <= candidate.minUnits)) {
+    throw new Error("El final del rango debe ser un entero mayor que el inicio");
+  }
+  if (!Number.isSafeInteger(candidate.priceCents) || candidate.priceCents <= 0) {
+    throw new Error("El precio debe ser un entero positivo");
+  }
+
   const caps = await getPricingRuleCaps();
   if (candidate.priceCents < caps.minCents || candidate.priceCents > caps.maxCents) {
-    throw new Error(
-      `El precio debe estar entre ${formatMoneyFromCents(caps.minCents)} y ${formatMoneyFromCents(caps.maxCents)}`
-    );
+    throw new Error(`El precio debe estar entre ${formatMoneyFromCents(caps.minCents)} y ${formatMoneyFromCents(caps.maxCents)}`);
   }
-  if (candidate.maxUnits !== null && candidate.maxUnits <= candidate.minUnits) {
-    throw new Error("El rango 'hasta' debe ser mayor que 'desde'");
-  }
+  if (options.willBeActive === false) return;
 
   const otherRules = await prisma.pricingRule.findMany({
     where: candidate.id ? { id: { not: candidate.id }, isActive: true } : { isActive: true },
   });
 
   for (const other of otherRules) {
+    if (pricingRangesOverlap(candidate, other)) {
+      throw new Error("El rango se superpone con una regla activa existente");
+    }
     if (candidate.minUnits > other.minUnits && candidate.priceCents < other.priceCents) {
-      throw new Error(
-        `Un conjunto de más unidades no puede costar menos que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`
-      );
+      throw new Error(`Un conjunto de mas unidades no puede costar menos que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`);
     }
     if (candidate.minUnits < other.minUnits && candidate.priceCents > other.priceCents) {
-      throw new Error(
-        `Un conjunto de menos unidades no puede costar más que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`
-      );
+      throw new Error(`Un conjunto de menos unidades no puede costar mas que el rango de ${other.minUnits}+ unidades (${formatMoneyFromCents(other.priceCents)})`);
     }
   }
 }
@@ -435,7 +478,7 @@ export async function updatePricingRule(
     minUnits: data.minUnits ?? existing.minUnits,
     maxUnits: data.maxUnits !== undefined ? data.maxUnits : existing.maxUnits,
     priceCents: data.priceCents ?? existing.priceCents,
-  });
+  }, { willBeActive: data.isActive ?? existing.isActive });
 
   const rule = await prisma.pricingRule.update({ where: { id: ruleId }, data });
 

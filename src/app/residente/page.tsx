@@ -20,12 +20,15 @@ const CATEGORY_LABEL: Record<string, string> = {
   'HUMEDAD/FACHADA': 'Humedad - Fachada', 'HUMEDAD/GARAJE': 'Humedad - Garaje',
 };
 type Notice = { id: string; title: string; message: string; resourceType?: string | null; resourceId?: string | null; readAt?: string | null; createdAt: string };
-type Me = { user?: { name?: string | null; email?: string | null; phone?: string | null; bloque?: number | null; apto?: number | null }; tenant?: { name?: string | null }; pqrsCloseSlaDays?: number };
+type Ticket = { id: string; subject: string; message: string; category: string; status: 'ABIERTA' | 'RESPONDIDA' | 'CERRADA'; response: string | null; createdAt: string };
+const TICKET_STATUS_LABEL: Record<string, string> = { ABIERTA: 'Abierta', RESPONDIDA: 'Respondida', CERRADA: 'Cerrada' };
+const ticketStatusBadge = (status: string) => status === 'ABIERTA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'RESPONDIDA' ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt);
+type Me = { user?: { name?: string | null; email?: string | null; phone?: string | null; bloque?: number | null; apto?: number | null; bloqueAptoEditado?: boolean }; tenant?: { name?: string | null }; pqrsCloseSlaDays?: number };
 type Photo = { data: string; nombre: string; tipo: string; preview: string };
 type Step = { label: string; done: boolean; date?: string; hint?: string };
 
 const badgeOf = (s: State) => s === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : s === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success);
-const label = (s: State) => s === 'EN_ESPERA' ? 'Nueva' : s === 'EN_PROGRESO' ? 'En gestión' : 'Resuelta';
+const label = (s: State) => s === 'EN_ESPERA' ? 'En espera' : s === 'EN_PROGRESO' ? 'En proceso' : 'Terminada';
 const code = (n: number) => 'PQ-' + String(n).padStart(4, '0');
 const fmt = (v: string) => new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -54,7 +57,7 @@ export default function VistaResidentePage() {
   const [data, setData] = useState<Pqrs[]>([]);
   const [notifications, setNotifications] = useState<Notice[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const [tab, setTab] = useState<'inicio' | 'notif' | 'perfil'>('inicio');
+  const [tab, setTab] = useState<'inicio' | 'notif' | 'perfil' | 'ayuda'>('inicio');
   const [filter, setFilter] = useState('all'); const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Pqrs | null>(null); const [createOpen, setCreateOpen] = useState(false);
   const [titulo, setTitulo] = useState(''); const [description, setDescription] = useState('');
@@ -64,6 +67,9 @@ export default function VistaResidentePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [editing, setEditing] = useState(false); const [editDescription, setEditDescription] = useState('');
   const fileRef = useRef<HTMLInputElement>(null); const { toast, showToast } = useToast();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketSubject, setTicketSubject] = useState(''); const [ticketMessage, setTicketMessage] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
 
   async function load() {
     const [p, n, m] = await Promise.all([fetch('/api/pqrs', { cache: 'no-store' }), fetch('/api/notifications', { cache: 'no-store' }), fetch('/api/me', { cache: 'no-store' })]);
@@ -75,6 +81,19 @@ export default function VistaResidentePage() {
     }
   }
   useEffect(() => { void load(); }, []);
+  async function loadTickets() { const res = await fetch('/api/support-tickets', { cache: 'no-store' }); if (res.ok) setTickets(await res.json()); }
+  useEffect(() => { if (tab === 'ayuda') void loadTickets(); }, [tab]);
+  async function submitTicket() {
+    if (submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()) return;
+    setSubmittingTicket(true);
+    try {
+      const res = await fetch('/api/support-tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: ticketSubject.trim(), message: ticketMessage.trim(), category: 'OTRO' }) });
+      const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo enviar la solicitud');
+      setTicketSubject(''); setTicketMessage(''); await loadTickets(); showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
+    } finally {
+      setSubmittingTicket(false);
+    }
+  }
   async function openDetail(id: string) { const res = await fetch('/api/pqrs/' + id, { cache: 'no-store' }); const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo abrir'); setSelected(body); setEditDescription(body.descripcion); }
   const taken = selected ? selected.estado !== 'EN_ESPERA' || !!selected.fechaPrimerContacto || !!selected.gestionadoPorId || !!selected.numeroRadicacion : false;
   const filtered = useMemo(() => data.filter((d) => (filter === 'all' || (filter === 'abiertas' && d.estado === 'EN_ESPERA') || (filter === 'gestion' && d.estado === 'EN_PROGRESO') || (filter === 'resuelta' && d.estado === 'TERMINADO')) && (!search || (d.numero + ' ' + (d.titulo || '') + ' ' + d.descripcion).toLowerCase().includes(search.toLowerCase()))), [data, filter, search]);
@@ -109,10 +128,19 @@ export default function VistaResidentePage() {
     if (notice.resourceType === 'Pqrs' && notice.resourceId) void openDetail(notice.resourceId);
   }
   async function markAll() { await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) }); setNotifications((v) => v.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))); }
+  const bloqueAptoLocked = Boolean(me?.user?.bloqueAptoEditado);
   async function saveProfile() {
     if (savingProfile) return;
     const bloque = Number(profileBloque); const apto = Number(profileApto);
     if (!Number.isInteger(bloque) || bloque < 1 || !Number.isInteger(apto) || apto < 1) return showToast('Bloque y apartamento deben ser números válidos');
+
+    const bloqueAptoChanged = bloque !== (me?.user?.bloque ?? null) || apto !== (me?.user?.apto ?? null);
+    if (bloqueAptoChanged) {
+      if (bloqueAptoLocked) return showToast('Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio');
+      const confirmed = window.confirm(`Vas a cambiar tu ubicación a Bloque ${bloque}, Apto ${apto}. Solo puedes hacer esta corrección una vez — después no podrás editarla de nuevo. ¿Confirmas que es correcto?`);
+      if (!confirmed) return;
+    }
+
     setSavingProfile(true);
     try {
       const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: profileName, phone: profilePhone, bloque, apto }) });
@@ -127,6 +155,7 @@ export default function VistaResidentePage() {
     { key: 'inicio', label: 'Inicio', icon: '⌂', onClick: () => setTab('inicio') },
     { key: 'notif', label: 'Alertas', icon: '◔', onClick: () => setTab('notif') },
     { key: 'perfil', label: 'Perfil', icon: '◐', onClick: () => setTab('perfil') },
+    { key: 'ayuda', label: 'Ayuda', icon: '?', onClick: () => setTab('ayuda') },
   ];
 
   return <ResidentShell activeKey={tab} initials={initials || 'RS'} greetingName={name} bottomNav={bottomNav}>
@@ -140,7 +169,7 @@ export default function VistaResidentePage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en tus solicitudes" style={{ ...inputStyle, flex: 1 }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-          {[['all', 'Todas'], ['abiertas', 'Abiertas'], ['gestion', 'En gestión'], ['resuelta', 'Resueltas']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
+          {[['all', 'Todas'], ['abiertas', 'En espera'], ['gestion', 'En proceso'], ['resuelta', 'Terminada']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
         {filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
       </div>
@@ -166,16 +195,49 @@ export default function VistaResidentePage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <Label>Bloque</Label>
-              <input inputMode="numeric" value={profileBloque} onChange={(e) => setProfileBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={inputStyle} />
+              <input inputMode="numeric" value={profileBloque} disabled={bloqueAptoLocked} onChange={(e) => setProfileBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={bloqueAptoLocked ? { ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted } : inputStyle} />
             </div>
             <div>
               <Label>Apartamento</Label>
-              <input inputMode="numeric" value={profileApto} onChange={(e) => setProfileApto(e.target.value.replace(/\D/g, '').slice(0, 6))} style={inputStyle} />
+              <input inputMode="numeric" value={profileApto} disabled={bloqueAptoLocked} onChange={(e) => setProfileApto(e.target.value.replace(/\D/g, '').slice(0, 6))} style={bloqueAptoLocked ? { ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted } : inputStyle} />
             </div>
           </div>
+          <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '8px 0 0' }}>
+            {bloqueAptoLocked ? 'Ya corregiste tu bloque y apartamento una vez. Si necesitas otro cambio, contacta a la administración.' : 'Puedes corregir tu bloque y apartamento una sola vez si los pusiste mal en el registro.'}
+          </p>
           <button onClick={saveProfile} disabled={savingProfile} style={primary}>{savingProfile ? 'Guardando…' : 'Guardar cambios'}</button>
           <Link href="/cambiar-contrasena" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: COLORS.navy, fontWeight: 700 }}>Cambiar contraseña</Link>
         </div>
+      </div>
+    )}
+
+    {tab === 'ayuda' && (
+      <div className="apl-up">
+        <h1 style={h1}>Ayuda</h1>
+        <p style={sub}>¿Tienes un problema con la plataforma? Escríbenos y te responderemos por aquí y por correo.</p>
+        <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22, marginBottom: 20 }}>
+          <Label>Asunto</Label>
+          <input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Ej. No puedo subir fotos a mi solicitud" style={inputStyle} />
+          <Label>Mensaje</Label>
+          <textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesitas" style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
+          <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>
+        {tickets.length === 0 ? <Empty text="Aún no has enviado ninguna solicitud." /> : tickets.map((t) => (
+          <div key={t.id} style={{ background: '#FFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <b style={{ fontSize: 13.5 }}>{t.subject}</b>
+              <span style={ticketStatusBadge(t.status)}>{TICKET_STATUS_LABEL[t.status]}</span>
+            </div>
+            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
+            {t.response && (
+              <div style={{ background: COLORS.successSoft, borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.success, marginBottom: 4 }}>Respuesta de PQRS Services</div>
+                {t.response}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     )}
 
@@ -232,7 +294,21 @@ function Timeline({ steps }: { steps: Step[] }) {
     </div>
   );
 }
-function PqrsCard({ row, onClick }: { row: Pqrs; onClick: () => void }) { return <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: '#FFF', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b>{row.titulo || 'Solicitud'}</b><span style={badgeOf(row.estado)}>{label(row.estado)}</span></div><small style={{ color: COLORS.textMuted }}>{code(row.numero)}{row.asunto ? ` · ${CATEGORY_LABEL[row.asunto] || row.asunto}` : ''} · {fmt(row.updatedAt)}</small></button>; }
+function PqrsCard({ row, onClick }: { row: Pqrs; onClick: () => void }) {
+  const titulo = row.titulo || row.descripcion.slice(0, 60) || 'Solicitud';
+  return (
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: '#FFF', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+        <b style={{ fontSize: 14 }}>{titulo}</b>
+        <span style={{ ...badgeOf(row.estado), flexShrink: 0 }}>{label(row.estado)}</span>
+      </div>
+      <small style={{ color: COLORS.textMuted }}>
+        {row.numeroRadicacion ? `N.° ${row.numeroRadicacion}` : 'Sin radicar aún'}
+        {row.asunto ? ` · ${CATEGORY_LABEL[row.asunto] || row.asunto}` : ''} · {fmt(row.updatedAt)}
+      </small>
+    </button>
+  );
+}
 function Empty({ text = 'No hay solicitudes con este filtro.' }: { text?: string }) { return <div style={{ textAlign: 'center', padding: '50px 20px', color: COLORS.textMuted, background: COLORS.bgCard, borderRadius: 16, fontSize: 13.5, fontWeight: 500 }}>{text}</div>; }
 function Label({ children }: { children: React.ReactNode }) { return <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '14px 0 7px' }}>{children}</label>; }
 const h1: React.CSSProperties = { fontSize: 26, fontWeight: 800, margin: '0 0 6px' };

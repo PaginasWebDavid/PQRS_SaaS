@@ -74,7 +74,13 @@ export async function createMercadoPagoSubscriptionForTenant({
     throw new Error("El tenant no tiene ADMIN con correo para Mercado Pago");
   }
 
-  const price = await calculatePriceForUnits(tenant.units);
+  const price = tenant.subscription.pendingPriceCents !== null && tenant.subscription.pendingUnitsSnapshot !== null
+    ? {
+        units: tenant.subscription.pendingUnitsSnapshot,
+        priceCents: tenant.subscription.pendingPriceCents,
+        currency: tenant.subscription.pendingCurrency || tenant.subscription.currency,
+      }
+    : await calculatePriceForUnits(tenant.units);
   const appUrl = getAppUrl();
   const notificationUrl = `${appUrl}/api/billing/mercado-pago/webhook`;
 
@@ -98,9 +104,9 @@ export async function createMercadoPagoSubscriptionForTenant({
   const updated = await prisma.subscription.update({
     where: { id: tenant.subscription.id },
     data: {
-      unitsSnapshot: price.units,
-      priceCents: price.priceCents,
-      currency: price.currency,
+      ...(tenant.subscription.pendingPriceCents === null
+        ? { unitsSnapshot: price.units, priceCents: price.priceCents, currency: price.currency }
+        : {}),
       autoRenew: true,
       mercadoPagoPreapprovalId: preapproval.id,
       mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || null,
@@ -197,6 +203,27 @@ export async function disableAutoRenewForTenant({
   return updated;
 }
 
+export async function updateMercadoPagoPreapprovalAmount({
+  preapprovalId,
+  priceCents,
+  currency,
+}: {
+  preapprovalId: string;
+  priceCents: number;
+  currency: string;
+}) {
+  await mercadoPagoRequest(`/preapproval/${preapprovalId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: priceCents / 100,
+        currency_id: currency,
+      },
+    }),
+  });
+}
 async function getMercadoPagoPreapproval(id: string) {
   return mercadoPagoRequest<MercadoPagoPreapproval>(`/preapproval/${id}`);
 }
@@ -288,7 +315,7 @@ async function upsertMercadoPagoPayment({
   date,
   topic,
 }: {
-  subscription: { id: string; tenantId: string; currentPeriodEnd: Date; priceCents: number; currency: string };
+  subscription: { id: string; tenantId: string; currentPeriodEnd: Date; priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot: number | null; pendingPriceCents: number | null; pendingCurrency: string | null };
   externalId: string;
   amount?: number;
   currency?: string;
@@ -328,6 +355,16 @@ async function upsertMercadoPagoPayment({
   });
 
   const nextSubscriptionStatus = paymentStatusToSubscriptionStatus(status);
+  const pendingTerms =
+    status === "APPROVED" &&
+    subscription.pendingUnitsSnapshot !== null &&
+    subscription.pendingPriceCents !== null
+      ? {
+          unitsSnapshot: subscription.pendingUnitsSnapshot,
+          priceCents: subscription.pendingPriceCents,
+          currency: subscription.pendingCurrency || subscription.currency,
+        }
+      : null;
   const subscriptionUpdate = status === "APPROVED"
     ? {
         status: nextSubscriptionStatus,
@@ -335,6 +372,15 @@ async function upsertMercadoPagoPayment({
         currentPeriodEnd: periodEnd,
         graceEndsAt: null,
         lastWebhookAt: now,
+        ...(pendingTerms
+          ? {
+              ...pendingTerms,
+              pendingUnitsSnapshot: null,
+              pendingPriceCents: null,
+              pendingCurrency: null,
+              pendingPriceEffectiveAt: null,
+            }
+          : {}),
       }
     : {
         status: nextSubscriptionStatus,
