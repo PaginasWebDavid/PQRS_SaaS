@@ -123,12 +123,15 @@ export async function PATCH(
     if (isPqrsTakenByAdministration(pqrs)) {
       return NextResponse.json({ error: "La solicitud ya fue tomada por administracion y no puede editarse" }, { status: 409 });
     }
+    if (pqrs.editadoPorResidente) {
+      return NextResponse.json({ error: "Ya editaste esta solicitud una vez; no puede editarse de nuevo" }, { status: 409 });
+    }
     const descripcion = String(body.descripcion || "").trim();
     if (!descripcion) return NextResponse.json({ error: "La descripcion es obligatoria" }, { status: 400 });
     if (descripcion.split(/s+/).length > 300) return NextResponse.json({ error: "La descripcion no puede superar 300 palabras" }, { status: 400 });
     const updated = await prisma.pqrs.update({
       where: { id: pqrs.id },
-      data: { descripcion },
+      data: { descripcion, editadoPorResidente: true },
       include: { historial: { orderBy: { creadoAt: "asc" } }, fotos: { orderBy: { orden: "asc" } } },
     });
     await prisma.historialPqrs.create({

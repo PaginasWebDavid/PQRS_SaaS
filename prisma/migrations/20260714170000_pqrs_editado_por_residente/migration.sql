@@ -1,0 +1,1 @@
+ALTER TABLE "Pqrs" ADD COLUMN "editadoPorResidente" BOOLEAN NOT NULL DEFAULT false;

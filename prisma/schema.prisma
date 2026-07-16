@@ -286,10 +286,12 @@ model Pqrs {
   apto                          Int
   nombreResidente               String
   tipoPqrs                      TipoPqrs?
+  titulo                        String?
   asunto                        String?
   subAsunto                     String?
   prioridad                     Prioridad       @default(MEDIA)
   descripcion                   String          @db.Text
+  editadoPorResidente           Boolean         @default(false)
   numeroRadicacion              String?         @unique
 
   // Gestion por asistente/admin

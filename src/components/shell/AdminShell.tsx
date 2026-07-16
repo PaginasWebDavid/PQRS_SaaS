@@ -1,9 +1,14 @@
 ﻿'use client';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { BrandLockup } from './Logo';
 import { useIsMobile } from './Sheet';
+
+function logout() {
+  void signOut({ callbackUrl: '/auth/login' });
+}
 
 export type NavItem = { href: string; label: string; key: string };
 
@@ -93,7 +98,7 @@ export function AdminShell({
               <div style={{ fontSize: 12.5, fontWeight: 800, lineHeight: 1.2 }}>{displayName}</div>
               <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>{displayRole}</div>
             </div>
-            <Link href="/auth/login" style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted }}>Salir</Link>
+            <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
           </div>
         </div>
       )}
@@ -110,7 +115,7 @@ export function AdminShell({
             <div style={{ marginTop: 'auto', borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 34, height: 34, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{displayInitials}</div>
               <div style={{ flex: 1 }}><div style={{ fontSize: 12.5, fontWeight: 800 }}>{displayName}</div><div style={{ fontSize: 11, color: COLORS.textMuted }}>{displayRole}</div></div>
-              <Link href="/auth/login" style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted }}>Salir</Link>
+              <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
             </div>
           </div>
         </>

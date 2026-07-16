@@ -31,6 +31,19 @@ export async function POST(req: NextRequest) {
     await prisma.tenant.update({ where: { id: tenantId }, data: { name: tenantName, city: city || null } });
   }
 
+  let bloque: number | undefined;
+  let apto: number | undefined;
+  if (session.user.role === "RESIDENTE") {
+    bloque = Number(body.bloque ?? current.bloque);
+    apto = Number(body.apto ?? current.apto);
+    if (!Number.isInteger(bloque) || bloque < 1 || bloque > 999) {
+      return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
+    }
+    if (!Number.isInteger(apto) || apto < 1 || apto > 9999) {
+      return NextResponse.json({ error: "Apartamento invalido" }, { status: 400 });
+    }
+  }
+
   let invitationResult: { emailSent: boolean; error?: string | null } | null = null;
   if (session.user.role === "ADMIN" && body.inviteEmail) {
     try {
@@ -46,8 +59,12 @@ export async function POST(req: NextRequest) {
 
   const completedAt = new Date();
   const user = await prisma.user.update({
-    where: { id: session.user.id }, data: { name, phone, onboardingCompletedAt: completedAt },
-    select: { id: true, name: true, role: true, tenantId: true, onboardingCompletedAt: true },
+    where: { id: session.user.id },
+    data: {
+      name, phone, onboardingCompletedAt: completedAt,
+      ...(session.user.role === "RESIDENTE" ? { bloque, apto } : {}),
+    },
+    select: { id: true, name: true, role: true, tenantId: true, bloque: true, apto: true, onboardingCompletedAt: true },
   });
   await registerAuditLog({
     actorUserId: session.user.id, tenantId, action: AuditAction.ONBOARDING_COMPLETED,

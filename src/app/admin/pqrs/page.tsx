@@ -10,7 +10,7 @@ import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
 type Pqrs = {
-  id: string; numero: number; asunto?: string | null; descripcion: string; nombreResidente: string;
+  id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
   bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
   notaPrimerContacto?: string | null;
   faseActual?: number | null; faseTipo?: FaseTipo | null;
@@ -18,6 +18,7 @@ type Pqrs = {
   fase1Inicio?: string | null; fase2Inicio?: string | null; fase3Inicio?: string | null; fase4Inicio?: string | null; fase5Inicio?: string | null;
   accionTomada?: string | null; evidenciaCierre?: string | null; queSeHizoParaCerrar?: string | null;
   evidenciaArchivoNombre?: string | null; evidenciaArchivoPath?: string | null; evidenciaArchivoUrl?: string | null;
+  editadoPorResidente?: boolean;
   creadoPor?: { name?: string | null } | null;
 };
 
@@ -102,6 +103,7 @@ function ModuloPqrsPageContent() {
   const { toast, showToast } = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [newTitulo, setNewTitulo] = useState('');
   const [newSubject, setNewSubject] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newResident, setNewResident] = useState('');
@@ -129,14 +131,14 @@ function ModuloPqrsPageContent() {
   async function load() { setLoading(true); const res = await fetch('/api/pqrs'); if (res.ok) setData(await res.json()); setLoading(false); }
   useEffect(() => { load().catch(() => setLoading(false)); }, []);
 
-  const filtered = useMemo(() => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))), [data, filter, search]);
+  const filtered = useMemo(() => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))), [data, filter, search]);
   const selected = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
 
   async function submitCreate() {
-    if (!newDescription.trim() || !newResident.trim() || !newBloque || !newApto) return;
-    const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ asunto: newSubject || null, descripcion: newDescription, nombreResidente: newResident, bloque: newBloque, apto: newApto }) });
+    if (!newTitulo.trim() || !newDescription.trim() || !newResident.trim() || !newBloque || !newApto) return;
+    const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: newTitulo.trim(), asunto: newSubject || null, descripcion: newDescription, nombreResidente: newResident, bloque: newBloque, apto: newApto }) });
     if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo crear la PQRS'); return; }
-    const created = await res.json(); setCreateOpen(false); setNewSubject(''); setNewDescription(''); setNewResident(''); setNewBloque(''); setNewApto(''); await load(); setSelectedId(created.id); showToast('PQRS creada ✓');
+    const created = await res.json(); setCreateOpen(false); setNewTitulo(''); setNewSubject(''); setNewDescription(''); setNewResident(''); setNewBloque(''); setNewApto(''); await load(); setSelectedId(created.id); showToast('PQRS creada ✓');
   }
 
   function openContact() {
@@ -269,7 +271,10 @@ function ModuloPqrsPageContent() {
               style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
             >
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
-              <span style={{ flex: 1, minWidth: 120, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1D1D1F' }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</span>
+              <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
+              </span>
               <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: 100, flexShrink: 0 }}>{p.nombreResidente}</span>
               <span style={badge(p.estado)}>{label(p.estado)}</span>
             </button>
@@ -283,7 +288,8 @@ function ModuloPqrsPageContent() {
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{code(selected.numero)}</span>
                 <span style={badge(selected.estado)}>{label(selected.estado)}</span>
               </div>
-              <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 18px' }}>{selected.asunto ? (ASUNTO_LABEL[selected.asunto] || selected.asunto) : 'Solicitud'}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
+              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{selected.asunto ? (ASUNTO_LABEL[selected.asunto] || selected.asunto) : 'Sin categoría'}</span></div>
 
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 22 }}>
                 {STAGE_LABELS.map((stageLabel, i) => {
@@ -318,7 +324,10 @@ function ModuloPqrsPageContent() {
                 <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>CREADA POR</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.creadoPor?.name || 'Residente'}</div></div>
               </div>
 
-              <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 5 }}>DESCRIPCIÓN</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>DESCRIPCIÓN</div>
+                {selected.editadoPorResidente && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Editada por el residente</span>}
+              </div>
               <p style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 500, lineHeight: 1.55, margin: '0 0 20px' }}>{selected.descripcion}</p>
 
               <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>Seguimiento</div>
@@ -364,6 +373,8 @@ function ModuloPqrsPageContent() {
           <CloseButton onClick={() => setCreateOpen(false)} />
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Radica una nueva solicitud real en la base de datos.</p>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Título</label>
+        <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría (opcional)</label>
         <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: '#FFFFFF' }}>
           <option value="">Sin categoría todavía</option>
