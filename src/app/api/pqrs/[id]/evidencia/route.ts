@@ -24,7 +24,6 @@ export async function GET(
     select: {
       evidenciaArchivoData: true,
       evidenciaArchivoPath: true,
-      evidenciaArchivoUrl: true,
       evidenciaArchivoNombre: true,
       evidenciaArchivoTipo: true,
       creadoPorId: true,
@@ -39,7 +38,7 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  if (!pqrs.evidenciaArchivoPath && !pqrs.evidenciaArchivoData && !pqrs.evidenciaArchivoUrl) {
+  if (!pqrs.evidenciaArchivoPath && !pqrs.evidenciaArchivoData) {
     return NextResponse.json({ error: "No hay archivo" }, { status: 404 });
   }
 
@@ -50,11 +49,7 @@ export async function GET(
     const base64Data = pqrs.evidenciaArchivoData.replace(/^data:[^;]+;base64,/, "");
     buffer = Buffer.from(base64Data, "base64");
   } else {
-    const storageRes = await fetch(pqrs.evidenciaArchivoUrl as string);
-    if (!storageRes.ok) {
-      return NextResponse.json({ error: "No se pudo descargar el archivo" }, { status: 502 });
-    }
-    buffer = Buffer.from(await storageRes.arrayBuffer());
+    return NextResponse.json({ error: "El archivo legado ya no esta disponible" }, { status: 410 });
   }
 
   const filename = pqrs.evidenciaArchivoNombre || "evidencia";

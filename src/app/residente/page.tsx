@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ResidentShell } from '@/components/shell/ResidentShell';
 import { Sheet, CloseButton } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
@@ -10,7 +10,7 @@ type State = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Pqrs = {
   id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; estado: State;
   fechaRecibido: string; updatedAt: string; fechaPrimerContacto?: string | null; fechaCierre?: string | null;
-  gestionadoPorId?: string | null; numeroRadicacion?: string | null; editadoPorResidente?: boolean;
+  gestionadoPorId?: string | null; responsable?: string | null; numeroRadicacion?: string | null; editadoPorResidente?: boolean; takenByAdministration?: boolean; accionTomada?: string | null; evidenciaCierre?: string | null; queSeHizoParaCerrar?: string | null; evidenciaArchivo?: { nombre: string; tipo: string | null; size: number | null } | null;
   historial?: { id: string; nota?: string | null; estadoDespues: State; creadoAt: string }[];
   fotos?: { id: string; nombre: string; tipo: string }[];
 };
@@ -22,6 +22,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 type Notice = { id: string; title: string; message: string; resourceType?: string | null; resourceId?: string | null; readAt?: string | null; createdAt: string };
 type Ticket = { id: string; subject: string; message: string; category: string; status: 'ABIERTA' | 'RESPONDIDA' | 'CERRADA'; response: string | null; createdAt: string };
 const TICKET_STATUS_LABEL: Record<string, string> = { ABIERTA: 'Abierta', RESPONDIDA: 'Respondida', CERRADA: 'Cerrada' };
+const PQRS_PAGE_SIZE = 20;
 const ticketStatusBadge = (status: string) => status === 'ABIERTA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'RESPONDIDA' ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt);
 type Me = { user?: { name?: string | null; email?: string | null; phone?: string | null; bloque?: number | null; apto?: number | null; bloqueAptoEditado?: boolean }; tenant?: { name?: string | null }; pqrsCloseSlaDays?: number };
 type Photo = { data: string; nombre: string; tipo: string; preview: string };
@@ -59,8 +60,9 @@ export default function VistaResidentePage() {
   const [me, setMe] = useState<Me | null>(null);
   const [tab, setTab] = useState<'inicio' | 'notif' | 'perfil' | 'ayuda'>('inicio');
   const [filter, setFilter] = useState('all'); const [search, setSearch] = useState('');
+  const [pqrsPage, setPqrsPage] = useState(1); const [pqrsTotal, setPqrsTotal] = useState(0);
   const [selected, setSelected] = useState<Pqrs | null>(null); const [createOpen, setCreateOpen] = useState(false);
-  const [titulo, setTitulo] = useState(''); const [description, setDescription] = useState('');
+  const [titulo, setTitulo] = useState(''); const [description, setDescription] = useState(''); const [category, setCategory] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]); const [creating, setCreating] = useState(false);
   const [profileName, setProfileName] = useState(''); const [profilePhone, setProfilePhone] = useState('');
   const [profileBloque, setProfileBloque] = useState(''); const [profileApto, setProfileApto] = useState('');
@@ -69,19 +71,69 @@ export default function VistaResidentePage() {
   const fileRef = useRef<HTMLInputElement>(null); const { toast, showToast } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ticketSubject, setTicketSubject] = useState(''); const [ticketMessage, setTicketMessage] = useState('');
-  const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [submittingTicket, setSubmittingTicket] = useState(false); const [ticketsError, setTicketsError] = useState('');
+  const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState('');
 
+  const loadPqrs = useCallback(async (targetPage: number, targetFilter: string, targetSearch: string) => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const params = new URLSearchParams({ page: String(targetPage), pageSize: String(PQRS_PAGE_SIZE) });
+      const estado = targetFilter === 'abiertas' ? 'EN_ESPERA' : targetFilter === 'gestion' ? 'EN_PROGRESO' : targetFilter === 'resuelta' ? 'TERMINADO' : '';
+      if (estado) params.set('estado', estado);
+      if (targetSearch.trim()) params.set('search', targetSearch.trim());
+      const res = await fetch('/api/pqrs?' + params.toString(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('pqrs_load_failed');
+      const body = await res.json();
+      if (!body || !Array.isArray(body.data) || !body.pagination) throw new Error('invalid_pqrs_response');
+      setData(body.data);
+      setPqrsPage(body.pagination.page);
+      setPqrsTotal(body.pagination.total);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   async function load() {
-    const [p, n, m] = await Promise.all([fetch('/api/pqrs', { cache: 'no-store' }), fetch('/api/notifications', { cache: 'no-store' }), fetch('/api/me', { cache: 'no-store' })]);
-    if (p.ok) setData(await p.json()); if (n.ok) setNotifications(await n.json());
-    if (m.ok) {
-      const value = await m.json(); setMe(value);
-      setProfileName(value.user?.name || ''); setProfilePhone(value.user?.phone || '');
-      setProfileBloque(value.user?.bloque ? String(value.user.bloque) : ''); setProfileApto(value.user?.apto ? String(value.user.apto) : '');
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [, n, m] = await Promise.all([
+        loadPqrs(1, filter, search),
+        fetch('/api/notifications', { cache: 'no-store' }),
+        fetch('/api/me', { cache: 'no-store' }),
+      ]);
+      if (!n.ok || !m.ok) throw new Error('load_failed');
+      setNotifications(await n.json());
+      const value = await m.json(); setMe(value); setProfileName(value.user?.name || ''); setProfilePhone(value.user?.phone || '');
+      setProfileBloque(value.user?.bloque ? String(value.user?.bloque) : ''); setProfileApto(value.user?.apto ? String(value.user?.apto) : '');
+    } catch {
+      setLoadError('No pudimos cargar tus datos. Revisa tu conexion e intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
   }
+  // load intentionally runs once on mount; filter/search changes use the debounced paginated loader below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, []);
-  async function loadTickets() { const res = await fetch('/api/support-tickets', { cache: 'no-store' }); if (res.ok) setTickets(await res.json()); }
+  const skipFilterLoad = useRef(true);
+  useEffect(() => {
+    if (skipFilterLoad.current) { skipFilterLoad.current = false; return; }
+    const timer = window.setTimeout(() => {
+      void loadPqrs(1, filter, search).catch(() => setLoadError('No pudimos cargar tus solicitudes. Revisa tu conexion e intenta de nuevo.'));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [filter, search, loadPqrs]);
+  async function loadTickets() {
+    setTicketsError('');
+    try {
+      const res = await fetch('/api/support-tickets', { cache: 'no-store' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(body)) throw new Error('tickets_load_failed');
+      setTickets(body);
+    } catch {
+      setTicketsError('No pudimos cargar tus solicitudes de ayuda. Revisa tu conexion e intenta de nuevo.');
+    }
+  }
   useEffect(() => { if (tab === 'ayuda') void loadTickets(); }, [tab]);
   async function submitTicket() {
     if (submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()) return;
@@ -94,9 +146,18 @@ export default function VistaResidentePage() {
       setSubmittingTicket(false);
     }
   }
-  async function openDetail(id: string) { const res = await fetch('/api/pqrs/' + id, { cache: 'no-store' }); const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo abrir'); setSelected(body); setEditDescription(body.descripcion); }
-  const taken = selected ? selected.estado !== 'EN_ESPERA' || !!selected.fechaPrimerContacto || !!selected.gestionadoPorId || !!selected.numeroRadicacion : false;
-  const filtered = useMemo(() => data.filter((d) => (filter === 'all' || (filter === 'abiertas' && d.estado === 'EN_ESPERA') || (filter === 'gestion' && d.estado === 'EN_PROGRESO') || (filter === 'resuelta' && d.estado === 'TERMINADO')) && (!search || (d.numero + ' ' + (d.titulo || '') + ' ' + d.descripcion).toLowerCase().includes(search.toLowerCase()))), [data, filter, search]);
+  async function openDetail(id: string) {
+    try {
+      const res = await fetch('/api/pqrs/' + id, { cache: 'no-store' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) return showToast(body?.error || 'No se pudo abrir');
+      setSelected(body); setEditDescription(body.descripcion);
+    } catch {
+      showToast('No se pudo conectar para abrir la solicitud');
+    }
+  }
+  const taken = selected ? selected.takenByAdministration ?? (selected.estado !== 'EN_ESPERA' || !!selected.fechaPrimerContacto || !!selected.gestionadoPorId || !!selected.numeroRadicacion) : false;
+  const filtered = data;
   const active = data.filter((d) => d.estado !== 'TERMINADO'); const name = me?.user?.name || 'Residente'; const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   const slaDays = me?.pqrsCloseSlaDays ?? 7;
 
@@ -107,27 +168,45 @@ export default function VistaResidentePage() {
     });
   }
   async function create() {
-    if (creating || !titulo.trim() || !description.trim()) return;
+    if (creating || !titulo.trim() || !category || !description.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: titulo.trim(), descripcion: description.trim(), fotos: photos.map(({ data, nombre, tipo }) => ({ data, nombre, tipo })) }) });
+      const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: titulo.trim(), asunto: category, descripcion: description.trim(), fotos: photos.map(({ data, nombre, tipo }) => ({ data, nombre, tipo })) }) });
       const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo enviar');
-      setCreateOpen(false); setTitulo(''); setDescription(''); setPhotos([]); await load(); showToast('Tu solicitud fue enviada');
+      setCreateOpen(false); setTitulo(''); setCategory(''); setDescription(''); setPhotos([]); await load(); showToast('Tu solicitud fue enviada');
+    } catch {
+      showToast('No se pudo conectar para enviar la solicitud');
     } finally {
       setCreating(false);
     }
   }
   async function saveEdit() {
-    if (!selected) return; const res = await fetch('/api/pqrs/' + selected.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: editDescription }) });
-    const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo editar');
-    setSelected(body); setEditing(false); await load(); showToast('Solicitud actualizada');
+    if (!selected) return;
+    try {
+      const res = await fetch('/api/pqrs/' + selected.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: editDescription }) });
+      const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo editar');
+      setSelected(body); setEditing(false); await load(); showToast('Solicitud actualizada');
+    } catch {
+      showToast('No se pudo conectar para editar la solicitud');
+    }
   }
   async function markRead(notice: Notice) {
-    if (!notice.readAt) await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: notice.id }) });
+    if (!notice.readAt) {
+      try {
+        const res = await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: notice.id }) });
+        const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo marcar la notificacion');
+      } catch { return showToast('No se pudo conectar para marcar la notificacion'); }
+    }
     setNotifications((v) => v.map((n) => n.id === notice.id ? { ...n, readAt: n.readAt || new Date().toISOString() } : n));
     if (notice.resourceType === 'Pqrs' && notice.resourceId) void openDetail(notice.resourceId);
   }
-  async function markAll() { await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) }); setNotifications((v) => v.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))); }
+  async function markAll() {
+    try {
+      const res = await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) });
+      const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudieron actualizar las notificaciones');
+      setNotifications((v) => v.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+    } catch { showToast('No se pudo conectar para actualizar las notificaciones'); }
+  }
   const bloqueAptoLocked = Boolean(me?.user?.bloqueAptoEditado);
   async function saveProfile() {
     if (savingProfile) return;
@@ -171,7 +250,14 @@ export default function VistaResidentePage() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
           {[['all', 'Todas'], ['abiertas', 'En espera'], ['gestion', 'En proceso'], ['resuelta', 'Terminada']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
-        {filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
+        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: 16, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'AÃºn no tienes solicitudes. Crea la primera con el botÃ³n de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
+        {!loading && !loadError && pqrsTotal > PQRS_PAGE_SIZE && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
+            <button type='button' disabled={pqrsPage <= 1} onClick={() => void loadPqrs(pqrsPage - 1, filter, search)} style={{ ...secondary, width: 'auto', minWidth: 100, opacity: pqrsPage <= 1 ? 0.5 : 1 }}>Anterior</button>
+            <span style={{ color: COLORS.textSecondary, fontSize: 12.5, fontWeight: 600 }}>Pagina {pqrsPage} de {Math.ceil(pqrsTotal / PQRS_PAGE_SIZE)}</span>
+            <button type='button' disabled={pqrsPage >= Math.ceil(pqrsTotal / PQRS_PAGE_SIZE)} onClick={() => void loadPqrs(pqrsPage + 1, filter, search)} style={{ ...secondary, width: 'auto', minWidth: 100, opacity: pqrsPage >= Math.ceil(pqrsTotal / PQRS_PAGE_SIZE) ? 0.5 : 1 }}>Siguiente</button>
+          </div>
+        )}
       </div>
     )}
 
@@ -223,7 +309,7 @@ export default function VistaResidentePage() {
           <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>
-        {tickets.length === 0 ? <Empty text="Aún no has enviado ninguna solicitud." /> : tickets.map((t) => (
+        {ticketsError ? <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600 }}>{ticketsError}<button type='button' onClick={() => void loadTickets()} style={{ ...secondary, width: 'auto', marginTop: 10 }}>Intentar de nuevo</button></div> : tickets.length === 0 ? <Empty text='Aun no has enviado ninguna solicitud.' /> : tickets.map((t) => (
           <div key={t.id} style={{ background: '#FFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <b style={{ fontSize: 13.5 }}>{t.subject}</b>
@@ -245,11 +331,16 @@ export default function VistaResidentePage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>Nueva solicitud</h2><CloseButton onClick={() => setCreateOpen(false)} /></div>
       <Label>Título</Label>
       <input value={titulo} onChange={(e) => setTitulo(e.target.value.slice(0, 80))} placeholder="Ej. Goteras en el techo del pasillo" style={inputStyle} />
+      <Label>Categoria</Label>
+      <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
+        <option value="">Selecciona una categoria</option>
+        {Object.entries(CATEGORY_LABEL).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+      </select>
       <Label>Descripción</Label>
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe la situación, incluyendo la ubicación exacta si ayuda" rows={5} style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
       <input ref={fileRef} hidden type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => selectPhotos(e.target.files)} />
       <button onClick={() => fileRef.current?.click()} style={secondary}>Adjuntar evidencias ({photos.length}/3)</button>
-      <button onClick={create} disabled={creating || !titulo.trim() || !description.trim()} style={primary}>{creating ? 'Enviando…' : 'Enviar solicitud'}</button>
+      <button onClick={create} disabled={creating || !titulo.trim() || !category || !description.trim()} style={primary}>{creating ? 'Enviando…' : 'Enviar solicitud'}</button>
     </Sheet>
 
     <Sheet open={!!selected} onClose={() => { setSelected(null); setEditing(false); }} maxWidth={560}>
@@ -267,6 +358,14 @@ export default function VistaResidentePage() {
         {!taken && !selected.editadoPorResidente && !editing && <button onClick={() => setEditing(true)} style={secondary}>Editar solicitud</button>}
         {taken && <p style={{ fontSize: 12, color: COLORS.textMuted }}>La administración ya tomó esta solicitud; su contenido quedó bloqueado.</p>}
         {!taken && selected.editadoPorResidente && !editing && <p style={{ fontSize: 12, color: COLORS.textMuted }}>Ya editaste esta solicitud una vez; no puede editarse de nuevo.</p>}
+        {selected.responsable && <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '18px 0 0' }}>Responsable: <b>{selected.responsable}</b></p>}
+        {(selected.accionTomada || selected.evidenciaCierre || selected.queSeHizoParaCerrar) && <div style={{ background: COLORS.successSoft, borderRadius: 14, padding: '14px 16px', marginTop: 16 }}>
+          <b style={{ fontSize: 13.5, color: COLORS.success }}>Respuesta de la administracion</b>
+          {selected.accionTomada && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.accionTomada}</p>}
+          {selected.queSeHizoParaCerrar && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.queSeHizoParaCerrar}</p>}
+          {selected.evidenciaCierre && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.evidenciaCierre}</p>}
+          {selected.evidenciaArchivo && <a href={'/api/pqrs/' + selected.id + '/evidencia'} target="_blank" style={{ display: 'block', color: COLORS.navy, fontWeight: 700, marginTop: 8 }}>Ver archivo de cierre: {selected.evidenciaArchivo.nombre}</a>}
+        </div>}
         {selected.fotos?.map((f) => <a key={f.id} href={'/api/pqrs/' + selected.id + '/fotos/' + f.id} target="_blank" style={{ display: 'block', color: COLORS.navy, fontWeight: 700, marginTop: 8 }}>Ver evidencia: {f.nombre}</a>)}
         <h3 style={{ marginTop: 24, fontSize: 14 }}>Historial</h3>
         {selected.historial?.map((h) => <div key={h.id} style={{ borderLeft: '2px solid ' + COLORS.navySoft, padding: '4px 0 12px 14px' }}><b style={{ fontSize: 12.5 }}>{label(h.estadoDespues)}</b><p style={{ margin: '3px 0', fontSize: 12.5, color: COLORS.textSecondary }}>{h.nota || 'Actualización registrada'}</p><small style={{ color: COLORS.textMuted }}>{fmt(h.creadoAt)}</small></div>)}

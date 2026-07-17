@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
@@ -101,7 +102,7 @@ export default function ConsejoCuentaPage() {
           <div style={card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
               <div style={{ width: 64, height: 64, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, overflow: 'hidden', flexShrink: 0 }}>
-                {image ? <img src={image} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
+                {image ? <Image src={image} alt="Foto de perfil" width={64} height={64} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
               </div>
               <div>
                 <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAvatar(f); }} />

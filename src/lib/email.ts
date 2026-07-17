@@ -79,7 +79,8 @@ async function logEmailAttempt({
 export async function sendEmail({ to, subject, html, attachments, tenantId, template = "generic" }: SendEmailOptions) {
   const transactionalEmailEnabled = await isFeatureEnabled("transactionalEmailEnabled");
   if (!transactionalEmailEnabled) {
-    return logEmailAttempt({ tenantId, recipient: to, template, status: "SKIPPED" });
+    await logEmailAttempt({ tenantId, recipient: to, template, status: "SKIPPED" });
+    return { skipped: true as const };
   }
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -113,7 +114,10 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     const response = await fetch("https://api.resend.com/emails", {
+      signal: controller.signal,
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -122,6 +126,7 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
       body: JSON.stringify(payload),
     });
 
+    clearTimeout(timeout);
     if (!response.ok) {
       const detail = await response.text();
       throw new Error(`Error enviando correo con Resend: ${detail}`);
@@ -132,7 +137,9 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
     await logEmailAttempt({ tenantId, recipient: to, template, status: "SENT", providerMessageId });
     return data;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido enviando correo";
+    const errorMessage = error instanceof Error && error.name === "AbortError"
+      ? "Tiempo de espera agotado enviando correo con Resend"
+      : error instanceof Error ? error.message : "Error desconocido enviando correo";
     await logEmailAttempt({ tenantId, recipient: to, template, status: "FAILED", errorMessage });
     throw error;
   }
@@ -141,6 +148,9 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
 export async function sendEmailSafe(options: SendEmailOptions): Promise<EmailResult> {
   try {
     const result = await sendEmail(options);
+    if (result && typeof result === "object" && "skipped" in result && result.skipped === true) {
+      return { ok: false, errorMessage: "El correo transaccional esta desactivado" };
+    }
     return { ok: true, providerMessageId: typeof result?.id === "string" ? result.id : null };
   } catch (error) {
     return {

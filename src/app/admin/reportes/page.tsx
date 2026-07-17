@@ -175,14 +175,21 @@ export default function ModuloReportesPage() {
   };
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    const params = buildParams();
-    fetch(`/api/reportes?${params.toString()}`, { cache: 'no-store' })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((d: ReportData) => { setData(d); setQuickFilter(null); })
-      .catch(() => setError('No se pudieron cargar los reportes. Intenta de nuevo.'))
-      .finally(() => setLoading(false));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError('');
+      const params = buildParams();
+      fetch('/api/reportes?' + params.toString(), { cache: 'no-store', signal: controller.signal })
+        .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+        .then((d: ReportData) => { setData(d); setQuickFilter(null); })
+        .catch((reason: unknown) => {
+          if (reason instanceof DOMException && reason.name === 'AbortError') return;
+          setError('No se pudieron cargar los reportes. Intenta de nuevo.');
+        })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset, customFrom, customTo, comparisonMode, estado, asunto, prioridad, bloque, gestionadoPorId, cumplimiento]);
 
@@ -207,12 +214,12 @@ export default function ModuloReportesPage() {
     setTimeout(() => document.getElementById('tabla-detallada')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  const tableRows = quickFilter ? (data?.alertCases[quickFilter.key] || []) : (data?.detalle || []);
   const q = tableSearch.trim().toLowerCase();
   const filteredTableRows = useMemo(() => {
+    const tableRows = quickFilter ? (data?.alertCases[quickFilter.key] || []) : (data?.detalle || []);
     const rows = tableRows.filter((r) => !q || `${r.numeroRadicacion || r.numero} ${r.solicitante} ${r.categoria}`.toLowerCase().includes(q));
     return [...rows].sort((a, b) => sortKey === 'fecha' ? new Date(b.fechaRecibido).getTime() - new Date(a.fechaRecibido).getTime() : (b.tiempoCierre ?? -1) - (a.tiempoCierre ?? -1));
-  }, [tableRows, q, sortKey]);
+  }, [data, quickFilter, q, sortKey]);
 
   async function downloadExcel() {
     setExporting(true);

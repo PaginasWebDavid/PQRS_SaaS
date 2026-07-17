@@ -47,7 +47,13 @@ export default function ConfiguracionConjuntoPage() {
 
   async function saveTenant() {
     const res = await fetch('/api/tenant', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, city, address }) });
-    showToast(res.ok ? 'Configuración guardada ✓' : 'No se pudo guardar la configuración');
+    const body = await res.json().catch(() => null);
+    if (res.ok) {
+      setSettings((current) => current ? { ...current, tenant: body } : current);
+      showToast('Configuración guardada ✓');
+    } else {
+      showToast(body?.error || 'No se pudo guardar la configuración');
+    }
   }
 
   const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: '#FFFFFF' };

@@ -219,12 +219,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500, marginTop: 28, textAlign: 'center', lineHeight: 1.6 }}>
-            ¿Eres residente y necesitas crear una cuenta?
-            <br />
-            <Link href="/auth/registro" style={{ fontWeight: 700 }}>
-              Regístrate como residente
-            </Link>
+          <p style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500, marginTop: 28, textAlign: "center", lineHeight: 1.6 }}>
+            El acceso se activa con una invitacion enviada por el administrador de tu conjunto.
           </p>
 
           <p style={{ fontSize: 12, color: '#C7C7CC', fontWeight: 500, marginTop: 28, textAlign: 'center' }}>

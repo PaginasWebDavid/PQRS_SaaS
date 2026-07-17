@@ -9,6 +9,12 @@ export function resolvePeriod(params: URLSearchParams) {
   const now = new Date();
   const preset = params.get("preset") || "last30";
   const comparisonMode = params.get("comparisonMode") || "previous";
+  const parseDateParam = (value: string | null, fallback: Date, label: string) => {
+    if (!value) return fallback;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) throw new Error(label + " invalida");
+    return parsed;
+  };
 
   let from: Date;
   let to: Date;
@@ -16,9 +22,9 @@ export function resolvePeriod(params: URLSearchParams) {
   if (preset === "custom") {
     const customFrom = params.get("from");
     const customTo = params.get("to");
-    from = customFrom ? new Date(customFrom) : new Date(now.getFullYear(), now.getMonth(), 1);
+    from = parseDateParam(customFrom, new Date(now.getFullYear(), now.getMonth(), 1), "Fecha inicial");
     from.setHours(0, 0, 0, 0);
-    const toBase = customTo ? new Date(customTo) : new Date(now);
+    const toBase = parseDateParam(customTo, new Date(now), "Fecha final");
     to = new Date(toBase);
     to.setHours(0, 0, 0, 0);
     to.setDate(to.getDate() + 1);
@@ -52,6 +58,8 @@ export function resolvePeriod(params: URLSearchParams) {
     from = new Date(to); from.setDate(from.getDate() - 30);
   }
 
+  if (to.getTime() <= from.getTime()) throw new Error("El periodo debe tener una fecha final posterior a la inicial");
+
   const spanMs = to.getTime() - from.getTime();
   let compareFrom: Date;
   let compareTo: Date;
@@ -59,8 +67,8 @@ export function resolvePeriod(params: URLSearchParams) {
   const compareToParam = params.get("compareTo");
 
   if (comparisonMode === "custom" && compareFromParam && compareToParam) {
-    compareFrom = new Date(compareFromParam);
-    compareTo = new Date(compareToParam);
+    compareFrom = parseDateParam(compareFromParam, new Date(from), "Fecha inicial de comparacion");
+    compareTo = parseDateParam(compareToParam, new Date(to), "Fecha final de comparacion");
   } else if (comparisonMode === "lastYear") {
     compareFrom = new Date(from); compareFrom.setFullYear(compareFrom.getFullYear() - 1);
     compareTo = new Date(to); compareTo.setFullYear(compareTo.getFullYear() - 1);
@@ -70,6 +78,8 @@ export function resolvePeriod(params: URLSearchParams) {
   }
 
   const granularityParam = params.get("granularity") as Granularity | null;
+  const allowedGranularities: Granularity[] = ["day", "week", "month", "quarter"];
+  if (granularityParam && !allowedGranularities.includes(granularityParam)) throw new Error("Granularidad invalida");
   const granularity: Granularity = granularityParam || (spanMs > 1000 * 60 * 60 * 24 * 180 ? "month" : spanMs > 1000 * 60 * 60 * 24 * 60 ? "week" : "day");
 
   return { from, to, compareFrom, compareTo, granularity };

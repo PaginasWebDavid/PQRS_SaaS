@@ -11,9 +11,20 @@ export async function updateManagedUser({
   bloque?: number | null; apto?: number | null; origin?: string | null;
 }) {
   if (role && !MANAGEABLE_ROLES.includes(role)) throw new Error("Rol invalido");
+  const normalizeLocation = (value: number | null | undefined, label: string, max: number) => {
+    if (value === undefined || value === null) return value;
+    if (!Number.isInteger(value) || value < 1 || value > max) throw new Error(label + " invalido");
+    return value;
+  };
+  bloque = normalizeLocation(bloque, "Bloque", 999);
+  apto = normalizeLocation(apto, "Apartamento", 9999);
   if (targetUserId === actorUserId && ((role && role !== "ADMIN") || isActive === false)) throw new Error("No puedes cambiar tu propio rol ni desactivar tu cuenta");
   const target = await prisma.user.findFirst({ where: { id: targetUserId, tenantId }, select: { id: true, role: true, isActive: true } });
   if (!target) throw new Error("Usuario no encontrado");
+  if (target.role === "ADMIN" && target.isActive && ((role && role !== "ADMIN") || isActive === false)) {
+    const activeAdmins = await prisma.user.count({ where: { tenantId, role: "ADMIN", isActive: true } });
+    if (activeAdmins <= 1) throw new Error("El conjunto debe conservar al menos un administrador activo");
+  }
   const user = await prisma.user.update({
     where: { id: targetUserId },
     data: {

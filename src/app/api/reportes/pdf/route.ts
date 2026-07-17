@@ -22,8 +22,11 @@ function fmtDate(date: Date | null) {
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role === "RESIDENTE" || session.user.role === "SUPER_ADMIN") {
+  if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (!["ADMIN", "CONSEJO"].includes(session.user.role)) {
+    return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
   const tenantAccessResponse = await getTenantAccessResponse(session);
   if (tenantAccessResponse) return tenantAccessResponse;

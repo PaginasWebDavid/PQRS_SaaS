@@ -1,7 +1,7 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { getTenantIdFromSession, updateTenantSettingsForAdmin } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { getGeneralSettings, getIntegrationStatus } from "@/domains/platform/platform-setting.service";
 
@@ -42,16 +42,21 @@ export async function PATCH(req: NextRequest) {
   const tenantAccessResponse = await getTenantAccessResponse(session);
   if (tenantAccessResponse) return tenantAccessResponse;
 
-  const tenantId = getTenantIdFromSession(session);
   const body = await req.json();
-  const tenant = await prisma.tenant.update({
-    where: { id: tenantId },
-    data: {
-      name: typeof body.name === "string" ? body.name.trim() : undefined,
-      city: typeof body.city === "string" ? body.city.trim() || null : undefined,
-      address: typeof body.address === "string" ? body.address.trim() || null : undefined,
-    },
-    select: { id: true, name: true, slug: true, city: true, address: true, units: true, status: true },
-  });
-  return NextResponse.json(tenant);
+  try {
+    const tenant = await updateTenantSettingsForAdmin({
+      tenantId: getTenantIdFromSession(session),
+      actorUserId: session.user.id,
+      name: body.name,
+      city: body.city,
+      address: body.address,
+      origin: req.headers.get("x-forwarded-for") || req.headers.get("user-agent") || "api",
+    });
+    return NextResponse.json(tenant);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "No se pudo guardar la configuracion" },
+      { status: 400 }
+    );
+  }
 }

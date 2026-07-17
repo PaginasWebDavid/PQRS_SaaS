@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
@@ -15,8 +15,7 @@ export type NavItem = { href: string; label: string; key: string };
 const BLOCKING_STATUSES = ['PENDING_PAYMENT', 'SUSPENDED', 'CANCELLED'];
 
 export function AdminShell({
-  navItems, activeKey, conjuntoName = 'Parque Residencial Calle 100', licenseActive = true,
-  userName, userRole, initials, mobileTitle, children,
+  navItems, activeKey, mobileTitle, children,
 }: {
   navItems: NavItem[]; activeKey: string; conjuntoName?: string; licenseActive?: boolean;
   userName: string; userRole: string; initials: string; mobileTitle: string; children: ReactNode;
@@ -24,21 +23,23 @@ export function AdminShell({
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profile, setProfile] = useState<{ user?: { name?: string | null; role?: string | null }; tenant?: { name?: string | null; status?: string | null }; licenseSummary?: { status?: string | null } | null } | null>(null);
+  const [profileError, setProfileError] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/me').then((res) => res.ok ? res.json() : null).then((data) => { if (alive) setProfile(data); }).catch(() => {});
+    fetch('/api/me').then((res) => { if (!res.ok) throw new Error('profile'); return res.json(); }).then((data) => { if (alive) setProfile(data); }).catch(() => { if (alive) setProfileError(true); });
     return () => { alive = false; };
   }, []);
 
-  const displayName = profile?.user?.name || userName;
-  const displayRole = profile?.user?.role ? roleLabel(profile.user.role) : userRole;
-  const displayTenant = profile?.tenant?.name || conjuntoName;
-  const displayInitials = useMemo(() => initialsFor(displayName, initials), [displayName, initials]);
-  const displayLicenseActive = profile?.tenant?.status ? !['SUSPENDED', 'CANCELLED'].includes(profile.tenant.status) : licenseActive;
-  const blockedStatus = profile?.tenant?.status && BLOCKING_STATUSES.includes(profile.tenant.status) ? profile.tenant.status : null;
+  const displayName = profile?.user?.name || (profileError ? 'Cuenta no disponible' : 'Cargando…');
+  const displayRole = profile?.user?.role ? roleLabel(profile.user.role) : (profileError ? 'ADMIN' : '');
+  const displayTenant = profile?.tenant?.name || (profileError ? 'Conjunto no disponible' : 'Cargando…');
+  const displayInitials = useMemo(() => initialsFor(displayName, '…'), [displayName]);
+  const currentLicenseStatus = profile?.tenant?.status || profile?.licenseSummary?.status || null;
+  const displayLicenseActive = currentLicenseStatus ? !BLOCKING_STATUSES.includes(currentLicenseStatus) : !profileError;
+  const blockedStatus = currentLicenseStatus && BLOCKING_STATUSES.includes(currentLicenseStatus) ? currentLicenseStatus : null;
 
   async function payNow() {
     setPayLoading(true);
@@ -47,7 +48,7 @@ export function AdminShell({
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createPreapproval', backUrl: '/admin/licencias' }),
+        body: JSON.stringify({ action: 'createPreapproval', backUrl: new URL('/admin/licencias', window.location.origin).toString() }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.initPoint) throw new Error(body?.error || 'No se pudo iniciar el pago');

@@ -46,11 +46,7 @@ export async function GET(
     const base64Data = foto.data.replace(/^data:[^;]+;base64,/, "");
     buffer = Buffer.from(base64Data, "base64");
   } else if (foto.url) {
-    const storageRes = await fetch(foto.url);
-    if (!storageRes.ok) {
-      return NextResponse.json({ error: "No se pudo descargar la foto" }, { status: 502 });
-    }
-    buffer = Buffer.from(await storageRes.arrayBuffer());
+    return NextResponse.json({ error: "La evidencia heredada ya no esta disponible" }, { status: 410 });
   } else {
     return NextResponse.json({ error: "No hay foto" }, { status: 404 });
   }

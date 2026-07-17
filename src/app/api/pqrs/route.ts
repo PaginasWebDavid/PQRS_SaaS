@@ -9,6 +9,7 @@ import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { pqrsScopeForUser } from "@/domains/pqrs/pqrs-permissions";
+import { toResidentPqrsView } from "@/domains/pqrs/resident-view";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -16,6 +17,9 @@ const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+
+const ESTADOS_VALIDOS = new Set(["EN_ESPERA", "EN_PROGRESO", "TERMINADO"]);
+const ASUNTOS_VALIDOS = new Set(["AREA COMUN", "AREA PRIVADA", "CONTABILIDAD", "CONVIVENCIA", "HUMEDAD/CUBIERTA", "HUMEDAD/DEPOSITO", "HUMEDAD/VENTANAS", "HUMEDAD/FACHADA", "HUMEDAD/GARAJE"]);
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -40,6 +44,14 @@ export async function GET(req: NextRequest) {
   const searchBloque = searchParams.get("bloque");
   const searchApto = searchParams.get("apto");
   const searchNumero = searchParams.get("numero");
+  const freeText = searchParams.get("search")?.trim() || "";
+  const pageParam = searchParams.get("page");
+  const pageSizeParam = searchParams.get("pageSize");
+  const paginated = pageParam !== null || pageSizeParam !== null;
+  const page = pageParam ? Number(pageParam) : 1;
+  const pageSize = pageSizeParam ? Number(pageSizeParam) : 25;
+  if (paginated && (!Number.isInteger(page) || page < 1 || page > 100000)) return NextResponse.json({ error: "Pagina invalida" }, { status: 400 });
+  if (paginated && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) return NextResponse.json({ error: "Tamano de pagina invalido" }, { status: 400 });
 
   // Construir filtros
   const where: Prisma.PqrsWhereInput = pqrsScopeForUser({ tenantId, userId: session.user.id, role: session.user.role });
@@ -51,10 +63,16 @@ export async function GET(req: NextRequest) {
     where.estado = "TERMINADO";
   }
 
+  if (estado && !ESTADOS_VALIDOS.has(estado)) {
+    return NextResponse.json({ error: "Estado invalido" }, { status: 400 });
+  }
   if (estado) {
     where.estado = estado as Prisma.EnumEstadoFilter["equals"];
   }
 
+  if (asunto && !ASUNTOS_VALIDOS.has(asunto)) {
+    return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
+  }
   if (asunto) {
     where.asunto = asunto;
   }
@@ -63,40 +81,64 @@ export async function GET(req: NextRequest) {
     where.mes = mes;
   }
 
+  const numericFilters: Array<[string | null, string, number]> = [
+    [year, "Año", 2100],
+    [searchBloque, "Bloque", 999],
+    [searchApto, "Apartamento", 99999],
+    [searchNumero, "Numero", 2147483647],
+  ];
+  for (const [value, label, max] of numericFilters) {
+    if (value && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max)) {
+      return NextResponse.json({ error: `${label} invalido` }, { status: 400 });
+    }
+  }
+
   if (year) {
-    const yearNum = parseInt(year);
+    const yearNum = Number(year);
     where.fechaRecibido = {
       gte: new Date(`${yearNum}-01-01`),
       lt: new Date(`${yearNum + 1}-01-01`),
     };
   }
 
-  if (searchBloque) {
-    where.bloque = parseInt(searchBloque);
+  if (searchBloque) where.bloque = Number(searchBloque);
+  if (searchApto) where.apto = Number(searchApto);
+  if (searchNumero) where.numero = Number(searchNumero);
+
+  if (freeText) {
+    const numericSearch = /^\d+$/.test(freeText) ? Number(freeText) : null;
+    const searchCondition: Prisma.PqrsWhereInput = {
+      OR: [
+        { titulo: { contains: freeText, mode: "insensitive" } },
+        { asunto: { contains: freeText, mode: "insensitive" } },
+        { nombreResidente: { contains: freeText, mode: "insensitive" } },
+        { descripcion: { contains: freeText, mode: "insensitive" } },
+        ...(numericSearch !== null ? [{ numero: numericSearch }, { bloque: numericSearch }, { apto: numericSearch }] : []),
+      ],
+    };
+    where.AND = [searchCondition];
   }
 
-  if (searchApto) {
-    where.apto = parseInt(searchApto);
-  }
-
-  if (searchNumero) {
-    where.numero = parseInt(searchNumero);
-  }
-
-  const pqrs = await prisma.pqrs.findMany({
+  const query = {
     where,
-    orderBy: { fechaRecibido: "desc" },
+    orderBy: { fechaRecibido: "desc" as const },
+    ...(paginated ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
     include: {
-      creadoPor: {
-        select: { name: true },
-      },
-      gestionadoPor: {
-        select: { name: true },
-      },
+      creadoPor: { select: { name: true } },
+      gestionadoPor: { select: { name: true } },
     },
-  });
-
-  return NextResponse.json(pqrs);
+  };
+  const [pqrs, total] = await Promise.all([
+    prisma.pqrs.findMany(query),
+    paginated ? prisma.pqrs.count({ where }) : Promise.resolve(0),
+  ]);
+  if (paginated) {
+    return NextResponse.json({
+      data: session.user.role === "RESIDENTE" ? pqrs.map(toResidentPqrsView) : pqrs,
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    });
+  }
+  return NextResponse.json(session.user.role === "RESIDENTE" ? pqrs.map(toResidentPqrsView) : pqrs);
 }
 
 export async function POST(req: NextRequest) {
@@ -115,18 +157,17 @@ export async function POST(req: NextRequest) {
 
   const tenantId = getTenantIdFromSession(session);
 
-  const body = await req.json();
-  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Cuerpo invalido" }, { status: 400 });
+  }
+  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body as Record<string, unknown>;
 
-  // Validaciones - solo descripcion es obligatoria
-  if (!descripcion) {
-    return NextResponse.json(
-      { error: "La descripcion es obligatoria" },
-      { status: 400 }
-    );
+  if (typeof descripcion !== "string" || descripcion.trim() === "") {
+    return NextResponse.json({ error: "La descripcion es obligatoria" }, { status: 400 });
   }
 
-  const wordCount = descripcion.trim() === "" ? 0 : descripcion.trim().split(/\s+/).length;
+  const wordCount = descripcion.trim().split(/\s+/).length;
   if (wordCount > 300) {
     return NextResponse.json(
       { error: "La descripcion no puede superar 300 palabras" },
@@ -138,19 +179,26 @@ export async function POST(req: NextRequest) {
 
   // ADMIN crea a nombre de un residente (manual)
   // RESIDENTE usa sus datos de sesion
-  const finalNombre = isAdmin ? nombreResidente : session.user.name;
-  const finalBloque = isAdmin ? parseInt(bloque) : session.user.bloque;
-  const finalApto = isAdmin ? parseInt(apto) : session.user.apto;
-
-  if (!finalNombre || !finalBloque || !finalApto) {
-    return NextResponse.json(
-      { error: "Nombre, bloque y apartamento son obligatorios" },
-      { status: 400 }
-    );
+  const finalNombre = isAdmin
+    ? typeof nombreResidente === "string" ? nombreResidente.trim() : ""
+    : session.user.name?.trim() || "";
+  if (asunto !== undefined && asunto !== null && (typeof asunto !== "string" || !ASUNTOS_VALIDOS.has(asunto))) {
+    return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
   }
+  if (!isAdmin && (typeof asunto !== "string" || !ASUNTOS_VALIDOS.has(asunto))) {
+    return NextResponse.json({ error: "Debes seleccionar una categoria" }, { status: 400 });
+  }
+  const parsePositiveInteger = (value: unknown, max: number) => {
+    const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+    if (!/^\d+$/.test(raw)) return null;
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= max ? parsed : null;
+  };
+  const finalBloque = isAdmin ? parsePositiveInteger(bloque, 999) : session.user.bloque;
+  const finalApto = isAdmin ? parsePositiveInteger(apto, 99999) : session.user.apto;
 
-  if (finalBloque < 1 || finalBloque > 999) {
-    return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
+  if (!finalNombre || finalNombre.length > 160 || finalBloque === null || finalBloque === undefined || finalApto === null || finalApto === undefined) {
+    return NextResponse.json({ error: "Nombre, bloque y apartamento son obligatorios y validos" }, { status: 400 });
   }
 
   // Validar fotos opcionales
@@ -161,7 +209,7 @@ export async function POST(req: NextRequest) {
     }
     for (let i = 0; i < fotos.length; i++) {
       const foto = fotos[i];
-      if (!foto.data || !foto.nombre || !foto.tipo) {
+      if (!foto || typeof foto !== "object" || !foto.data || !foto.nombre || !foto.tipo) {
         return NextResponse.json({ error: "Datos de foto incompletos" }, { status: 400 });
       }
       if (!ALLOWED_IMAGE_TYPES.has(foto.tipo)) {
@@ -234,7 +282,7 @@ export async function POST(req: NextRequest) {
         apto: finalApto,
         nombreResidente: finalNombre,
         titulo: titulo ? String(titulo).trim().slice(0, 120) : null,
-        asunto: isAdmin ? (asunto || null) : null,
+        asunto: typeof asunto === "string" ? asunto : null,
         descripcion,
         creadoPorId: session.user.id,
       },

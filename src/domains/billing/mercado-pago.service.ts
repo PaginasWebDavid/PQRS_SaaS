@@ -90,7 +90,7 @@ export async function createMercadoPagoSubscriptionForTenant({
       reason: `Licencia PQRS Services - ${tenant.name}`.slice(0, 60),
       external_reference: tenant.subscription.id,
       payer_email: process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || admin.email,
-      back_url: backUrl || `${appUrl}/super-admin?tenantId=${tenant.id}`,
+      back_url: resolveBackUrl(backUrl || ("/super-admin?tenantId=" + tenant.id), appUrl),
       notification_url: notificationUrl,
       auto_recurring: {
         frequency: 1,
@@ -183,7 +183,7 @@ export async function disableAutoRenewForTenant({
     await mercadoPagoRequest(`/preapproval/${subscription.mercadoPagoPreapprovalId}`, {
       method: "PUT",
       body: JSON.stringify({ status: "cancelled" }),
-    }).catch(() => null);
+    });
   }
 
   const updated = await prisma.subscription.update({
@@ -445,7 +445,7 @@ async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<
 
 function validateWebhookSignatureIfConfigured({ headers, dataId }: { headers: Headers; dataId: string }) {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) return;
+  if (!secret) throw new Error("Falta MERCADO_PAGO_WEBHOOK_SECRET para validar el webhook");
 
   const xSignature = headers.get("x-signature");
   const xRequestId = headers.get("x-request-id");
@@ -466,7 +466,7 @@ function validateWebhookSignatureIfConfigured({ headers, dataId }: { headers: He
   const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
   const expected = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
 
-  if (!received || !crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {
+  if (!received || received.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {
     throw new Error("Firma Mercado Pago inválida");
   }
 }
@@ -505,6 +505,15 @@ function parseDateOrNow(value?: string) {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
+function resolveBackUrl(value: string, appUrl: string) {
+  const base = new URL(appUrl);
+  try {
+    const resolved = new URL(value, base);
+    return resolved.origin === base.origin ? resolved.toString() : new URL('/admin/licencias', base).toString();
+  } catch {
+    return new URL('/admin/licencias', base).toString();
+  }
+}
 function getAppUrl() {
   const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL;
   if (!appUrl) {

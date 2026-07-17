@@ -15,8 +15,14 @@ export async function GET(req: NextRequest) {
 
   const tenantId = getTenantIdFromSession(session);
   const category = req.nextUrl.searchParams.get("category") || "all";
-  const take = Math.min(50, Number(req.nextUrl.searchParams.get("take") || 20));
-  const skip = Number(req.nextUrl.searchParams.get("skip") || 0);
+  const rawTake = req.nextUrl.searchParams.get("take") || "20";
+  const rawSkip = req.nextUrl.searchParams.get("skip") || "0";
+  const take = Number(rawTake);
+  const skip = Number(rawSkip);
+
+  if (!Number.isSafeInteger(take) || take < 1 || take > 50 || !Number.isSafeInteger(skip) || skip < 0) {
+    return NextResponse.json({ error: "Paginacion invalida" }, { status: 400 });
+  }
 
   const page = await getTenantAuditLogPage({ tenantId, category, take, skip });
   return NextResponse.json(page);
