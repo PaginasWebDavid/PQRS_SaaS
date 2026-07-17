@@ -17,6 +17,9 @@ type Pqrs = {
   editadoPorResidente?: boolean;
   creadoPor?: { name?: string | null } | null;
   gestionadoPor?: { name?: string | null } | null;
+  fechaCierre?: string | null; updatedAt?: string;
+  historial?: { id: string; estadoAntes?: Estado | null; estadoDespues: Estado; nota?: string | null; creadoAt: string }[];
+  fotos?: { id: string; nombre: string; tipo: string; size?: number | null }[];
 };
 
 const FILTERS = [
@@ -60,21 +63,45 @@ function VistaConsejoPageContent() {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'));
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [detail, setDetail] = useState<Pqrs | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let alive = true;
     setLoading(true);
-    fetch('/api/pqrs')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: Pqrs[]) => setData(rows))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    setError("");
+    fetch('/api/pqrs', { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((rows: Pqrs[]) => { if (alive) setData(rows); })
+      .catch(() => { if (alive) { setData([]); setError("No se pudieron cargar las PQRS. Intenta de nuevo."); } })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [reloadKey]);
 
   const filtered = useMemo(
     () => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))),
     [data, filter, search]
   );
-  const selected = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
+  const selectedSummary = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
+  const detailId = selectedSummary?.id ?? null;
+
+  useEffect(() => {
+    if (!detailId) { setDetail(null); setDetailError(""); return; }
+    let alive = true;
+    setDetailLoading(true);
+    setDetailError("");
+    fetch('/api/pqrs/' + encodeURIComponent(detailId), { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((row: Pqrs) => { if (alive) setDetail(row); })
+      .catch(() => { if (alive) { setDetail(null); setDetailError("No se pudo cargar el detalle de esta PQRS."); } })
+      .finally(() => { if (alive) setDetailLoading(false); });
+    return () => { alive = false; };
+  }, [detailId]);
+
+  const selected = detail?.id === detailId ? detail : selectedSummary;
 
   const metrics = useMemo(() => [
     { label: 'En espera', value: data.filter((r) => r.estado === 'EN_ESPERA').length, color: COLORS.warning },
@@ -89,7 +116,14 @@ function VistaConsejoPageContent() {
   const seguimiento = useMemo(() => {
     if (!selected) return [] as { label: string; text: string }[];
     const entries: { label: string; text: string }[] = [];
-    if (selected.notaPrimerContacto) entries.push({ label: 'Primer contacto', text: selected.notaPrimerContacto });
+    if (selected.historial?.length) {
+      selected.historial.forEach((item) => entries.push({
+        label: item.estadoAntes ? label(item.estadoDespues) : 'Solicitud radicada',
+        text: item.nota || ('Estado: ' + label(item.estadoDespues)),
+      }));
+    } else if (selected.notaPrimerContacto) {
+      entries.push({ label: 'Primer contacto', text: selected.notaPrimerContacto });
+    }
     ([1, 2, 3, 4] as const).forEach((n) => {
       const nota = selected[`fase${n}Nota` as keyof Pqrs] as string | null | undefined;
       if (nota) entries.push({ label: `Fase ${n} · ${FASE_LABELS[n]}`, text: nota });
@@ -110,6 +144,13 @@ function VistaConsejoPageContent() {
         <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes…' : `${data.length} solicitudes · solo lectura`}</p>
       </div>
 
+      {error && (
+        <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 14, padding: 16, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
+          <div>{error}</div>
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)} style={{ marginTop: 10, border: 'none', background: COLORS.danger, color: '#FFFFFF', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
         {metrics.map((m) => (
           <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18 }}>
@@ -126,7 +167,7 @@ function VistaConsejoPageContent() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
-          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
+          {!error && filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
           {filtered.map((p) => (
             <button
               key={p.id}
@@ -146,6 +187,8 @@ function VistaConsejoPageContent() {
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          {detailError && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 12 }}>{detailError}</div>}
+          {detailLoading && <div style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 12 }}>Cargando detalle...</div>}
           {selected ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -207,6 +250,16 @@ function VistaConsejoPageContent() {
                   </div>
                 ))}
               </div>
+
+              {(selected.fotos?.length || selected.evidenciaArchivoNombre) ? (
+                <div style={{ borderTop: '1px solid ' + COLORS.borderSoft, paddingTop: 14, marginBottom: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 8 }}>Evidencias</div>
+                  {selected.fotos?.map((foto) => (
+                    <a key={foto.id} href={'/api/pqrs/' + encodeURIComponent(selected.id) + '/fotos/' + encodeURIComponent(foto.id)} target="_blank" rel="noreferrer" style={{ display: 'block', color: COLORS.navy, fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{foto.nombre}</a>
+                  ))}
+                  {selected.evidenciaArchivoNombre && <a href={'/api/pqrs/' + encodeURIComponent(selected.id) + '/evidencia'} target="_blank" rel="noreferrer" style={{ display: 'block', color: COLORS.navy, fontSize: 12.5, fontWeight: 700 }}>Evidencia de cierre: {selected.evidenciaArchivoNombre}</a>}
+                </div>
+              ) : null}
 
               <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, textAlign: 'center', margin: 0 }}>Vista de solo lectura — la gestión de esta solicitud la realiza la administración.</p>
             </>

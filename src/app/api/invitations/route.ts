@@ -17,8 +17,16 @@ export async function GET(req: NextRequest) {
   const tenantId = getTenantIdFromSession(session);
   const rawStatus = req.nextUrl.searchParams.get("status") || undefined;
   const status = rawStatus && Object.values(InvitationStatus).includes(rawStatus as InvitationStatus) ? (rawStatus as InvitationStatus) : undefined;
-  const invitations = await listInvitationsForTenant({ tenantId, status });
-  return NextResponse.json(invitations);
+  const search = req.nextUrl.searchParams.get("search")?.trim() || undefined;
+  const page = Number(req.nextUrl.searchParams.get("page") || "1");
+  const pageSize = Number(req.nextUrl.searchParams.get("pageSize") || "25");
+  if (!Number.isInteger(page) || page < 1 || page > 100000) return NextResponse.json({ error: "Pagina invalida" }, { status: 400 });
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) return NextResponse.json({ error: "Tamano de pagina invalido" }, { status: 400 });
+  const result = await listInvitationsForTenant({ tenantId, status, search, page, pageSize });
+  return NextResponse.json({
+    data: result.data,
+    pagination: { page, pageSize, total: result.total, totalPages: Math.ceil(result.total / pageSize) },
+  });
 }
 
 export async function POST(req: NextRequest) {

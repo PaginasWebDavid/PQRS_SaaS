@@ -719,8 +719,7 @@ export default function DashboardSuperAdminPage() {
       .then((data: AnalyticsData) => setAnalytics(data))
       .catch(() => showToast('No se pudieron cargar las analíticas'))
       .finally(() => setAnalyticsLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav]);
+  }, [nav, analytics, analyticsLoading, showToast]);
 
   useEffect(() => {
     if (nav !== 'cuenta') return;
@@ -733,8 +732,7 @@ export default function DashboardSuperAdminPage() {
         setAccountCreatedAt(data.user.createdAt || null);
       })
       .catch(() => showToast('No se pudo cargar tu cuenta'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav]);
+  }, [nav, showToast]);
 
   async function saveAccount() {
     const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: accountName }) });
@@ -751,7 +749,7 @@ export default function DashboardSuperAdminPage() {
       .then((data: TenantUsersDetail) => setUsersTenantDetail(data))
       .catch(() => showToast('No se pudieron cargar los usuarios del conjunto'))
       .finally(() => setUsersTenantLoading(false));
-  }, [usersTenantId]);
+  }, [usersTenantId, showToast]);
 
   const fetchAuditPage = (category: string, skip: number) => {
     return fetch(`/api/platform/audit-log?category=${category}&take=${AUDIT_PAGE_SIZE}&skip=${skip}`, { cache: 'no-store' })

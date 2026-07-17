@@ -49,7 +49,7 @@ export default function ModuloLicenciasPage() {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createPreapproval', backUrl: '/admin/licencias' }),
+        body: JSON.stringify({ action: 'createPreapproval', backUrl: new URL('/admin/licencias', window.location.origin).toString() }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.initPoint) throw new Error(body?.error || 'No se pudo iniciar el pago');

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.user.role === "RESIDENTE" || session.user.role === "SUPER_ADMIN") {
+  if (!["ADMIN", "CONSEJO"].includes(session.user.role)) {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
@@ -21,14 +21,30 @@ export async function GET(req: NextRequest) {
   const tenantId = getTenantIdFromSession(session);
 
   const params = req.nextUrl.searchParams;
-  const { from, to, compareFrom, compareTo, granularity } = resolvePeriod(params);
+  let period: ReturnType<typeof resolvePeriod>;
+  try {
+    period = resolvePeriod(params);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Periodo invalido" }, { status: 400 });
+  }
+  const { from, to, compareFrom, compareTo, granularity } = period;
 
-  const estado = params.get("estado") as Estado | null;
+  const estadoRaw = params.get("estado");
   const asunto = params.get("asunto");
-  const prioridad = params.get("prioridad") as Prioridad | null;
-  const bloque = params.get("bloque");
+  const prioridadRaw = params.get("prioridad");
+  const bloqueRaw = params.get("bloque");
   const gestionadoPorId = params.get("gestionadoPorId");
-  const cumplimiento = params.get("cumplimiento") as "dentro" | "fuera" | null;
+  const cumplimientoRaw = params.get("cumplimiento");
+  const estados: Estado[] = ["EN_ESPERA", "EN_PROGRESO", "TERMINADO"];
+  const prioridades: Prioridad[] = ["ALTA", "MEDIA", "BAJA"];
+  if (estadoRaw && !estados.includes(estadoRaw as Estado)) return NextResponse.json({ error: "Estado invalido" }, { status: 400 });
+  if (prioridadRaw && !prioridades.includes(prioridadRaw as Prioridad)) return NextResponse.json({ error: "Prioridad invalida" }, { status: 400 });
+  if (cumplimientoRaw && !["dentro", "fuera"].includes(cumplimientoRaw)) return NextResponse.json({ error: "Cumplimiento invalido" }, { status: 400 });
+  const bloque = bloqueRaw ? Number(bloqueRaw) : null;
+  if (bloqueRaw && (bloque === null || !Number.isInteger(bloque) || bloque < 1 || bloque > 999)) return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
+  const estado = estadoRaw as Estado | null;
+  const prioridad = prioridadRaw as Prioridad | null;
+  const cumplimiento = cumplimientoRaw as "dentro" | "fuera" | null;
 
   const data = await getPqrsReportData({
     tenantId,
@@ -40,7 +56,7 @@ export async function GET(req: NextRequest) {
     estado: estado || undefined,
     asunto: asunto || undefined,
     prioridad: prioridad || undefined,
-    bloque: bloque ? Number(bloque) : undefined,
+    bloque: bloque ?? undefined,
     gestionadoPorId: gestionadoPorId || undefined,
     cumplimiento: cumplimiento || undefined,
   });

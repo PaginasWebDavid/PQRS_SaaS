@@ -3,11 +3,6 @@ import { auth } from "@/lib/auth";
 import { createMercadoPagoSubscriptionForTenant, disableAutoRenewForTenant } from "@/domains/billing/mercado-pago.service";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 
-function getAppUrl() {
-  const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL || "";
-  return appUrl.replace(/\/$/, "");
-}
-
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
@@ -19,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (action === "createPreapproval") {
-      const backUrl = body.backUrl ? `${getAppUrl()}${body.backUrl}` : undefined;
+      const backUrl = typeof body.backUrl === "string" ? body.backUrl : undefined;
       const subscription = await createMercadoPagoSubscriptionForTenant({
         actorUserId: session.user.id,
         tenantId,

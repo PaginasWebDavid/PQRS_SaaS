@@ -9,6 +9,7 @@ import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design/to
 type Status = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
 type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
 type Invite = { id: string; email: string; role: Role; status: Status; createdAt: string; expiresAt: string; acceptedAt?: string | null };
+type InvitationPagination = { page: number; pageSize: number; total: number; totalPages: number };
 const STATUS_META: Record<Status, { label: string; style: React.CSSProperties }> = {
   PENDING: { label: 'Pendiente', style: badgeStyle(COLORS.warningSoft, COLORS.warning) },
   ACCEPTED: { label: 'Aceptada', style: badgeStyle(COLORS.successSoft, COLORS.success) },
@@ -24,6 +25,10 @@ type BulkResult = { total: number; created: number; failed: { email: string; err
 export default function InvitacionesPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<InvitationPagination>({ page: 1, pageSize: 25, total: 0, totalPages: 0 });
   const [createOpen, setCreateOpen] = useState(false);
   const [createTab, setCreateTab] = useState<'single' | 'bulk'>('single');
   const [email, setEmail] = useState('');
@@ -38,11 +43,24 @@ export default function InvitacionesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/invitations', { cache: 'no-store' });
+    const params = new URLSearchParams({ page: String(page), pageSize: '25' });
+    if (filter !== 'all') params.set('status', filter);
+    if (searchQuery) params.set('search', searchQuery);
+    const res = await fetch('/api/invitations?' + params.toString(), { cache: 'no-store' });
     const body = await res.json().catch(() => null);
-    if (res.ok) setInvites(body); else showToast(body?.error || 'No se pudieron cargar las invitaciones');
+    if (res.ok) {
+      setInvites(body?.data || []);
+      if (body?.pagination) setPagination(body.pagination);
+    } else showToast(body?.error || 'No se pudieron cargar las invitaciones');
     setLoading(false);
-  }, [showToast]);
+  }, [filter, page, searchQuery, showToast]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setSearchQuery(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   useEffect(() => { void load(); }, [load]);
 
   async function create() {
@@ -88,14 +106,15 @@ export default function InvitacionesPage() {
     await load(); showToast(actionName === 'resend' ? 'Invitación reenviada' : 'Invitación cancelada');
   }
 
-  const filtered = filter === 'all' ? invites : invites.filter((i) => i.status === filter);
+  const filtered = invites;
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="invitaciones" userName="Admin" userRole="Administración" initials="AD" mobileTitle="Invitaciones">
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
         <div><h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 3px' }}>Invitaciones</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Invita nuevos usuarios a tu conjunto</p></div>
         <button onClick={() => setCreateOpen(true)} style={{ border: 0, background: COLORS.navy, color: '#FFF', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>+ Nueva invitación</button>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>{FILTERS.map((f) => <button key={f.key} onClick={() => setFilter(f.key)} style={{ border: 0, ...tabStyle(filter === f.key) }}>{f.label}</button>)}</div>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por correo" style={{ width: '100%', maxWidth: 360, height: 42, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>{FILTERS.map((f) => <button key={f.key} onClick={() => { setFilter(f.key); setPage(1); }} style={{ border: 0, ...tabStyle(filter === f.key) }}>{f.label}</button>)}</div>
       <div style={{ background: '#FFF', border: '1px solid ' + COLORS.border, borderRadius: 18, overflow: 'hidden' }}>
         {loading && <div style={{ textAlign: 'center', padding: 48, color: COLORS.textMuted }}>Cargando invitaciones…</div>}
         {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', padding: 60, color: COLORS.textMuted }}>No hay invitaciones en este estado.</div>}
@@ -109,6 +128,11 @@ export default function InvitacionesPage() {
             <button disabled={workingId === inv.id} onClick={() => action(inv, 'cancel')} style={{ border: 0, background: 'none', color: COLORS.warning, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
           </div>}
         </div>)}
+        {pagination.totalPages > 1 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+          <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ border: 0, background: 'none', color: page <= 1 ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Anterior</button>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: COLORS.textMuted }}>Pagina {pagination.page} de {pagination.totalPages}</span>
+          <button type="button" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} style={{ border: 0, background: 'none', color: page >= pagination.totalPages ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Siguiente</button>
+        </div>}
       </div>
       <Sheet open={createOpen} onClose={closeCreate} maxWidth={440}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Nueva invitación</h2><CloseButton onClick={closeCreate} /></div>

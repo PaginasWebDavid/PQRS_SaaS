@@ -10,6 +10,7 @@ import { COLORS, RADIUS, chipStyle } from '@/lib/design/tokens';
 type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
 type User = { id: string; name: string; email: string; role: Role; bloque?: number | null; apto?: number | null; isActive: boolean; createdAt: string };
 type ProfileStats = User & { pqrsTotal: number; pqrsTerminadas: number };
+type UserPagination = { page: number; pageSize: number; total: number; totalPages: number };
 const EDITABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
 const roleLabel: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -41,7 +42,11 @@ function UserRow({ u, index, onClick }: { u: User; index: number; onClick: () =>
 export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [bloqueFilter, setBloqueFilter] = useState('all');
+  const [residentPage, setResidentPage] = useState(1);
+  const [residentPagination, setResidentPagination] = useState<UserPagination>({ page: 1, pageSize: 25, total: 0, totalPages: 0 });
+  const [availableBlocks, setAvailableBlocks] = useState<number[]>([]);
   const { toast, showToast } = useToast();
 
   const [selected, setSelected] = useState<User | null>(null);
@@ -55,22 +60,53 @@ export default function UsuariosPage() {
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/users', { cache: 'no-store' });
-    const body = await res.json().catch(() => null);
-    if (res.ok) setUsers(body); else showToast(body?.error || 'No se pudieron cargar los usuarios');
-  }, [showToast]);
+    const common = new URLSearchParams();
+    if (searchQuery) common.set('search', searchQuery);
+    const adminParams = new URLSearchParams(common);
+    adminParams.set('role', 'ADMIN');
+    const consejoParams = new URLSearchParams(common);
+    consejoParams.set('role', 'CONSEJO');
+    const residentParams = new URLSearchParams(common);
+    residentParams.set('role', 'RESIDENTE');
+    residentParams.set('page', String(residentPage));
+    residentParams.set('pageSize', '25');
+    if (bloqueFilter !== 'all') residentParams.set('bloque', bloqueFilter);
+    const responses = await Promise.all([
+      fetch('/api/users?' + adminParams.toString(), { cache: 'no-store' }),
+      fetch('/api/users?' + consejoParams.toString(), { cache: 'no-store' }),
+      fetch('/api/users?' + residentParams.toString(), { cache: 'no-store' }),
+    ]);
+    const bodies = await Promise.all(responses.map((res) => res.json().catch(() => null)));
+    if (responses.some((res) => !res.ok)) {
+      showToast(bodies.find((body, index) => !responses[index].ok)?.error || 'No se pudieron cargar los usuarios');
+      return;
+    }
+    const adminUsers = Array.isArray(bodies[0]) ? bodies[0] : bodies[0]?.data || [];
+    const consejoUsers = Array.isArray(bodies[1]) ? bodies[1] : bodies[1]?.data || [];
+    const residentBody = Array.isArray(bodies[2]) ? { data: bodies[2], pagination: null, bloques: [] } : bodies[2];
+    setUsers([...adminUsers, ...consejoUsers, ...(residentBody?.data || [])]);
+    if (residentBody?.pagination) setResidentPagination(residentBody.pagination);
+    if (residentBody?.bloques) setAvailableBlocks(residentBody.bloques);
+  }, [bloqueFilter, residentPage, searchQuery, showToast]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setResidentPage(1);
+      setSearchQuery(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   useEffect(() => { void load(); }, [load]);
 
-  const q = search.trim().toLowerCase();
-  const matchesSearch = (u: User) => !q || (u.name + ' ' + u.email).toLowerCase().includes(q);
+  const q = searchQuery.trim().toLowerCase();
+  const matchesSearch = useCallback((u: User) => !q || (u.name + ' ' + u.email).toLowerCase().includes(q), [q]);
 
-  const admins = useMemo(() => users.filter((u) => u.role === 'ADMIN' && matchesSearch(u)), [users, q]);
-  const consejo = useMemo(() => users.filter((u) => u.role === 'CONSEJO' && matchesSearch(u)), [users, q]);
+  const admins = useMemo(() => users.filter((u) => u.role === 'ADMIN' && matchesSearch(u)), [users, matchesSearch]);
+  const consejo = useMemo(() => users.filter((u) => u.role === 'CONSEJO' && matchesSearch(u)), [users, matchesSearch]);
   const residentes = useMemo(
     () => users.filter((u) => u.role === 'RESIDENTE' && matchesSearch(u) && (bloqueFilter === 'all' || String(u.bloque) === bloqueFilter)),
-    [users, q, bloqueFilter]
+    [users, matchesSearch, bloqueFilter]
   );
-  const bloques = useMemo(() => Array.from(new Set(users.filter((u) => u.role === 'RESIDENTE' && u.bloque).map((u) => u.bloque as number))).sort((a, b) => a - b), [users]);
+  const bloques = availableBlocks;
 
   async function edit(user: User) {
     setSelected(user);
@@ -117,7 +153,7 @@ export default function UsuariosPage() {
 
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre o correo" style={{ ...inputStyle, flex: 1, minWidth: 220, marginBottom: 0 }} />
-      <select value={bloqueFilter} onChange={(e) => setBloqueFilter(e.target.value)} style={{ ...inputStyle, width: 160, marginBottom: 0, background: '#FFF' }}>
+      <select value={bloqueFilter} onChange={(e) => { setBloqueFilter(e.target.value); setResidentPage(1); }} style={{ ...inputStyle, width: 160, marginBottom: 0, background: '#FFF' }}>
         <option value="all">Todos los bloques</option>
         {bloques.map((b) => <option key={b} value={String(b)}>Bloque {b}</option>)}
       </select>
@@ -136,6 +172,11 @@ export default function UsuariosPage() {
     <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.textMuted, letterSpacing: '0.04em', marginBottom: 10 }}>RESIDENTES {bloqueFilter !== 'all' ? `· Bloque ${bloqueFilter}` : ''}</div>
     <div style={{ background: '#FFF', border: '1px solid ' + COLORS.border, borderRadius: 18, overflow: 'hidden' }}>
       {residentes.length === 0 ? <div style={{ padding: 50, textAlign: 'center', color: COLORS.textMuted }}>No hay residentes con estos filtros.</div> : residentes.map((u, i) => <UserRow key={u.id} u={u} index={i} onClick={() => edit(u)} />)}
+      {residentPagination.totalPages > 1 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+        <button type="button" disabled={residentPage <= 1} onClick={() => setResidentPage((value) => Math.max(1, value - 1))} style={{ border: 0, background: 'none', color: residentPage <= 1 ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Anterior</button>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: COLORS.textMuted }}>Pagina {residentPagination.page} de {residentPagination.totalPages}</span>
+        <button type="button" disabled={residentPage >= residentPagination.totalPages} onClick={() => setResidentPage((value) => Math.min(residentPagination.totalPages, value + 1))} style={{ border: 0, background: 'none', color: residentPage >= residentPagination.totalPages ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Siguiente</button>
+      </div>}
     </div>
 
     <Sheet open={!!selected} onClose={() => { setSelected(null); setProfile(null); }} maxWidth={440}>

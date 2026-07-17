@@ -19,7 +19,12 @@ export function hashInvitationToken(token: string) {
 }
 
 function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
+  if (typeof email !== "string") throw new Error("El correo es obligatorio");
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error("El correo no es valido");
+  }
+  return normalized;
 }
 
 function invitationUrl(token: string) {
@@ -97,11 +102,16 @@ export async function createInvitation({
 
   await expirePendingInvitations();
 
-  const activeUser = await prisma.user.findFirst({
-    where: { tenantId, email: normalizedEmail, isActive: true },
-    select: { id: true },
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, tenantId: true, role: true, isActive: true },
   });
-  if (activeUser) throw new Error("Este correo ya pertenece a un usuario activo del conjunto");
+  if (existingUser?.role === "SUPER_ADMIN") throw new Error("No se puede invitar una cuenta de plataforma");
+  if (existingUser?.isActive) {
+    throw new Error(existingUser.tenantId === tenantId
+      ? "Este correo ya pertenece a un usuario activo del conjunto"
+      : "Este correo ya pertenece a un usuario activo");
+  }
   const duplicate = await prisma.invitation.findFirst({
     where: { tenantId, email: normalizedEmail, status: "PENDING", expiresAt: { gt: new Date() } },
     select: { id: true },
@@ -294,8 +304,15 @@ export async function acceptInvitation({
   const normalizedEmail = normalizeEmail(invitation.email);
 
   const result = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.invitation.updateMany({
+      where: { id: invitation.id, status: "PENDING", expiresAt: { gt: new Date() } },
+      data: { status: "ACCEPTED", acceptedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error("Esta invitacion ya fue utilizada o no esta disponible");
     const existing = await tx.user.findUnique({ where: { email: normalizedEmail } });
     if (existing?.tenantId && existing.tenantId !== invitation.tenantId) throw new Error("El correo ya pertenece a otro conjunto");
+    if (existing?.role === "SUPER_ADMIN") throw new Error("No se puede reutilizar una cuenta de plataforma");
+    if (existing?.isActive) throw new Error("El usuario ya esta activo; no se puede reutilizar la invitacion");
     const user = existing
       ? await tx.user.update({
           where: { id: existing.id },
@@ -323,10 +340,8 @@ export async function acceptInvitation({
           },
         });
 
-    const accepted = await tx.invitation.update({
-      where: { id: invitation.id },
-      data: { status: "ACCEPTED", acceptedAt: new Date() },
-    });
+    const accepted = await tx.invitation.findUnique({ where: { id: invitation.id } });
+    if (!accepted) throw new Error("No se pudo confirmar la invitacion");
 
     return { user, invitation: accepted };
   });
@@ -393,24 +408,44 @@ export async function inspectInvitation(token: string) {
   return { email: invitation.email, role: invitation.role, expiresAt: invitation.expiresAt, tenant: invitation.tenant };
 }
 
-export async function listInvitationsForTenant({ tenantId, status }: { tenantId: string; status?: InvitationStatus }) {
+export async function listInvitationsForTenant({
+  tenantId,
+  status,
+  search,
+  page = 1,
+  pageSize = 25,
+}: {
+  tenantId: string;
+  status?: InvitationStatus;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   await expirePendingInvitations();
-  return prisma.invitation.findMany({
-    where: { tenantId, ...(status ? { status } : {}) },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      status: true,
-      expiresAt: true,
-      acceptedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      invitedBy: { select: { id: true, name: true, email: true } },
-    },
-  });
+  const where = {
+    tenantId,
+    ...(status ? { status } : {}),
+    ...(search ? { email: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+  const [data, total] = await Promise.all([
+    prisma.invitation.findMany({
+      where,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        expiresAt: true,
+        acceptedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        invitedBy: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    prisma.invitation.count({ where }),
+  ]);
+  return { data, total };
 }
-
-
-

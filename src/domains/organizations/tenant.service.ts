@@ -1,9 +1,10 @@
-import { Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
+import { AuditAction, Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { Session } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { assertTenantId } from "./tenant.validator";
 import { ensureInitialTenant } from "./tenant.repository";
 import { INITIAL_TENANT_ID } from "./tenant.constants";
+import { registerAuditLog } from "@/domains/platform/audit.service";
 
 type TenantAccessUser = {
   id?: string;
@@ -50,3 +51,71 @@ export async function refreshTenantAccessForUser(user: TenantAccessUser): Promis
 }
 export async function ensureDefaultTenant() { return ensureInitialTenant(prisma); }
 export function getInitialTenantId() { return INITIAL_TENANT_ID; }
+export async function updateTenantSettingsForAdmin({
+  tenantId,
+  actorUserId,
+  name,
+  city,
+  address,
+  origin,
+}: {
+  tenantId: string;
+  actorUserId: string;
+  name?: unknown;
+  city?: unknown;
+  address?: unknown;
+  origin?: string | null;
+}) {
+  const normalizeRequired = (value: unknown, label: string, maxLength: number) => {
+    if (value === undefined) return undefined;
+    if (typeof value !== "string") throw new Error(`${label} invalido`);
+    const normalized = value.trim();
+    if (!normalized || normalized.length > maxLength) throw new Error(`${label} invalido`);
+    return normalized;
+  };
+  const normalizeOptional = (value: unknown, label: string, maxLength: number) => {
+    if (value === undefined) return undefined;
+    if (typeof value !== "string") throw new Error(`${label} invalida`);
+    const normalized = value.trim();
+    if (normalized.length > maxLength) throw new Error(`${label} invalida`);
+    return normalized || null;
+  };
+
+  const data = {
+    name: normalizeRequired(name, "Nombre del conjunto", 120),
+    city: normalizeOptional(city, "Ciudad", 120),
+    address: normalizeOptional(address, "Direccion", 255),
+  };
+
+  if (data.name === undefined && data.city === undefined && data.address === undefined) {
+    throw new Error("No hay cambios para guardar");
+  }
+
+  const before = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, name: true, city: true, address: true },
+  });
+  if (!before) throw new Error("Conjunto no encontrado");
+
+  const tenant = await prisma.tenant.update({
+    where: { id: tenantId },
+    data,
+    select: { id: true, name: true, slug: true, city: true, address: true, units: true, status: true },
+  });
+
+  await registerAuditLog({
+    actorUserId,
+    tenantId,
+    action: AuditAction.TENANT_UPDATED,
+    targetType: "Tenant",
+    targetId: tenant.id,
+    origin,
+    metadata: {
+      fields: Object.entries(data).filter(([, value]) => value !== undefined).map(([key]) => key),
+      before: { name: before.name, city: before.city, address: before.address },
+      after: { name: tenant.name, city: tenant.city, address: tenant.address },
+    },
+  });
+
+  return tenant;
+}

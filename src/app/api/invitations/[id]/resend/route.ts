@@ -20,7 +20,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       actorUserId: session.user.id,
       origin: req.headers.get("x-forwarded-for") || req.headers.get("user-agent") || "api",
     });
-    return NextResponse.json({ invitation: result.invitation, invitationUrl: result.invitationUrl, email: result.emailResult });
+    return NextResponse.json({
+      invitation: {
+        id: result.invitation.id,
+        email: result.invitation.email,
+        role: result.invitation.role,
+        status: result.invitation.status,
+        expiresAt: result.invitation.expiresAt,
+      },
+      invitationUrl: result.invitationUrl,
+      email: result.emailResult,
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo reenviar" }, { status: 400 });
   }

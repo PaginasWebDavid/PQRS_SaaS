@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { Sheet, CloseButton } from '@/components/shell/Sheet';
@@ -21,6 +21,7 @@ type Pqrs = {
   editadoPorResidente?: boolean;
   creadoPor?: { name?: string | null } | null;
 };
+type PqrsPagination = { page: number; pageSize: number; total: number; totalPages: number };
 
 const FILTERS = [
   { key: 'all', label: 'Todas' },
@@ -95,10 +96,14 @@ function faseSemaphore(faseNum: number, inicioIso?: string | null) {
 function ModuloPqrsPageContent() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<Pqrs[]>([]);
+  const [pagination, setPagination] = useState<PqrsPagination>({ page: 1, pageSize: 25, total: 0, totalPages: 0 });
   const initialEstado = searchParams.get('estado');
   const [filter, setFilter] = useState(FILTERS.some((f) => f.key === initialEstado) ? initialEstado! : 'all');
   const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'));
+  const [detail, setDetail] = useState<Pqrs | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast, showToast } = useToast();
 
@@ -128,17 +133,50 @@ function ModuloPqrsPageContent() {
   const [closeFileError, setCloseFileError] = useState('');
   const [closeSubmitting, setCloseSubmitting] = useState(false);
 
-  async function load() { setLoading(true); const res = await fetch('/api/pqrs'); if (res.ok) setData(await res.json()); setLoading(false); }
-  useEffect(() => { load().catch(() => setLoading(false)); }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), pageSize: '25' });
+    if (filter !== 'all') params.set('estado', filter);
+    if (searchQuery) params.set('search', searchQuery);
+    try {
+      const res = await fetch('/api/pqrs?' + params.toString(), { cache: 'no-store' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        showToast(body?.error || 'No se pudieron cargar las PQRS');
+        return;
+      }
+      setData(Array.isArray(body) ? body : body?.data || []);
+      if (body?.pagination) setPagination(body.pagination);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, page, searchQuery, showToast]);
 
-  const filtered = useMemo(() => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))), [data, filter, search]);
-  const selected = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setSearchQuery(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!selectedId || data.some((p) => p.id === selectedId) || detail?.id === selectedId) return;
+    fetch('/api/pqrs/' + selectedId, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => { if (body) setDetail(body); })
+      .catch(() => {});
+  }, [data, detail?.id, selectedId]);
+
+  const selected = data.find((p) => p.id === selectedId) ?? detail ?? data[0];
 
   async function submitCreate() {
     if (!newTitulo.trim() || !newDescription.trim() || !newResident.trim() || !newBloque || !newApto) return;
     const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: newTitulo.trim(), asunto: newSubject || null, descripcion: newDescription, nombreResidente: newResident, bloque: newBloque, apto: newApto }) });
     if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo crear la PQRS'); return; }
-    const created = await res.json(); setCreateOpen(false); setNewTitulo(''); setNewSubject(''); setNewDescription(''); setNewResident(''); setNewBloque(''); setNewApto(''); await load(); setSelectedId(created.id); showToast('PQRS creada ✓');
+    const created = await res.json(); setCreateOpen(false); setNewTitulo(''); setNewSubject(''); setNewDescription(''); setNewResident(''); setNewBloque(''); setNewApto(''); setDetail(created); await load(); setSelectedId(created.id); showToast('PQRS creada ✓');
   }
 
   function openContact() {
@@ -257,13 +295,13 @@ function ModuloPqrsPageContent() {
 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por asunto, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-        {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
+        {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => { setFilter(f.key); setPage(1); }} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
-          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
-          {filtered.map((p) => (
+          {data.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
+          {data.map((p) => (
             <button
               key={p.id}
               type="button"
@@ -279,6 +317,13 @@ function ModuloPqrsPageContent() {
               <span style={badge(p.estado)}>{label(p.estado)}</span>
             </button>
           ))}
+          {pagination.totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 16px', borderTop: '1px solid ' + COLORS.borderSoft }}>
+              <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ border: 0, background: 'none', color: page <= 1 ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Anterior</button>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: COLORS.textMuted }}>Pagina {pagination.page} de {pagination.totalPages}</span>
+              <button type="button" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} style={{ border: 0, background: 'none', color: page >= pagination.totalPages ? COLORS.textMuted : COLORS.navy, font: 'inherit', fontSize: 12, fontWeight: 700 }}>Siguiente</button>
+            </div>
+          )}
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>

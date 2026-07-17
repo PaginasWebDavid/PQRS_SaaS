@@ -207,12 +207,12 @@ export default function ConsejoReportesPage() {
     setTimeout(() => document.getElementById('tabla-detallada')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  const tableRows = quickFilter ? (data?.alertCases[quickFilter.key] || []) : (data?.detalle || []);
   const q = tableSearch.trim().toLowerCase();
   const filteredTableRows = useMemo(() => {
+    const tableRows = quickFilter ? (data?.alertCases[quickFilter.key] || []) : (data?.detalle || []);
     const rows = tableRows.filter((r) => !q || `${r.numeroRadicacion || r.numero} ${r.solicitante} ${r.categoria}`.toLowerCase().includes(q));
     return [...rows].sort((a, b) => sortKey === 'fecha' ? new Date(b.fechaRecibido).getTime() - new Date(a.fechaRecibido).getTime() : (b.tiempoCierre ?? -1) - (a.tiempoCierre ?? -1));
-  }, [tableRows, q, sortKey]);
+  }, [data, quickFilter, q, sortKey]);
 
   async function downloadExcel() {
     setExporting(true);
