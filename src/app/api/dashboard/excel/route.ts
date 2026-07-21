@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
   if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
   const { searchParams } = req.nextUrl;
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
 
   ws1.mergeCells("A1:G1");
   const t1 = ws1.getCell("A1");
-  t1.value = `CONJUNTO PARQUE RESIDENCIAL CALLE 100 Ã¢â‚¬â€ PQRS ${year}`;
+  t1.value = `${tenant?.name || "Conjunto"} - PQRS ${year}`;
   t1.font = { name: "Calibri", size: 14, bold: true, color: { argb: GREEN } };
   ws1.getRow(1).height = 30;
 
@@ -126,11 +127,11 @@ export async function GET(req: NextRequest) {
   ws2.columns = [{ width: 12 }, { width: 20 }, { width: 50 }, { width: 14 }, { width: 14 }, { width: 14 }];
 
   ws2.mergeCells("A1:F1");
-  ws2.getCell("A1").value = `PQRS POR DETALLE Ã¢â‚¬â€ ${year}`;
+  ws2.getCell("A1").value = `PQRS POR DETALLE — ${year}`;
   ws2.getCell("A1").font = { name: "Calibri", size: 14, bold: true, color: { argb: GREEN } };
   ws2.getRow(1).height = 30;
 
-  const h2 = ws2.addRow(["Cantidad", "Asunto", "DescripciÃƒÂ³n", "Terminados", "En Proceso", "En Espera"]);
+  const h2 = ws2.addRow(["Cantidad", "Asunto", "Descripción", "Terminados", "En Proceso", "En Espera"]);
   h2.eachCell((cell) => { cell.font = headerFont; cell.fill = headerFill; cell.border = border; cell.alignment = center; });
   h2.height = 22;
 

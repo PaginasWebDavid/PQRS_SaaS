@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
   const fotosArray: { data: string; nombre: string; tipo: string; orden: number }[] = [];
   if (fotos && Array.isArray(fotos)) {
     if (fotos.length > 3) {
-      return NextResponse.json({ error: "MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ximo 3 fotos permitidas" }, { status: 400 });
+      return NextResponse.json({ error: "Máximo 3 fotos permitidas" }, { status: 400 });
     }
     for (let i = 0; i < fotos.length; i++) {
       const foto = fotos[i];
