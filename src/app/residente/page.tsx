@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ResidentShell } from '@/components/shell/ResidentShell';
-import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 
@@ -55,6 +55,7 @@ function buildTimeline(p: Pqrs, slaDays: number): Step[] {
 }
 
 export default function VistaResidentePage() {
+  const isMobile = useIsMobile();
   const [data, setData] = useState<Pqrs[]>([]);
   const [notifications, setNotifications] = useState<Notice[]>([]);
   const [me, setMe] = useState<Me | null>(null);
@@ -278,7 +279,7 @@ export default function VistaResidentePage() {
           <input value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} style={inputStyle} />
           <Label>Correo</Label>
           <input value={me?.user?.email || ''} disabled style={{ ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted }} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <Label>Bloque</Label>
               <input inputMode="numeric" value={profileBloque} disabled={bloqueAptoLocked} onChange={(e) => setProfileBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={bloqueAptoLocked ? { ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted } : inputStyle} />

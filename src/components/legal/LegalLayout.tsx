@@ -1,9 +1,13 @@
+'use client';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { LEGAL_PATHS, getLegalConfig } from '@/lib/legal';
 
 export function LegalLayout({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   const legal = getLegalConfig();
+  const isMobile = useIsMobile();
 
   return (
     <main style={{ minHeight: '100vh', background: '#FFFFFF', color: '#1D1D1F', fontFamily: "'Manrope', sans-serif" }}>
@@ -29,9 +33,11 @@ export function LegalLayout({ title, intro, children }: { title: string; intro: 
           <p style={{ fontSize: 15, color: '#6E6E73', fontWeight: 500, lineHeight: 1.65, margin: '0 0 34px' }}>{intro}</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 210px', gap: 42, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 210px', gap: isMobile ? 24 : 42, alignItems: 'start' }}>
           <article style={{ maxWidth: 720, fontSize: 14, lineHeight: 1.7, color: '#424245' }}>{children}</article>
-          <nav aria-label="Documentos legales" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 10, borderLeft: '1px solid #E8E8ED', paddingLeft: 18 }}>
+          <nav aria-label="Documentos legales" style={isMobile
+            ? { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 14, borderTop: '1px solid #E8E8ED', paddingTop: 16 }
+            : { position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 10, borderLeft: '1px solid #E8E8ED', paddingLeft: 18 }}>
             <Link href={LEGAL_PATHS.index} style={navStyle}>Indice legal</Link>
             <Link href={LEGAL_PATHS.terms} style={navStyle}>Terminos</Link>
             <Link href={LEGAL_PATHS.privacy} style={navStyle}>Privacidad</Link>

@@ -142,9 +142,9 @@ export default function AyudaPage() {
           )}
           {!loading && tickets.map((t) => (
             <div key={t.id} style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 700 }}>{t.subject}</span>
-                <span style={statusBadge(t.status)}>{STATUS_LABEL[t.status]}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto' }}>{t.subject}</span>
+                <span style={{ ...statusBadge(t.status), flexShrink: 0 }}>{STATUS_LABEL[t.status]}</span>
               </div>
               <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
               {t.response && (

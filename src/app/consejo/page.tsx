@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/shell/AdminShell';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 
@@ -57,6 +58,7 @@ function code(n: number) { return `PQ-${String(n).padStart(4, '0')}`; }
 function date(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
 
 function VistaConsejoPageContent() {
+  const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const [data, setData] = useState<Pqrs[]>([]);
   const [filter, setFilter] = useState('all');
@@ -151,7 +153,7 @@ function VistaConsejoPageContent() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
         {metrics.map((m) => (
           <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18 }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div>
@@ -165,7 +167,7 @@ function VistaConsejoPageContent() {
         {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
           {!error && filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
           {filtered.map((p) => (
@@ -173,15 +175,15 @@ function VistaConsejoPageContent() {
               key={p.id}
               type="button"
               onClick={() => setSelectedId(p.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
+              style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexWrap: isMobile ? 'wrap' : 'nowrap', width: '100%', textAlign: 'left', padding: isMobile ? '14px 16px' : '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
             >
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
-              <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: isMobile ? 'auto' : 84, flexShrink: 0, order: isMobile ? 1 : 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
+              <span style={{ flex: isMobile ? '1 1 100%' : 1, minWidth: isMobile ? 0 : 120, overflow: 'hidden', order: isMobile ? 3 : 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
               </span>
-              <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: 100, flexShrink: 0 }}>{p.nombreResidente}</span>
-              <span style={badge(p.estado)}>{label(p.estado)}</span>
+              <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: isMobile ? 'auto' : 100, flexShrink: 0, order: isMobile ? 4 : 0 }}>{p.nombreResidente}</span>
+              <span style={{ ...badge(p.estado), order: isMobile ? 2 : 0 }}>{label(p.estado)}</span>
             </button>
           ))}
         </div>
@@ -219,7 +221,7 @@ function VistaConsejoPageContent() {
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 18 }}>
                 <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>RESIDENTE</div><div style={{ fontSize: 13, fontWeight: 700 }}>{selected.nombreResidente}</div></div>
                 <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>UBICACIÓN</div><div style={{ fontSize: 13, fontWeight: 700 }}>B{selected.bloque} · Apto {selected.apto}</div></div>
                 <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>RADICADA</div><div style={{ fontSize: 13, fontWeight: 700 }}>{date(selected.fechaRecibido)}</div></div>

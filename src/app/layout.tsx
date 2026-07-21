@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { SessionProvider } from "@/components/session-provider";
@@ -10,6 +10,14 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mon
 export const metadata: Metadata = {
   title: "PQRS SaaS",
   description: "Plataforma multi-tenant para gestion de PQRS.",
+};
+
+// Sin esto, los navegadores moviles renderizan la pagina a un ancho virtual de ~980px
+// y hacen zoom-out en vez de respetar el ancho real de pantalla, haciendo que cualquier
+// layout responsive (isMobile, grids que colapsan, etc.) nunca se active de verdad.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

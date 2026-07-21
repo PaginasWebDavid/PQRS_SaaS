@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AdminShell } from '@/components/shell/AdminShell';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, tabStyle } from '@/lib/design/tokens';
@@ -14,6 +15,7 @@ function shortDate(value?: string | null) {
 }
 
 export default function MiCuentaPage() {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<'profile' | 'seguridad' | 'notif'>('profile');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -115,7 +117,7 @@ export default function MiCuentaPage() {
               </div>
               <div>
                 <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAvatar(f); }} />
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button type="button" disabled={avatarLoading} onClick={() => fileRef.current?.click()} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit' }}>{avatarLoading ? 'Subiendo…' : 'Cambiar foto'}</button>
                   {image && <button type="button" disabled={avatarLoading} onClick={removeAvatar} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Quitar</button>}
                 </div>
@@ -135,7 +137,7 @@ export default function MiCuentaPage() {
         {tab === 'seguridad' && (
           <div style={card}>
             <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 16 }}>Acceso a la cuenta</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>ROL</div>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Administrador</div>
@@ -153,8 +155,8 @@ export default function MiCuentaPage() {
         {tab === 'notif' && (
           <div>
             <div style={{ ...card, marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ maxWidth: 420 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ maxWidth: 420, minWidth: 200 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>Avisarme por correo ante una nueva PQRS</div>
                   <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500 }}>Además de la notificación aquí abajo, te llega un correo apenas un residente radica una solicitud.</div>
                 </div>

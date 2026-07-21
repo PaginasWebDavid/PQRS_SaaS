@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogoMark } from '@/components/shell/Logo';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
 
 const TIPS = [
@@ -12,6 +13,7 @@ const TIPS = [
 
 export default function OnboardingResidentePage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -97,7 +99,7 @@ export default function OnboardingResidentePage() {
                 onChange={(e) => setPhone(e.target.value)}
                 style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }}
               />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 8 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Bloque</label>
                   <input

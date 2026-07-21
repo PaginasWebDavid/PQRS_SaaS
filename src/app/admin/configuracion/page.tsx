@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminShell } from '@/components/shell/AdminShell';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
@@ -16,9 +17,9 @@ const STATUS_LABEL: Record<string, string> = {
 
 function IntegrationRow({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: ok ? COLORS.success : COLORS.warning }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13, fontWeight: 600, minWidth: 0 }}>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: ok ? COLORS.success : COLORS.warning, flexShrink: 0 }}>
         <span style={{ width: 7, height: 7, borderRadius: 999, background: ok ? COLORS.success : COLORS.warning }} />
         {ok ? 'Conectado' : 'No disponible'}
       </span>
@@ -27,6 +28,7 @@ function IntegrationRow({ label, ok }: { label: string; ok: boolean }) {
 }
 
 export default function ConfiguracionConjuntoPage() {
+  const isMobile = useIsMobile();
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
@@ -75,7 +77,7 @@ export default function ConfiguracionConjuntoPage() {
           <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 16 }}>Información general</div>
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre del conjunto</label>
           <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Ciudad</label>
               <input value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
@@ -92,7 +94,7 @@ export default function ConfiguracionConjuntoPage() {
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 16 }}>Licencia y reglas del servicio</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>ESTADO</div>
               <div style={{ fontSize: 14, fontWeight: 800 }}>{statusLabel}</div>

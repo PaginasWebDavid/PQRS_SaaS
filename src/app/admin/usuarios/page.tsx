@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminShell } from '@/components/shell/AdminShell';
-import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, chipStyle } from '@/lib/design/tokens';
@@ -31,8 +31,8 @@ function UserRow({ u, index, onClick }: { u: User; index: number; onClick: () =>
     <button onClick={onClick} style={{ width: '100%', border: 0, borderBottom: '1px solid ' + COLORS.borderSoft, background: '#FFF', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 22px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
       <span style={{ width: 38, height: 38, borderRadius: 999, background: AVATAR_BG[index % 4], color: AVATAR_COLOR[index % 4], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>{initials(u.name)}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <b style={{ display: 'block', fontSize: 14 }}>{u.name}</b>
-        <small style={{ color: COLORS.textMuted }}>{u.email}{u.bloque && u.apto ? ` · B${u.bloque}-${u.apto}` : ''}</small>
+        <b style={{ display: 'block', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</b>
+        <small style={{ display: 'block', color: COLORS.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}{u.bloque && u.apto ? ` · B${u.bloque}-${u.apto}` : ''}</small>
       </span>
       <StatusDot active={u.isActive} />
     </button>
@@ -40,6 +40,7 @@ function UserRow({ u, index, onClick }: { u: User; index: number; onClick: () =>
 }
 
 export default function UsuariosPage() {
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,8 +153,8 @@ export default function UsuariosPage() {
     </div>
 
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre o correo" style={{ ...inputStyle, flex: 1, minWidth: 220, marginBottom: 0 }} />
-      <select value={bloqueFilter} onChange={(e) => { setBloqueFilter(e.target.value); setResidentPage(1); }} style={{ ...inputStyle, width: 160, marginBottom: 0, background: '#FFF' }}>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre o correo" style={{ ...inputStyle, flex: 1, minWidth: isMobile ? '100%' : 220, marginBottom: 0 }} />
+      <select value={bloqueFilter} onChange={(e) => { setBloqueFilter(e.target.value); setResidentPage(1); }} style={{ ...inputStyle, width: isMobile ? '100%' : 160, marginBottom: 0, background: '#FFF' }}>
         <option value="all">Todos los bloques</option>
         {bloques.map((b) => <option key={b} value={String(b)}>Bloque {b}</option>)}
       </select>

@@ -2,12 +2,14 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { BrandLockup } from '@/components/shell/Logo';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
 type Details = { email: string; role: string; expiresAt: string; tenant: { name: string } };
 const roleLabel: Record<string, string> = { ADMIN: 'Administrador', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 
 export default function InvitacionPage() {
+  const isMobile = useIsMobile();
   const [token, setToken] = useState('');
   const [details, setDetails] = useState<Details | null>(null);
   const [state, setState] = useState<'loading' | 'form' | 'done' | 'error'>('loading');
@@ -69,7 +71,7 @@ export default function InvitacionPage() {
             <input value={details.email} disabled style={{ ...inputStyle, background: COLORS.bgCard, color: COLORS.textMuted }} />
 
             {resident && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={labelStyle}>Bloque</label>
                   <input inputMode="numeric" value={bloque} onChange={(e) => setBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={inputStyle} />

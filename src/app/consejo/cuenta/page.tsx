@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AdminShell } from '@/components/shell/AdminShell';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, RADIUS, tabStyle } from '@/lib/design/tokens';
@@ -14,6 +15,7 @@ function shortDate(value?: string | null) {
 }
 
 export default function ConsejoCuentaPage() {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<'profile' | 'seguridad' | 'notif'>('profile');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -126,7 +128,7 @@ export default function ConsejoCuentaPage() {
         {tab === 'seguridad' && (
           <div style={card}>
             <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 16 }}>Acceso a la cuenta</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>ROL</div>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Consejo de Administración</div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogoMark } from '@/components/shell/Logo';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS, chipStyle } from '@/lib/design/tokens';
 
 type Role = 'ADMIN' | 'CONSEJO' | 'RESIDENTE';
@@ -10,6 +11,7 @@ const roleLabel: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RE
 
 export default function OnboardingAdminPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [tenantName, setTenantName] = useState('');
@@ -74,7 +76,7 @@ export default function OnboardingAdminPage() {
               <p style={stepCopy}>El nombre y la ciudad se guardarán en el conjunto.</p>
               <label style={labelStyle}>Nombre del conjunto</label>
               <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 26 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 26 }}>
                 <div>
                   <label style={labelStyle}>Ciudad</label>
                   <input value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
