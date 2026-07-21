@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AdminShell } from '@/components/shell/AdminShell';
-import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
@@ -134,6 +134,7 @@ const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWe
 const controlPillStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, border: `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', color: '#1D1D1F', fontSize: 12.5, fontWeight: 700, padding: '9px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' };
 
 export default function ModuloReportesPage() {
+  const isMobile = useIsMobile();
   const { toast, showToast } = useToast();
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -397,7 +398,7 @@ export default function ModuloReportesPage() {
       {!loading && !error && data && data.hayDatosSuficientes && (
         <>
           {/* A. Resumen ejecutivo */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
             {resumenCards.map((c) => (
               <div key={c.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 16 }}>
                 <div style={{ fontSize: 11, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{c.label}<InfoTip text={c.desc} /></div>
@@ -463,7 +464,7 @@ export default function ModuloReportesPage() {
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={sectionTitle}>Tiempos de atención</div>
             <p style={sectionSubtitle}>SLA esperado: {data.slaDays} días para cierre</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>PRIMER CONTACTO — PROMEDIO<InfoTip text="Días promedio entre la radicación y el primer contacto del equipo." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.avg)}</div></div>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>MEDIANA<InfoTip text="El valor central: la mitad de los casos tardó menos, la otra mitad tardó más. Menos sensible a casos extremos que el promedio." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.median)}</div></div>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>MÍN / MÁX</div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.min)} / {fmtDays(data.tiempos.primerContacto.max)}</div></div>
@@ -476,7 +477,7 @@ export default function ModuloReportesPage() {
                 <div style={{ display: 'flex', gap: 4 }}>{data.tiempos.distribucionCierre.map((b) => <span key={b.label} title={b.label} style={{ fontSize: 10, fontWeight: 700, background: COLORS.bgCard, borderRadius: 6, padding: '4px 6px' }}>{b.count}</span>)}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 16 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>Por categoría</div>{data.tiempos.porCategoria.slice(0, 6).map((t) => <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '5px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}><span>{t.key}</span><span style={{ fontWeight: 700 }}>{fmtDays(t.avgCierre)}</span></div>)}</div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>Por prioridad</div>{data.tiempos.porPrioridad.map((t) => <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '5px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}><span>{PRIORIDAD_LABEL[t.key as Prioridad] || t.key}</span><span style={{ fontWeight: 700 }}>{fmtDays(t.avgCierre)}</span></div>)}</div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>Por responsable</div>{data.tiempos.porResponsable.slice(0, 6).map((t) => <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '5px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}><span>{t.key}</span><span style={{ fontWeight: 700 }}>{fmtDays(t.avgCierre)}</span></div>)}</div>
@@ -487,7 +488,7 @@ export default function ModuloReportesPage() {
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={sectionTitle}>Tendencias y evolución</div>
             <p style={sectionSubtitle}>Vista mensual</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Recibidas por periodo<InfoTip text="Cuántas PQRS nuevas llegaron cada mes." /></div><MiniBarChart data={data.tendencias.seriesRecibidas} color={COLORS.navy} formatValue={(v) => String(v)} /></div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Cerradas por periodo<InfoTip text="Cuántas PQRS se cerraron cada mes, sin importar cuándo se recibieron." /></div><MiniBarChart data={data.tendencias.seriesCerradas} color={COLORS.success} formatValue={(v) => String(v)} /></div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Inventario de casos abiertos<InfoTip text="Cuántos casos seguían abiertos (sin cerrar) al final de cada mes." /></div><MiniBarChart data={data.tendencias.seriesInventario} color={COLORS.warning} formatValue={(v) => String(v)} /></div>
@@ -501,7 +502,7 @@ export default function ModuloReportesPage() {
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={sectionTitle}>Distribución y causas principales</div>
             <p style={sectionSubtitle}>De qué se trata lo que llega, y dónde</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Por categoría</div><DistBars items={data.distribucion.porCategoria} /></div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Por bloque</div><DistBars items={data.distribucion.porBloque} color={COLORS.success} /></div>
               <div><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>Por prioridad</div><DistBars items={data.distribucion.porPrioridad.map((p) => ({ label: PRIORIDAD_LABEL[p.label as Prioridad] || p.label, count: p.count }))} color={COLORS.warning} /></div>

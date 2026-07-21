@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { SuperAdminShell, NavGroup } from '@/components/shell/SuperAdminShell';
-import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
 
@@ -160,6 +160,7 @@ function MiniBarChart({ data, color, formatValue }: { data: { label: string; val
 }
 
 export default function DashboardSuperAdminPage() {
+  const isMobile = useIsMobile();
   const [nav, setNav] = useState('resumen');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [filter, setFilter] = useState<'all' | TenantGroup>('all');
@@ -914,7 +915,7 @@ export default function DashboardSuperAdminPage() {
         <div className="apl-up">
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Resumen de la plataforma</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>{loading ? 'Cargando datos reales...' : stats.totalTenants + ' conjuntos administrados'}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
             {kpis.map((k) => (
               <div key={k.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 15 }}>
                 <div style={{ fontSize: 10.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
@@ -943,7 +944,7 @@ export default function DashboardSuperAdminPage() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 20, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1fr', gap: 20, alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
@@ -1034,11 +1035,11 @@ export default function DashboardSuperAdminPage() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
             {(['all', 'active', 'trial', 'pending_payment', 'grace', 'suspended', 'cancelled'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} style={{ ...tabStyle(filter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</button>)}
           </div>
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflowX: 'auto', overflowY: 'hidden' }}>
             {filteredTenants.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>
             ) : (
-              <>
+              <div style={{ minWidth: 720 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 22px', background: '#FAFAFA', borderBottom: `1px solid ${COLORS.borderSoft}`, fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.02em' }}>
                   <span style={{ flex: 1, minWidth: 150 }}>NOMBRE</span><span style={{ width: 90 }}>CIUDAD</span><span style={{ width: 120 }}>ADMINISTRADOR</span><span style={{ width: 56 }}>UNID.</span><span style={{ width: 90 }}>LICENCIA</span><span style={{ width: 90 }}>ESTADO</span><span style={{ width: 190, textAlign: 'right' }}>ACCIONES</span>
                 </div>
@@ -1057,7 +1058,7 @@ export default function DashboardSuperAdminPage() {
                     </span>
                   </div>
                 ))}
-              </>
+              </div>
             )}
           </div>
           {filteredTenants.length > conjuntosVisible && (
@@ -1077,7 +1078,7 @@ export default function DashboardSuperAdminPage() {
 
           {finSubTab === 'licencia' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
                 <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Licencias activas</div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing?.activeLicenses ?? 0}</div>
@@ -1131,7 +1132,7 @@ export default function DashboardSuperAdminPage() {
 
           {finSubTab === 'pagos' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
                 <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Pagos recibidos (mes)</div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing ? formatMoney(billing.monthlyRevenueCents) : '—'}</div>
@@ -1185,7 +1186,7 @@ export default function DashboardSuperAdminPage() {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Reglas de precio</h1>
           <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Esto es lo que genuinamente se le cobra a cada conjunto según su número de unidades.</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
             <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
               <div style={{ display: 'flex', padding: '14px 22px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span><span style={{ width: 140 }} />
@@ -1346,7 +1347,7 @@ export default function DashboardSuperAdminPage() {
 
             {analytics && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
                   {insightCards.map((c) => (
                     <div key={c.label} style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 16 }}>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{c.label}</div>
@@ -1356,7 +1357,7 @@ export default function DashboardSuperAdminPage() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20, marginBottom: 20 }}>
                   <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Ingresos mensuales (MRR)</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados</div>
@@ -1369,7 +1370,7 @@ export default function DashboardSuperAdminPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
                   <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Tiempo de cierre de PQRS</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Promedio de días para cerrar un caso, por mes — la señal más directa de qué tan bien está funcionando el servicio</div>
@@ -1400,7 +1401,7 @@ export default function DashboardSuperAdminPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 20 }}>
                   <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Conjuntos en riesgo</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>En mora, ordenados por días de atraso — candidatos a contactar antes de perderlos</div>
@@ -1460,7 +1461,7 @@ export default function DashboardSuperAdminPage() {
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Usuarios</h1>
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elige un conjunto para ver quién tiene acceso y con qué rol</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, alignItems: 'flex-start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 20, alignItems: 'flex-start' }}>
               <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
                 <div style={{ padding: 14, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                   <input
@@ -1772,7 +1773,7 @@ export default function DashboardSuperAdminPage() {
               <CloseButton onClick={() => setCreateOpen(false)} />
             </div>
             <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se creará el conjunto, su administrador y la licencia automáticamente.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label><input value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
               <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label><input value={newCity} onChange={(e) => setNewCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
             </div>
@@ -1876,7 +1877,7 @@ export default function DashboardSuperAdminPage() {
             )}
 
             <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÓN GENERAL</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PQRS ABIERTAS</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.pqrsOpen}</div></div>

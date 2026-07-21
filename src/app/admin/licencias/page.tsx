@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/shell/AdminShell';
+import { useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
@@ -29,6 +30,7 @@ const BADGE = { paid: badgeStyle(COLORS.successSoft, COLORS.success), pending: b
 const FILTERS = [{ key: 'all', label: 'Todas' }, { key: 'paid', label: 'Pagadas' }, { key: 'pending', label: 'Pendientes' }];
 
 export default function ModuloLicenciasPage() {
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState('all');
   const [detailOpen, setDetailOpen] = useState(false);
   const [me, setMe] = useState<MeData | null>(null);
@@ -98,9 +100,9 @@ export default function ModuloLicenciasPage() {
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 22px' }}>Licencias y pagos</h1>
       {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
-      <div style={{ background: COLORS.navy, borderRadius: 20, padding: '30px 34px', color: '#FFFFFF', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3,1fr)', gap: 26, alignItems: 'center' }}>
-          <div>
+      <div style={{ background: COLORS.navy, borderRadius: 20, padding: isMobile ? '22px 20px' : '30px 34px', color: '#FFFFFF', marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : '1.4fr repeat(3,1fr)', gap: isMobile ? 18 : 26, alignItems: isMobile ? 'start' : 'center' }}>
+          <div style={isMobile ? { gridColumn: 'span 2' } : undefined}>
             <div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 700, marginBottom: 10 }}>ESTADO DE LICENCIA</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 9, height: 9, borderRadius: 999, background: statusDot }} />
@@ -114,21 +116,34 @@ export default function ModuloLicenciasPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.7fr 1fr', gap: 20 }}>
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
             <span style={{ fontSize: 15, fontWeight: 800 }}>Historial de pagos</span>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {FILTERS.map((t) => <button key={t.key} type="button" onClick={() => setFilter(t.key)} style={{ ...tabStyle(filter === t.key), border: 'none', fontFamily: 'inherit' }}>{t.label}</button>)}
             </div>
           </div>
           {rows.length ? rows.map((inv) => (
-            <div key={inv.number} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-              <span style={{ flex: 1, minWidth: 100, fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 110 }}>{inv.date}</span>
-              <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 120, textAlign: 'right' }}>{inv.amount}</span>
-              <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
-            </div>
+            isMobile ? (
+              <div key={inv.number} style={{ padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
+                  <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted }}>{inv.date}</span>
+                  <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600 }}>{inv.amount}</span>
+                </div>
+              </div>
+            ) : (
+              <div key={inv.number} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <span style={{ flex: 1, minWidth: 100, fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 110 }}>{inv.date}</span>
+                <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 120, textAlign: 'right' }}>{inv.amount}</span>
+                <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+              </div>
+            )
           )) : <div style={{ padding: 24, color: COLORS.textMuted, fontWeight: 600 }}>No hay pagos registrados.</div>}
         </div>
 

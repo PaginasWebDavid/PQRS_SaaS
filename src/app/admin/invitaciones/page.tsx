@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { AdminShell } from '@/components/shell/AdminShell';
-import { Sheet, CloseButton } from '@/components/shell/Sheet';
+import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle, chipStyle } from '@/lib/design/tokens';
@@ -23,6 +23,7 @@ const FILTERS = [{ key: 'all', label: 'Todas' }, ...Object.entries(STATUS_META).
 type BulkResult = { total: number; created: number; failed: { email: string; error?: string }[] };
 
 export default function InvitacionesPage() {
+  const isMobile = useIsMobile();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -119,11 +120,11 @@ export default function InvitacionesPage() {
         {loading && <div style={{ textAlign: 'center', padding: 48, color: COLORS.textMuted }}>Cargando invitaciones…</div>}
         {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', padding: 60, color: COLORS.textMuted }}>No hay invitaciones en este estado.</div>}
         {!loading && filtered.map((inv) => <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: '1px solid ' + COLORS.borderSoft, flexWrap: 'wrap' }}>
-          <span style={{ flex: 1, minWidth: 190, fontSize: 13.5, fontWeight: 700 }}>{inv.email}</span>
+          <span style={{ flex: 1, minWidth: isMobile ? '100%' : 190, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.email}</span>
           <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{ROLE_LABEL[inv.role]}</span>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: COLORS.textMuted }}>{new Date(inv.expiresAt).toLocaleDateString('es-CO')}</span>
           <span style={STATUS_META[inv.status].style}>{STATUS_META[inv.status].label}</span>
-          {inv.status === 'PENDING' && <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+          {inv.status === 'PENDING' && <div style={{ display: 'flex', gap: 10, marginLeft: isMobile ? 0 : 'auto' }}>
             <button disabled={workingId === inv.id} onClick={() => action(inv, 'resend')} style={{ border: 0, background: 'none', color: COLORS.navy, fontWeight: 700, cursor: 'pointer' }}>Reenviar</button>
             <button disabled={workingId === inv.id} onClick={() => action(inv, 'cancel')} style={{ border: 0, background: 'none', color: COLORS.warning, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
           </div>}
