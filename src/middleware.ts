@@ -23,6 +23,14 @@ export default auth(async (req) => {
     return Response.redirect(signInUrl);
   }
 
+  // Una cuenta desactivada no debe conservar acceso solo porque su cookie de
+  // sesion siga siendo valida — la fuerza a re-loguearse (fallara en authorize()).
+  if (token.isActive === false) {
+    const signInUrl = new URL("/auth/login", req.url);
+    signInUrl.searchParams.set("callbackUrl", req.url);
+    return Response.redirect(signInUrl);
+  }
+
   const role = token.role;
   const pathname = req.nextUrl.pathname;
   const onboardingCompletedAt = token.onboardingCompletedAt;

@@ -210,13 +210,16 @@ export async function updateTenantStatusForSuperAdmin(
   status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED" | "CANCELLED">
 ) {
   if (status === "ACTIVE") {
+    // No basta con que haya pagado alguna vez: el pago aprobado debe cubrir el
+    // periodo vigente (periodEnd >= ahora). Un tenant que pago una vez, se atraso
+    // y quedo suspendido no puede reactivarse gratis solo por tener un pago viejo.
     const approvedPayment = await prisma.payment.findFirst({
-      where: { tenantId, status: "APPROVED" },
+      where: { tenantId, status: "APPROVED", periodEnd: { gte: new Date() } },
       select: { id: true },
     });
     if (!approvedPayment) {
       throw new Error(
-        "No se puede activar: este conjunto nunca completo un pago aprobado. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
+        "No se puede activar: este conjunto no tiene un pago aprobado que cubra el periodo actual. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
       );
     }
   }
