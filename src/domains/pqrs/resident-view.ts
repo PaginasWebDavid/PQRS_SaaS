@@ -35,6 +35,14 @@ type ResidentPqrsSource = {
   }>;
 };
 
+// Nunca exponer la URL publica de Supabase Storage ni la ruta interna al cliente
+// (ni siquiera a ADMIN/CONSEJO): todo acceso a archivos debe pasar por las rutas
+// propias (/fotos, /evidencia) que verifican tenant/dueno antes de servir el archivo.
+export function withoutStorageUrls<T extends { evidenciaArchivoUrl?: string | null; evidenciaArchivoPath?: string | null }>(pqrs: T) {
+  const { evidenciaArchivoUrl: _url, evidenciaArchivoPath: _path, ...rest } = pqrs;
+  return rest;
+}
+
 export function toResidentPqrsView(pqrs: ResidentPqrsSource) {
   return {
     id: pqrs.id,

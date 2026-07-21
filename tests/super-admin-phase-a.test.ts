@@ -89,6 +89,25 @@ test("suspending and reactivating a tenant keeps subscription state synchronized
   assert.equal(stored.status, "SUSPENDED");
   assert.equal(stored.subscription?.status, "SUSPENDED");
 
+  // Reactivar exige un pago aprobado que cubra el periodo vigente: sin este
+  // registro, un tenant suspendido ya no puede reactivarse gratis (regresion
+  // que este test verificaba antes solo a medias).
+  const now = new Date();
+  await prisma.payment.create({
+    data: {
+      tenantId: tenant.id,
+      subscriptionId: tenant.subscription!.id,
+      amountCents: tenant.subscription!.priceCents,
+      currency: "COP",
+      status: "APPROVED",
+      provider: "SIMULATED",
+      dueDate: now,
+      paidAt: now,
+      periodStart: now,
+      periodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
   await updateTenantStatusForSuperAdmin(actor.id, tenant.id, "ACTIVE");
   stored = await prisma.tenant.findUniqueOrThrow({ where: { id: tenant.id }, include: { subscription: true } });
   assert.equal(stored.status, "ACTIVE");

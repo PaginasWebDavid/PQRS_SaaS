@@ -9,7 +9,7 @@ import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { pqrsScopeForUser } from "@/domains/pqrs/pqrs-permissions";
-import { toResidentPqrsView } from "@/domains/pqrs/resident-view";
+import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -132,13 +132,14 @@ export async function GET(req: NextRequest) {
     prisma.pqrs.findMany(query),
     paginated ? prisma.pqrs.count({ where }) : Promise.resolve(0),
   ]);
+  const data = session.user.role === "RESIDENTE" ? pqrs.map(toResidentPqrsView) : pqrs.map(withoutStorageUrls);
   if (paginated) {
     return NextResponse.json({
-      data: session.user.role === "RESIDENTE" ? pqrs.map(toResidentPqrsView) : pqrs,
+      data,
       pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     });
   }
-  return NextResponse.json(session.user.role === "RESIDENTE" ? pqrs.map(toResidentPqrsView) : pqrs);
+  return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {
@@ -397,7 +398,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(pqrs, { status: 201 });
+  return NextResponse.json(withoutStorageUrls(pqrs), { status: 201 });
 }
 
 
