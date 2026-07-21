@@ -161,6 +161,7 @@
 @keyframes apl-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes apl-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
 @keyframes apl-float { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(16px,-20px) scale(1.05); } }
+@keyframes apl-spin { to { transform: rotate(360deg); } }
 
 .apl-up { animation: apl-up 600ms cubic-bezier(.2,.7,.2,1) both; }
 .apl-fade { animation: apl-fade 250ms ease both; }

@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // La invitacion del paso 2 es opcional y de cortesia: si falla (correo duplicado,
+  // invitacion pendiente repetida, envio fallido, etc.) el onboarding debe completarse
+  // igual. Bloquear el paso final por esto dejaba al admin sin poder entrar nunca.
   let invitationResult: { emailSent: boolean; error?: string | null } | null = null;
   if (session.user.role === "ADMIN" && body.inviteEmail) {
     try {
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
       });
       invitationResult = { emailSent: invitation.emailResult.ok, error: invitation.emailResult.ok ? undefined : invitation.emailResult.errorMessage };
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo crear la invitacion" }, { status: 400 });
+      invitationResult = { emailSent: false, error: error instanceof Error ? error.message : "No se pudo crear la invitacion" };
     }
   }
 

@@ -47,7 +47,6 @@ export async function PATCH(req: NextRequest) {
   if (phone && !/^[+0-9 ()-]{7,25}$/.test(phone)) return NextResponse.json({ error: "Telefono invalido" }, { status: 400 });
   if (image && (image.length > 2048 || !/^https?:\/\//i.test(image))) return NextResponse.json({ error: "Imagen invalida" }, { status: 400 });
 
-  let bloqueApto: { bloque: number; apto: number; bloqueAptoEditado: true } | undefined;
   if (session.user.role === "RESIDENTE" && (body.bloque !== undefined || body.apto !== undefined)) {
     const bloque = Number(body.bloque);
     const apto = Number(body.apto);
@@ -60,7 +59,16 @@ export async function PATCH(req: NextRequest) {
       if (current?.bloqueAptoEditado) {
         return NextResponse.json({ error: "Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio" }, { status: 409 });
       }
-      bloqueApto = { bloque, apto, bloqueAptoEditado: true };
+      // Aplicar el cambio de forma atomica condicionada a bloqueAptoEditado=false: evita que
+      // dos solicitudes concurrentes pasen ambas la verificacion anterior y usen la unica
+      // correccion permitida dos veces.
+      const claimed = await prisma.user.updateMany({
+        where: { id: session.user.id, bloqueAptoEditado: false },
+        data: { bloque, apto, bloqueAptoEditado: true },
+      });
+      if (claimed.count !== 1) {
+        return NextResponse.json({ error: "Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio" }, { status: 409 });
+      }
     }
   }
 
@@ -69,7 +77,6 @@ export async function PATCH(req: NextRequest) {
     data: {
       name, phone, image,
       ...(session.user.role === "ADMIN" && typeof body.notifyNewPqrsEmail === "boolean" ? { notifyNewPqrsEmail: body.notifyNewPqrsEmail } : {}),
-      ...(bloqueApto ? bloqueApto : {}),
     },
     select: userSelect,
   });

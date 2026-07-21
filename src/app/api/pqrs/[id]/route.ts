@@ -130,9 +130,17 @@ export async function PATCH(
     const descripcion = String(body.descripcion || "").trim();
     if (!descripcion) return NextResponse.json({ error: "La descripcion es obligatoria" }, { status: 400 });
     if (descripcion.split(/\s+/).length > 300) return NextResponse.json({ error: "La descripcion no puede superar 300 palabras" }, { status: 400 });
-    const updated = await prisma.pqrs.update({
-      where: { id: pqrs.id },
+    // Actualizacion atomica condicionada a editadoPorResidente=false: evita que dos solicitudes
+    // concurrentes pasen ambas la verificacion anterior y consuman la unica edicion permitida.
+    const claimed = await prisma.pqrs.updateMany({
+      where: { id: pqrs.id, editadoPorResidente: false },
       data: { descripcion, editadoPorResidente: true },
+    });
+    if (claimed.count !== 1) {
+      return NextResponse.json({ error: "Ya editaste esta solicitud una vez; no puede editarse de nuevo" }, { status: 409 });
+    }
+    const updated = await prisma.pqrs.findUniqueOrThrow({
+      where: { id: pqrs.id },
       include: { historial: { orderBy: { creadoAt: "asc" } }, fotos: { orderBy: { orden: "asc" } } },
     });
     await prisma.historialPqrs.create({

@@ -8,6 +8,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
+  if (!session.user.isActive) {
+    return NextResponse.json({ error: "Cuenta desactivada" }, { status: 403 });
+  }
   const tenantId = getTenantIdFromSession(session);
   const body = await req.json();
   const action = body.action;
