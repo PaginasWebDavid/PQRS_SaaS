@@ -96,5 +96,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
+    // Acota la ventana de un rol/estado obsoleto en la cookie de sesion (el
+    // middleware, por correr en Edge sin Prisma, no puede refrescarla en cada
+    // request). En la practica cada llamada a la API ya refresca la cookie con
+    // datos frescos; esto solo cubre el caso de una sesion inactiva por mucho
+    // tiempo sin ninguna llamada a la API de por medio.
+    maxAge: 12 * 60 * 60, // 12 horas
+    updateAge: 60 * 60, // re-firma la cookie al menos cada hora de uso activo
   },
 });
