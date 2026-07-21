@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
 
-const DEFAULT_TRIAL_DAYS = 15;
+export const DEFAULT_TRIAL_DAYS = 15;
 const BILLING_PERIOD_DAYS = 30;
 const RENEWAL_WINDOW_DAYS = 15;
 export const DEFAULT_GRACE_PERIOD_DAYS = 5;
