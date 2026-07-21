@@ -32,6 +32,7 @@ export default function ConfiguracionConjuntoPage() {
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [settings, setSettings] = useState<TenantSettings | null>(null);
+  const [loadError, setLoadError] = useState('');
   const { toast, showToast } = useToast();
 
   useEffect(() => {
@@ -41,18 +42,22 @@ export default function ConfiguracionConjuntoPage() {
       setCity(data.tenant?.city || '');
       setAddress(data.tenant?.address || '');
       setEmail(data.user?.email || '');
-    }).catch(() => {});
-    fetch('/api/tenant').then((r) => r.ok ? r.json() : null).then((data) => { if (data) setSettings(data); }).catch(() => {});
+    }).catch(() => setLoadError('No se pudo cargar la información del conjunto.'));
+    fetch('/api/tenant').then((r) => r.ok ? r.json() : null).then((data) => { if (data) setSettings(data); }).catch(() => setLoadError('No se pudo cargar la configuración del conjunto.'));
   }, []);
 
   async function saveTenant() {
-    const res = await fetch('/api/tenant', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, city, address }) });
-    const body = await res.json().catch(() => null);
-    if (res.ok) {
-      setSettings((current) => current ? { ...current, tenant: body } : current);
-      showToast('Configuración guardada ✓');
-    } else {
-      showToast(body?.error || 'No se pudo guardar la configuración');
+    try {
+      const res = await fetch('/api/tenant', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, city, address }) });
+      const body = await res.json().catch(() => null);
+      if (res.ok) {
+        setSettings((current) => current ? { ...current, tenant: body } : current);
+        showToast('Configuración guardada ✓');
+      } else {
+        showToast(body?.error || 'No se pudo guardar la configuración');
+      }
+    } catch {
+      showToast('No se pudo guardar la configuración. Revisa tu conexión.');
     }
   }
 
@@ -63,6 +68,7 @@ export default function ConfiguracionConjuntoPage() {
     <AdminShell navItems={ADMIN_NAV} activeKey="configuracion" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Configuración">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Configuración del conjunto</h1>
       <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 24px' }}>Estos datos se leen y guardan en tu conjunto real.</p>
+      {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
       <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>

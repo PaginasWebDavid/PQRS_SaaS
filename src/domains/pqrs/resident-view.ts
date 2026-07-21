@@ -39,7 +39,9 @@ type ResidentPqrsSource = {
 // (ni siquiera a ADMIN/CONSEJO): todo acceso a archivos debe pasar por las rutas
 // propias (/fotos, /evidencia) que verifican tenant/dueno antes de servir el archivo.
 export function withoutStorageUrls<T extends { evidenciaArchivoUrl?: string | null; evidenciaArchivoPath?: string | null }>(pqrs: T) {
-  const { evidenciaArchivoUrl: _url, evidenciaArchivoPath: _path, ...rest } = pqrs;
+  const rest = { ...pqrs };
+  delete rest.evidenciaArchivoUrl;
+  delete rest.evidenciaArchivoPath;
   return rest;
 }
 
