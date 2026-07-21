@@ -165,6 +165,8 @@ export default function DashboardSuperAdminPage() {
   const [filter, setFilter] = useState<'all' | TenantGroup>('all');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingInvitations, setPendingInvitations] = useState<{ id: string; email: string; role: string; expiresAt: string }[]>([]);
+  const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createPhase, setCreatePhase] = useState<'form' | 'progress' | 'done'>('form');
@@ -378,7 +380,8 @@ export default function DashboardSuperAdminPage() {
       body: JSON.stringify({ action: 'updateTenantStatus', tenantId: id, status }),
     });
     if (!response.ok) {
-      showToast('No se pudo actualizar el conjunto');
+      const body = await response.json().catch(() => null);
+      showToast(body?.error || 'No se pudo actualizar el conjunto');
       return;
     }
     await fetchOverview();
@@ -739,6 +742,31 @@ export default function DashboardSuperAdminPage() {
     const body = await res.json().catch(() => null);
     if (!res.ok) return showToast(body?.error || 'No se pudo guardar');
     showToast('Perfil actualizado');
+  }
+
+  useEffect(() => {
+    if (!selectedId) { setPendingInvitations([]); return; }
+    fetch(`/api/platform/super-admin?tenantId=${selectedId}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPendingInvitations(data?.selectedTenant?.invitations || []))
+      .catch(() => setPendingInvitations([]));
+  }, [selectedId]);
+
+  async function resendTenantInvitation(invitationId: string) {
+    if (!selectedId) return;
+    setResendingInvitationId(invitationId);
+    try {
+      const res = await fetch('/api/platform/super-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resendTenantInvitation', tenantId: selectedId, invitationId }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) { showToast(body?.error || 'No se pudo reenviar la invitacion'); return; }
+      showToast(body?.email?.ok ? 'Invitacion reenviada por correo' : `Invitacion regenerada, pero el correo fallo: ${body?.email?.errorMessage || 'error desconocido'}`);
+    } finally {
+      setResendingInvitationId(null);
+    }
   }
 
   useEffect(() => {
@@ -1829,6 +1857,21 @@ export default function DashboardSuperAdminPage() {
                   <button type="button" onClick={() => cancelTenant(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.warning, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, cancelar</button>
                   <button type="button" onClick={() => setConfirmingCancel(false)} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Volver</button>
                 </div>
+              </div>
+            )}
+
+            {pendingInvitations.length > 0 && (
+              <div style={{ background: COLORS.warningSoft, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 10 }}>Invitaciones pendientes de aceptar</div>
+                {pendingInvitations.map((inv) => (
+                  <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '6px 0' }}>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700 }}>{inv.email}</div>
+                      <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{inv.role} · vence {new Date(inv.expiresAt).toLocaleDateString('es-CO')}</div>
+                    </div>
+                    <button type="button" disabled={resendingInvitationId === inv.id} onClick={() => resendTenantInvitation(inv.id)} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', flexShrink: 0 }}>{resendingInvitationId === inv.id ? 'Enviando…' : 'Reenviar'}</button>
+                  </div>
+                ))}
               </div>
             )}
 

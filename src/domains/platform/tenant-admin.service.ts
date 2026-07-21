@@ -63,6 +63,11 @@ export async function getTenantDetailForSuperAdmin(tenantId?: string | null) {
         },
         orderBy: [{ role: "asc" }, { name: "asc" }],
       },
+      invitations: {
+        where: { status: "PENDING" },
+        select: { id: true, email: true, role: true, expiresAt: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      },
       subscription: {
         include: {
           payments: {
@@ -204,6 +209,18 @@ export async function updateTenantStatusForSuperAdmin(
   tenantId: string,
   status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED" | "CANCELLED">
 ) {
+  if (status === "ACTIVE") {
+    const approvedPayment = await prisma.payment.findFirst({
+      where: { tenantId, status: "APPROVED" },
+      select: { id: true },
+    });
+    if (!approvedPayment) {
+      throw new Error(
+        "No se puede activar: este conjunto nunca completo un pago aprobado. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
+      );
+    }
+  }
+
   const tenant = await prisma.$transaction(async (tx) => {
     await tx.subscription.findUniqueOrThrow({ where: { tenantId }, select: { id: true } });
 

@@ -6,6 +6,8 @@ export const LEGAL_PATHS = {
   payments: '/legal/pagos',
 } as const;
 
+export const LEGAL_DOCUMENT_VERSION = '1.0';
+
 export function getLegalConfig() {
   const legalName = process.env.NEXT_PUBLIC_LEGAL_NAME?.trim() || '';
   const nit = process.env.NEXT_PUBLIC_LEGAL_NIT?.trim() || '';

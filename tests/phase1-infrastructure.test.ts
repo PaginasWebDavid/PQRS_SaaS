@@ -80,7 +80,7 @@ test("acepta una invitacion valida y crea usuario asociado al conjunto", async (
   const email = nextEmail("resident");
 
   const { invitation, token } = await createInvitation({ tenantId: tenant.id, email, role: "RESIDENTE", invitedById: inviter.id });
-  const result = await acceptInvitation({ token, password: "Secret1234", name: "Residente QA", bloque: 1, apto: 101 });
+  const result = await acceptInvitation({ token, password: "Secret1234", name: "Residente QA", bloque: 1, apto: 101, acceptedLegal: true });
 
   assert.equal(result.user.email, email);
   assert.equal(result.user.tenantId, tenant.id);
@@ -96,7 +96,7 @@ test("rechaza una invitacion vencida y la marca como EXPIRED", async () => {
   const inviter = await createUser(tenant.id, "ADMIN");
   const { invitation, token } = await createInvitation({ tenantId: tenant.id, email: nextEmail("expired"), role: "RESIDENTE", invitedById: inviter.id, expiresInHours: -1 });
 
-  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Expired QA" }), /vencida/);
+  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Expired QA", acceptedLegal: true }), /vencida/);
   const stored = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
   assert.equal(stored.status, "EXPIRED");
 });
@@ -107,7 +107,7 @@ test("rechaza una invitacion cancelada", async () => {
   const { invitation, token } = await createInvitation({ tenantId: tenant.id, email: nextEmail("cancelled"), role: "CONSEJO", invitedById: inviter.id });
 
   await cancelInvitation({ tenantId: tenant.id, invitationId: invitation.id, actorUserId: inviter.id });
-  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Cancel QA" }), /cancelada/);
+  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Cancel QA", acceptedLegal: true }), /cancelada/);
 });
 
 test("impide reutilizar un token aceptado", async () => {
@@ -115,8 +115,8 @@ test("impide reutilizar un token aceptado", async () => {
   const inviter = await createUser(tenant.id, "ADMIN");
   const { token } = await createInvitation({ tenantId: tenant.id, email: nextEmail("reuse"), role: "CONSEJO", invitedById: inviter.id });
 
-  await acceptInvitation({ token, password: "Secret1234", name: "Reuse QA" });
-  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Reuse Again" }), /utilizada/);
+  await acceptInvitation({ token, password: "Secret1234", name: "Reuse QA", acceptedLegal: true });
+  await assert.rejects(() => acceptInvitation({ token, password: "Secret1234", name: "Reuse Again", acceptedLegal: true }), /utilizada/);
 });
 
 test("bloquea operaciones cruzadas entre conjuntos", async () => {

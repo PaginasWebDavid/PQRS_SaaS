@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { getSuperAdminOverview } from "@/domains/platform/super-admin.service";
 import { createTenantWithAdmin, updateTenantStatusForSuperAdmin, updateTenantDetails } from "@/domains/platform/tenant-admin.service";
+import { resendInvitation } from "@/domains/organizations/invitation.service";
 import {
   renewSubscriptionWithSimulatedPayment,
   applyOverdueLicenseRules,
@@ -95,6 +96,12 @@ const graceDaysSchema = z.object({
   graceDays: positiveIntegerSchema.max(365),
 });
 
+const resendInvitationSchema = z.object({
+  action: z.literal("resendTenantInvitation"),
+  tenantId: identifierSchema,
+  invitationId: identifierSchema,
+});
+
 function requireSuperAdmin(role?: string) {
   return role === "SUPER_ADMIN";
 }
@@ -180,6 +187,16 @@ export async function POST(req: NextRequest) {
         maxCents: input.maxCop * 100,
       });
       return NextResponse.json(result);
+    }
+    if (action === "resendTenantInvitation") {
+      const input = resendInvitationSchema.parse(body);
+      const result = await resendInvitation({
+        tenantId: input.tenantId,
+        invitationId: input.invitationId,
+        actorUserId: session.user.id,
+        origin: req.headers.get("x-forwarded-for") || "super-admin",
+      });
+      return NextResponse.json({ email: result.emailResult });
     }
     if (action === "updateGraceDays") {
       const input = graceDaysSchema.parse(body);

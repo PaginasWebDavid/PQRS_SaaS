@@ -2,7 +2,7 @@ import { AuditAction, SupportTicketCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification } from "@/domains/notifications/notification.service";
-import { sendEmailSafe } from "@/lib/email";
+import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
 
 export async function createSupportTicket({
   actorUserId,
@@ -113,7 +113,17 @@ export async function respondToSupportTicket({
   await sendEmailSafe({
     to: ticket.createdBy.email,
     subject: `Respuesta a tu solicitud: ${ticket.subject}`,
-    html: `<p>Hola ${ticket.createdBy.name},</p><p>Tu solicitud de soporte <strong>${ticket.subject}</strong> fue respondida:</p><blockquote>${response}</blockquote>`,
+    html: renderEmailLayout({
+      accent: close ? "success" : "navy",
+      eyebrow: "Soporte",
+      heading: "Respondimos tu solicitud",
+      bodyHtml: `
+        <p>Hola <strong>${ticket.createdBy.name}</strong>,</p>
+        <p>Tu solicitud de soporte <strong>${ticket.subject}</strong> fue respondida${close ? " y quedó cerrada" : ""}:</p>
+        <div style="background:#F5F5F7;border-radius:12px;padding:16px 18px;margin:16px 0;color:#1D1D1F;">${response}</div>
+      `,
+      footerNote: "Puedes ver el historial completo de tus solicitudes en el Centro de ayuda dentro de la plataforma.",
+    }),
     tenantId: ticket.tenantId,
     template: "support_ticket_response",
   });

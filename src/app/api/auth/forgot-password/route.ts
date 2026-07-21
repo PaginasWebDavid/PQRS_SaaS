@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, renderEmailLayout } from "@/lib/email";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -39,21 +39,18 @@ export async function POST(req: NextRequest) {
         tenantId: user.tenantId,
         template: "password_reset",
         to: email,
-        subject: "Restablecer contraseÃ±a - PQRS SaaS",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1a1a1a;">Restablecer contraseÃ±a</h2>
+        subject: "Restablecer contraseña - PQRS Services",
+        html: renderEmailLayout({
+          accent: "navy",
+          eyebrow: "Seguridad de tu cuenta",
+          heading: "Restablecer tu contraseña",
+          bodyHtml: `
             <p>Hola <strong>${user.name}</strong>,</p>
-            <p>Recibimos una solicitud para restablecer tu contraseÃ±a. Haz clic en el siguiente botÃ³n:</p>
-            <div style="text-align: center; margin: 24px 0;">
-              <a href="${resetUrl}" style="display: inline-block; background-color: #15803d; color: white; font-weight: bold; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-size: 16px;">
-                Restablecer contraseÃ±a
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">Este enlace expira en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo.</p>
-            <p style="color: #999; font-size: 12px;">PQRS SaaS</p>
-          </div>
-        `,
+            <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para crear una nueva.</p>
+          `,
+          cta: { label: "Restablecer contraseña", url: resetUrl },
+          footerNote: "Este enlace expira en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo — tu contraseña actual seguirá funcionando.",
+        }),
       });
     } catch (emailError) {
       console.error("Error enviando email de reset:", emailError);
@@ -61,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    message: "Si el correo existe, recibirÃ¡s un enlace para restablecer tu contraseÃ±a",
+    message: "Si el correo existe, recibirás un enlace para restablecer tu contraseña",
   });
 }
 

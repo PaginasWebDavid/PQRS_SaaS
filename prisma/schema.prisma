@@ -63,6 +63,10 @@ model User {
   onboardingCompletedAt DateTime?
   notifyNewPqrsEmail    Boolean    @default(true)
   bloqueAptoEditado     Boolean    @default(false)
+  termsAcceptedAt       DateTime?
+  privacyAcceptedAt     DateTime?
+  termsVersion          String?
+  privacyVersion        String?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   pqrsCreated           Pqrs[]     @relation("CreatedBy")
@@ -533,5 +537,4 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
-
 
