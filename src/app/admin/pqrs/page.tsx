@@ -147,6 +147,8 @@ function ModuloPqrsPageContent() {
       }
       setData(Array.isArray(body) ? body : body?.data || []);
       if (body?.pagination) setPagination(body.pagination);
+    } catch {
+      showToast('No se pudieron cargar las PQRS. Revisa tu conexión.');
     } finally {
       setLoading(false);
     }
@@ -167,8 +169,8 @@ function ModuloPqrsPageContent() {
     fetch('/api/pqrs/' + selectedId, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => { if (body) setDetail(body); })
-      .catch(() => {});
-  }, [data, detail?.id, selectedId]);
+      .catch(() => showToast('No se pudo cargar el detalle de la PQRS'));
+  }, [data, detail?.id, selectedId, showToast]);
 
   const selected = data.find((p) => p.id === selectedId) ?? detail ?? data[0];
 

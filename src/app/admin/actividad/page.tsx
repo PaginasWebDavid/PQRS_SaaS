@@ -113,6 +113,7 @@ export default function ActividadPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(async (category: string, skip: number) => {
@@ -122,11 +123,19 @@ export default function ActividadPage() {
   }, []);
 
   useEffect(() => {
+    let alive = true;
     setLoading(true);
+    setError('');
     load(filter, 0).then((body) => {
+      if (!alive) return;
       if (body) { setEntries(body.entries); setTotal(body.total); }
-      setLoading(false);
+      else setError('No se pudo cargar la actividad.');
+    }).catch(() => {
+      if (alive) setError('No se pudo cargar la actividad.');
+    }).finally(() => {
+      if (alive) setLoading(false);
     });
+    return () => { alive = false; };
   }, [filter, load]);
 
   async function loadMore() {
@@ -147,8 +156,9 @@ export default function ActividadPage() {
 
       <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: '22px 24px' }}>
         {loading && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Cargando actividad…</div>}
-        {!loading && entries.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>No hay actividad registrada en esta categoría.</div>}
-        {!loading && entries.map((ev, i) => (
+        {!loading && error && <div style={{ textAlign: 'center', padding: 30, color: COLORS.danger, fontWeight: 600 }}>{error}</div>}
+        {!loading && !error && entries.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>No hay actividad registrada en esta categoría.</div>}
+        {!loading && !error && entries.map((ev, i) => (
           <div key={ev.id} style={{ display: 'flex', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ width: 9, height: 9, borderRadius: 999, background: CATEGORY_DOT[actionCategory(ev.action)] || COLORS.textMuted, marginTop: 5, flexShrink: 0 }} />

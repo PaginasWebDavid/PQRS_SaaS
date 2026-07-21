@@ -79,6 +79,8 @@ export default function AyudaPage() {
       setCategory('OTRO');
       fetchTickets();
       showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
+    } catch {
+      showToast('No se pudo enviar la solicitud. Revisa tu conexión.');
     } finally {
       setSubmitting(false);
     }

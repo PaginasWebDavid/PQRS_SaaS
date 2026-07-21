@@ -32,11 +32,21 @@ export default function ModuloLicenciasPage() {
   const [filter, setFilter] = useState('all');
   const [detailOpen, setDetailOpen] = useState(false);
   const [me, setMe] = useState<MeData | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [payLoading, setPayLoading] = useState(false);
   const [autoRenewLoading, setAutoRenewLoading] = useState(false);
   const { toast, showToast } = useToast();
 
-  const load = () => fetch('/api/me').then((r) => r.ok ? r.json() : null).then(setMe).catch(() => {});
+  const load = async () => {
+    try {
+      const response = await fetch('/api/me', { cache: 'no-store' });
+      if (!response.ok) throw new Error('profile');
+      setMe(await response.json());
+      setLoadError('');
+    } catch {
+      setLoadError('No se pudo cargar la información de la licencia.');
+    }
+  };
   useEffect(() => { load(); }, []);
 
   const license = me?.licenseSummary;
@@ -86,6 +96,7 @@ export default function ModuloLicenciasPage() {
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="licencias" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Licencias">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 22px' }}>Licencias y pagos</h1>
+      {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
       <div style={{ background: COLORS.navy, borderRadius: 20, padding: '30px 34px', color: '#FFFFFF', marginBottom: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3,1fr)', gap: 26, alignItems: 'center' }}>

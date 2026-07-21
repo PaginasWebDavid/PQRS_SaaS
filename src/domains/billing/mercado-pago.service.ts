@@ -82,8 +82,6 @@ export async function createMercadoPagoSubscriptionForTenant({
       }
     : await calculatePriceForUnits(tenant.units);
   const appUrl = getAppUrl();
-  const notificationUrl = `${appUrl}/api/billing/mercado-pago/webhook`;
-
   const preapproval = await mercadoPagoRequest<MercadoPagoPreapproval>("/preapproval", {
     method: "POST",
     body: JSON.stringify({
@@ -91,7 +89,7 @@ export async function createMercadoPagoSubscriptionForTenant({
       external_reference: tenant.subscription.id,
       payer_email: process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || admin.email,
       back_url: resolveBackUrl(backUrl || ("/super-admin?tenantId=" + tenant.id), appUrl),
-      notification_url: notificationUrl,
+      status: "pending",
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",
@@ -100,6 +98,10 @@ export async function createMercadoPagoSubscriptionForTenant({
       },
     }),
   });
+  const mercadoPagoInitPoint = preapproval.init_point || preapproval.sandbox_init_point;
+  if (!preapproval.id || !mercadoPagoInitPoint) {
+    throw new Error("Mercado Pago no devolvió una suscripción válida para iniciar el checkout");
+  }
 
   const updated = await prisma.subscription.update({
     where: { id: tenant.subscription.id },
@@ -109,7 +111,7 @@ export async function createMercadoPagoSubscriptionForTenant({
         : {}),
       autoRenew: true,
       mercadoPagoPreapprovalId: preapproval.id,
-      mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || null,
+      mercadoPagoInitPoint,
       mercadoPagoStatus: preapproval.status || null,
     },
   });
@@ -182,7 +184,7 @@ export async function disableAutoRenewForTenant({
   if (subscription.mercadoPagoPreapprovalId) {
     await mercadoPagoRequest(`/preapproval/${subscription.mercadoPagoPreapprovalId}`, {
       method: "PUT",
-      body: JSON.stringify({ status: "cancelled" }),
+      body: JSON.stringify({ status: "canceled" }),
     });
   }
 
@@ -447,10 +449,12 @@ async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<
   if (!accessToken) {
     throw new Error("Falta MERCADO_PAGO_ACCESS_TOKEN");
   }
+  const isTestEnvironment = accessToken.startsWith("TEST-");
 
   const response = await fetch(`${MERCADO_PAGO_API_URL}${path}`, {
     ...init,
     headers: {
+      ...(isTestEnvironment ? { "X-scope": "stage" } : {}),
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(init?.headers || {}),
@@ -459,7 +463,9 @@ async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Error Mercado Pago ${response.status}: ${detail}`);
+    const requestId = response.headers.get("x-request-id");
+    const suffix = requestId ? ` (request-id: ${requestId})` : "";
+    throw new Error(`Error Mercado Pago ${response.status}: ${detail}${suffix}`);
   }
 
   return response.json() as Promise<T>;
@@ -497,7 +503,7 @@ function mapPreapprovalStatus(status?: string): SubscriptionStatus {
   const normalized = status?.toLowerCase();
   if (normalized === "authorized") return "ACTIVE";
   if (normalized === "paused") return "GRACE_PERIOD";
-  if (normalized === "cancelled") return "CANCELLED";
+  if (normalized === "cancelled" || normalized === "canceled") return "CANCELLED";
   if (normalized === "pending") return "TRIAL";
   return "GRACE_PERIOD";
 }
