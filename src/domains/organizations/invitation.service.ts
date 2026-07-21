@@ -119,10 +119,11 @@ export async function createInvitation({
     select: { id: true, tenantId: true, role: true, isActive: true },
   });
   if (existingUser?.role === "SUPER_ADMIN") throw new Error("No se puede invitar una cuenta de plataforma");
+  // Mensaje generico sin importar de que conjunto sea el usuario activo: distinguirlo
+  // le permitiria a un ADMIN de un conjunto averiguar si un correo pertenece a un
+  // usuario activo de OTRO conjunto (fuga de informacion cross-tenant).
   if (existingUser?.isActive) {
-    throw new Error(existingUser.tenantId === tenantId
-      ? "Este correo ya pertenece a un usuario activo del conjunto"
-      : "Este correo ya pertenece a un usuario activo");
+    throw new Error("Este correo ya pertenece a un usuario activo");
   }
   const duplicate = await prisma.invitation.findFirst({
     where: { tenantId, email: normalizedEmail, status: "PENDING", expiresAt: { gt: new Date() } },

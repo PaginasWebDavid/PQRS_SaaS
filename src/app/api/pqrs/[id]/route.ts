@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { sendEmail, renderEmailLayout } from "@/lib/email";
-import { downloadFromStorage, uploadToStorage, dataUrlToBuffer } from "@/lib/storage";
+import { downloadFromStorage, uploadToStorage, dataUrlToBuffer, matchesDeclaredType } from "@/lib/storage";
 import { AuditAction } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
@@ -220,35 +220,40 @@ export async function PATCH(
     const numPadded = String(pqrs.numero).padStart(4, "0");
     const numeroRadicacion = `${yearStr}-${numPadded}`;
 
-    await prisma.historialPqrs.create({
-      data: {
-        tenantId,
-        pqrsId: pqrs.id,
-        estadoAntes: "EN_ESPERA",
-        estadoDespues: "EN_PROGRESO",
-        nota: `Primer contacto: ${nota}`,
-      },
-    });
-
     const prioridad = ["ALTA", "MEDIA", "BAJA"].includes(body.prioridad) ? body.prioridad : undefined;
 
-    const updated = await prisma.pqrs.update({
-      where: { id: params.id },
-      data: {
-        estado: "EN_PROGRESO",
-        asunto,
-        ...(prioridad ? { prioridad } : {}),
-        fechaPrimerContacto: ahora,
-        tiempoRespuestaPrimerContacto: diffDays,
-        notaPrimerContacto: nota,
-        gestionadoPorId: session.user.id,
-        numeroRadicacion,
-      },
-      include: {
-        creadoPor: { select: { name: true, email: true } },
-        gestionadoPor: { select: { name: true } },
-        historial: { orderBy: { creadoAt: "asc" } },
-      },
+    // El historial y la actualizacion del PQRS deben ser atomicos: si el update
+    // fallara despues de guardar el historial, quedaria un registro de auditoria
+    // describiendo una transicion que nunca se aplico de verdad.
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.historialPqrs.create({
+        data: {
+          tenantId,
+          pqrsId: pqrs.id,
+          estadoAntes: "EN_ESPERA",
+          estadoDespues: "EN_PROGRESO",
+          nota: `Primer contacto: ${nota}`,
+        },
+      });
+
+      return tx.pqrs.update({
+        where: { id: params.id },
+        data: {
+          estado: "EN_PROGRESO",
+          asunto,
+          ...(prioridad ? { prioridad } : {}),
+          fechaPrimerContacto: ahora,
+          tiempoRespuestaPrimerContacto: diffDays,
+          notaPrimerContacto: nota,
+          gestionadoPorId: session.user.id,
+          numeroRadicacion,
+        },
+        include: {
+          creadoPor: { select: { name: true, email: true } },
+          gestionadoPor: { select: { name: true } },
+          historial: { orderBy: { creadoAt: "asc" } },
+        },
+      });
     });
 
     await registerAuditLog({
@@ -395,26 +400,29 @@ export async function PATCH(
     if (requestedFase === 4 && !pqrs.fase4Inicio) updateData.fase4Inicio = ahora;
     if (requestedFase === 5 && !pqrs.fase5Inicio) updateData.fase5Inicio = ahora;
 
-    if (requestedFase !== current) {
-      await prisma.historialPqrs.create({
-        data: {
-          tenantId,
-          pqrsId: pqrs.id,
-          estadoAntes: pqrs.estado,
-          estadoDespues: pqrs.estado,
-          nota: `Avanzo de fase ${current || "inicio"} a fase ${requestedFase}${requestedTipo ? ` (${requestedTipo})` : ""}`,
+    // Igual que en primer contacto: el historial y el update deben ser atomicos.
+    const updated = await prisma.$transaction(async (tx) => {
+      if (requestedFase !== current) {
+        await tx.historialPqrs.create({
+          data: {
+            tenantId,
+            pqrsId: pqrs.id,
+            estadoAntes: pqrs.estado,
+            estadoDespues: pqrs.estado,
+            nota: `Avanzo de fase ${current || "inicio"} a fase ${requestedFase}${requestedTipo ? ` (${requestedTipo})` : ""}`,
+          },
+        });
+      }
+
+      return tx.pqrs.update({
+        where: { id: params.id },
+        data: updateData,
+        include: {
+          creadoPor: { select: { name: true, email: true } },
+          gestionadoPor: { select: { name: true } },
+          historial: { orderBy: { creadoAt: "asc" } },
         },
       });
-    }
-
-    const updated = await prisma.pqrs.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        creadoPor: { select: { name: true, email: true } },
-        gestionadoPor: { select: { name: true } },
-        historial: { orderBy: { creadoAt: "asc" } },
-      },
     });
 
     await registerAuditLog({
@@ -512,6 +520,9 @@ export async function PATCH(
     if (buffer.length > 2 * 1024 * 1024) {
       return NextResponse.json({ error: "El archivo de evidencia no puede superar 2MB" }, { status: 400 });
     }
+    if (!matchesDeclaredType(buffer, contentType)) {
+      return NextResponse.json({ error: "El archivo de evidencia no coincide con el tipo declarado" }, { status: 400 });
+    }
     const stored = await uploadToStorage({
       tenantId,
       folder: "evidencias",
@@ -532,29 +543,34 @@ export async function PATCH(
       (ahora.getTime() - pqrs.fechaRecibido.getTime()) / (1000 * 60 * 60 * 24)
     );
     updateData.tiempoRespuestaCierre = diffDays;
-
-    // Register in historial
-    await prisma.historialPqrs.create({
-      data: {
-        tenantId,
-        pqrsId: pqrs.id,
-        estadoAntes: pqrs.estado,
-        estadoDespues: "TERMINADO",
-        nota: "PQRS cerrada",
-      },
-    });
   }
 
   updateData.gestionadoPorId = session.user.id;
 
-  const updated = await prisma.pqrs.update({
-    where: { id: params.id },
-    data: updateData,
-    include: {
-      creadoPor: { select: { name: true, email: true } },
-      gestionadoPor: { select: { name: true } },
-      historial: { orderBy: { creadoAt: "asc" } },
-    },
+  // Igual que en primer contacto/fase: el historial (si aplica) y el update
+  // deben ser atomicos.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (terminar) {
+      await tx.historialPqrs.create({
+        data: {
+          tenantId,
+          pqrsId: pqrs.id,
+          estadoAntes: pqrs.estado,
+          estadoDespues: "TERMINADO",
+          nota: "PQRS cerrada",
+        },
+      });
+    }
+
+    return tx.pqrs.update({
+      where: { id: params.id },
+      data: updateData,
+      include: {
+        creadoPor: { select: { name: true, email: true } },
+        gestionadoPor: { select: { name: true } },
+        historial: { orderBy: { creadoAt: "asc" } },
+      },
+    });
   });
 
   await registerAuditLog({

@@ -7,6 +7,7 @@ import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { getPqrsReportData, resolvePeriod, reportFileName, type Estado, type Prioridad } from "@/domains/pqrs/reportes.service";
+import { safeExcelText } from "@/lib/excel-styles";
 
 const ESTADO_LABEL: Record<string, string> = { EN_ESPERA: "Abierta", EN_PROGRESO: "En proceso", TERMINADO: "Terminada" };
 const PRIORIDAD_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
@@ -157,13 +158,13 @@ export async function GET(req: NextRequest) {
     const row = wsDetalle.addRow({
       rad: d.numeroRadicacion || `#${d.numero}`,
       fr: fmtDate(d.fechaRecibido),
-      sol: d.solicitante,
+      sol: safeExcelText(d.solicitante),
       ubi: d.ubicacion,
-      cat: d.categoria,
-      sub: d.subcategoria || "",
+      cat: safeExcelText(d.categoria),
+      sub: safeExcelText(d.subcategoria || ""),
       pri: PRIORIDAD_LABEL[d.prioridad],
       est: ESTADO_LABEL[d.estado],
-      resp: d.responsable || "Sin asignar",
+      resp: safeExcelText(d.responsable || "Sin asignar"),
       fpc: fmtDate(d.fechaPrimerContacto),
       tpc: d.tiempoPrimerContacto ?? "",
       ua: fmtDate(d.ultimaActualizacion),
@@ -194,7 +195,7 @@ export async function GET(req: NextRequest) {
   const totalDist = data.distribucion.porCategoria.reduce((a, b) => a + b.count, 0) || 1;
   for (const c of data.distribucion.porCategoria) {
     const t = data.tiempos.porCategoria.find((x) => x.key === c.label);
-    const row = wsCat.addRow({ cat: c.label, cnt: c.count, pct: `${Math.round((c.count / totalDist) * 100)}%`, t: t?.avgCierre ?? "", cump: t?.cumplimientoPct != null ? `${t.cumplimientoPct}%` : "" });
+    const row = wsCat.addRow({ cat: safeExcelText(c.label), cnt: c.count, pct: `${Math.round((c.count / totalDist) * 100)}%`, t: t?.avgCierre ?? "", cump: t?.cumplimientoPct != null ? `${t.cumplimientoPct}%` : "" });
     row.eachCell((cell) => { cell.font = bFont; cell.border = brd; });
   }
 
@@ -213,7 +214,7 @@ export async function GET(req: NextRequest) {
   ];
   styleHeaderRow(wsDesempeno.getRow(1));
   for (const d of data.desempeno) {
-    const row = wsDesempeno.addRow({ resp: d.responsable, a: d.casosAsignados, c: d.casosCerrados, p: d.casosPendientes, v: d.casosVencidos, tpc: d.tiempoPromedioPrimerContacto ?? "", tc: d.tiempoPromedioCierre ?? "", cump: d.pctCumplimiento != null ? `${d.pctCumplimiento}%` : "", carga: d.cargaActual });
+    const row = wsDesempeno.addRow({ resp: safeExcelText(d.responsable), a: d.casosAsignados, c: d.casosCerrados, p: d.casosPendientes, v: d.casosVencidos, tpc: d.tiempoPromedioPrimerContacto ?? "", tc: d.tiempoPromedioCierre ?? "", cump: d.pctCumplimiento != null ? `${d.pctCumplimiento}%` : "", carga: d.cargaActual });
     row.eachCell((cell) => { cell.font = bFont; cell.border = brd; });
   }
 

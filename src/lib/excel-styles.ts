@@ -18,6 +18,18 @@ export const COLORS = {
   border: "D1D5DB",
 };
 
+/**
+ * Evita inyeccion de formulas (CSV/XLSX injection): si un texto controlado por
+ * el usuario (nombre de residente, subcategoria libre, etc.) empieza con
+ * =, +, -, @ o un tab/CR, algunas herramientas (Excel con config heredada,
+ * LibreOffice, o un re-guardado como CSV) lo interpretan como formula al abrir
+ * el archivo. Anteponer un apostrofe fuerza a tratarlo siempre como texto.
+ */
+export function safeExcelText(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 export const FONT_TITLE = { name: "Calibri", size: 14, bold: true, color: { argb: COLORS.green } };
 export const FONT_SUBTITLE = { name: "Calibri", size: 11, bold: false, color: { argb: COLORS.gray } };
 export const FONT_HEADER = { name: "Calibri", size: 10, bold: true, color: { argb: COLORS.headerFont } };

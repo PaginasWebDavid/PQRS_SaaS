@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import ExcelJS from "exceljs";
+import { safeExcelText } from "@/lib/excel-styles";
 
 const GREEN = "15803D";
 const GREEN_LIGHT = "F0FDF4";
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
   h2.height = 22;
 
   for (const a of porAsuntoDetalle) {
-    const row = ws2.addRow([a.cantidad, a.asunto, a.descripcion, a.terminados, a.enProgreso, a.enEspera]);
+    const row = ws2.addRow([a.cantidad, safeExcelText(a.asunto), safeExcelText(a.descripcion), a.terminados, a.enProgreso, a.enEspera]);
     row.eachCell((cell, col) => { cell.font = bodyFont; cell.border = border; cell.alignment = col <= 3 ? (col === 1 ? center : { horizontal: "left", vertical: "middle" }) : center; });
     row.getCell(1).font = boldFont;
     row.getCell(4).font = { ...bodyFont, color: { argb: GREEN } };

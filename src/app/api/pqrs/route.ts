@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
-import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
+import { dataUrlToBuffer, uploadToStorage, matchesDeclaredType } from "@/lib/storage";
 import { sendEmail, sendEmailSafe, renderEmailLayout } from "@/lib/email";
 import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
@@ -226,6 +226,9 @@ export async function POST(req: NextRequest) {
       const sizeBytes = Math.ceil(base64Data.length * 0.75);
       if (sizeBytes > 1024 * 1024) {
         return NextResponse.json({ error: `La foto "${foto.nombre}" supera 1MB` }, { status: 400 });
+      }
+      if (!matchesDeclaredType(Buffer.from(base64Data, "base64"), foto.tipo)) {
+        return NextResponse.json({ error: `El archivo "${foto.nombre}" no es una imagen ${foto.tipo} valida` }, { status: 400 });
       }
       fotosArray.push({ data: foto.data, nombre: foto.nombre, tipo: foto.tipo, orden: i });
     }

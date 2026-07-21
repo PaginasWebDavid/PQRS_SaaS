@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
-import { uploadToStorage } from "@/lib/storage";
+import { uploadToStorage, matchesDeclaredType } from "@/lib/storage";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_SIZE = 2 * 1024 * 1024;
@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!matchesDeclaredType(buffer, file.type)) {
+      return NextResponse.json({ error: "La imagen no coincide con el tipo declarado" }, { status: 400 });
+    }
     const stored = await uploadToStorage({
       tenantId,
       folder: "avatares",

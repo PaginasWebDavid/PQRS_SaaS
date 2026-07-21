@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
-import { COLORS, tabStyle } from '@/lib/design/tokens';
+import { COLORS } from '@/lib/design/tokens';
 
 type AuditEntry = {
   id: string;
@@ -13,13 +13,9 @@ type AuditEntry = {
   actor?: { name?: string | null; email?: string | null } | null;
 };
 
-const FILTERS = [
-  { key: 'all', label: 'Todo' },
-  { key: 'pqrs', label: 'PQRS' },
-  { key: 'usuarios', label: 'Usuarios' },
-  { key: 'licencia', label: 'Licencia' },
-];
-
+// Consejo es de solo lectura sobre PQRS/Reportes — la API ya restringe su
+// consulta de actividad a esa categoria unicamente, asi que no se ofrecen
+// pestañas de Usuarios/Licencia que igual no traerian datos.
 const CATEGORY_DOT: Record<string, string> = { pqrs: COLORS.navy, usuarios: COLORS.warning, licencia: COLORS.success };
 
 function actionCategory(action: string): string {
@@ -109,7 +105,7 @@ function relativeTime(iso: string): string {
 }
 
 export default function ConsejoActividadPage() {
-  const [filter, setFilter] = useState('all');
+  const filter = 'pqrs';
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -146,12 +142,9 @@ export default function ConsejoActividadPage() {
   return (
     <AdminShell navItems={CONSEJO_NAV} activeKey="actividad" userName="Consejo" userRole="Consejo de Administración" initials="CM" mobileTitle="Actividad">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Actividad</h1>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 20px' }}>Trazabilidad completa de tu conjunto</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 20px' }}>Trazabilidad de las PQRS de tu conjunto</p>
 
       {error && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 14, padding: 16, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>{error} <button type="button" onClick={() => setReloadKey((value) => value + 1)} style={{ marginLeft: 10, border: 'none', background: COLORS.danger, color: '#FFF', borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button></div>}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
-      </div>
 
       <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: '22px 24px' }}>
         {loading && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Cargando actividad…</div>}

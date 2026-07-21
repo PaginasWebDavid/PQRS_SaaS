@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
-import { uploadToStorage } from "@/lib/storage";
+import { uploadToStorage, matchesDeclaredType } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!matchesDeclaredType(buffer, file.type)) {
+      return NextResponse.json({ error: "El archivo no coincide con el tipo declarado" }, { status: 400 });
+    }
     const stored = await uploadToStorage({
       tenantId,
       folder: "evidencias",
