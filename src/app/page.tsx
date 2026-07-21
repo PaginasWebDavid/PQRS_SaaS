@@ -1272,14 +1272,16 @@ export default function PqrsLandingPage() {
                     title: 'Contacto',
                     links: [
                       ['#demo', 'Agendar demo'],
-                      ['#', 'Soporte'],
+                      ['mailto:hola@pqrsservices.com', 'Soporte'],
                     ],
                   },
                   {
                     title: 'Legal',
                     links: [
-                      ['#', 'Privacidad'],
-                      ['#', 'Términos'],
+                      ['/legal/privacidad', 'Privacidad'],
+                      ['/legal/terminos', 'Términos'],
+                      ['/legal/cookies', 'Cookies'],
+                      ['/legal/pagos', 'Pagos y cancelación'],
                     ],
                   },
                 ].map(group => (

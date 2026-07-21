@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { dataUrlToBuffer, uploadToStorage } from "@/lib/storage";
-import { sendEmail, sendEmailSafe } from "@/lib/email";
+import { sendEmail, sendEmailSafe, renderEmailLayout } from "@/lib/email";
 import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
@@ -353,14 +353,17 @@ export async function POST(req: NextRequest) {
           template: "pqrs_created_admin_alert",
           to: recipient.email,
           subject: `Nueva PQRS #${pqrs.numero} radicada`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #122545;">Nueva PQRS radicada</h2>
-              <p>Se registro la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}.</p>
-              <p>Ingresa al panel de administracion para revisarla y dar el primer contacto.</p>
-              <p style="color: #666; font-size: 13px; margin-top: 20px;">Puedes desactivar este correo en Configuracion &gt; Notificaciones.</p>
-            </div>
-          `,
+          html: renderEmailLayout({
+            accent: "warning",
+            eyebrow: "Nueva PQRS",
+            heading: pqrs.titulo || `Solicitud #${pqrs.numero}`,
+            bodyHtml: `
+              <p>Se registró la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}, radicada por <strong>${finalNombre}</strong> (Bloque ${finalBloque}, apto ${finalApto}).</p>
+              <p>Ingresa al panel de administración para revisarla y dar el primer contacto.</p>
+            `,
+            cta: { label: "Ver en el panel", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/admin/pqrs?id=${pqrs.id}` },
+            footerNote: "Puedes desactivar este correo en Mi cuenta → Notificaciones.",
+          }),
         })
       )
   );
@@ -372,21 +375,22 @@ export async function POST(req: NextRequest) {
         template: "pqrs_received",
         to: session.user.email,
         subject: `Recibimos tu solicitud #${pqrs.numero}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #122545;">Recibimos tu solicitud</h2>
+        html: renderEmailLayout({
+          accent: "navy",
+          eyebrow: "Solicitud recibida",
+          heading: pqrs.titulo || "Recibimos tu solicitud",
+          bodyHtml: `
             <p>Hola <strong>${finalNombre}</strong>,</p>
-            <p>Ya recibimos tu PQRS y en breve la administracion se pondra en contacto contigo. Te avisaremos por correo tan pronto quede radicada oficialmente.</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Numero interno</td><td style="padding: 8px; border: 1px solid #ddd;">#${pqrs.numero}</td></tr>
-              <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ubicacion</td><td style="padding: 8px; border: 1px solid #ddd;">Bloque ${finalBloque}, apto ${finalApto}</td></tr>
+            <p>Ya recibimos tu PQRS y en breve la administración se pondrá en contacto contigo. Te avisaremos por correo tan pronto quede radicada oficialmente.</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:separate;border-spacing:0;background:#F5F5F7;border-radius:12px;overflow:hidden;">
+              <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;width:40%;">NÚMERO INTERNO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;">#${pqrs.numero}</td></tr>
+              <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">UBICACIÓN</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">Bloque ${finalBloque}, apto ${finalApto}</td></tr>
             </table>
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
-              <p style="margin: 0; font-size: 14px; color: #374151;">${descripcion}</p>
+            <div style="background:#EAEEF6;border-radius:12px;padding:16px 18px;">
+              <p style="margin:0;font-size:13.5px;color:#122545;line-height:1.6;">${descripcion}</p>
             </div>
-            <p style="color: #666; font-size: 14px;">PQRS Services</p>
-          </div>
-        `,
+          `,
+        }),
       });
     } catch (emailError) {
       console.error("Error enviando email de recepcion:", emailError);

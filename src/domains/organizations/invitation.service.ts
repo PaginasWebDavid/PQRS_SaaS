@@ -2,9 +2,10 @@ import { AuditAction, InvitationStatus, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendEmailSafe } from "@/lib/email";
+import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
+import { LEGAL_DOCUMENT_VERSION } from "@/lib/legal";
 
 const INVITATION_TOKEN_BYTES = 32;
 const DEFAULT_EXPIRES_HOURS = 72;
@@ -38,15 +39,24 @@ function ensureInvitableRole(role: Role) {
   }
 }
 
+const INVITATION_ROLE_LABEL: Record<Role, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ADMIN: "Administrador",
+  CONSEJO: "Consejo de Administración",
+  RESIDENTE: "Residente",
+};
+
 async function sendInvitationEmail({
   tenantId,
   email,
   tenantName,
+  role,
   token,
 }: {
   tenantId: string;
   email: string;
   tenantName: string;
+  role: Role;
   token: string;
 }) {
   const url = invitationUrl(token);
@@ -54,16 +64,18 @@ async function sendInvitationEmail({
     tenantId,
     to: email,
     template: "invitation",
-    subject: `Invitacion a PQRS Services - ${tenantName}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #122545;">Te invitaron a PQRS Services</h2>
-        <p>Has recibido una invitacion para acceder a <strong>${tenantName}</strong>.</p>
-        <p>Haz clic en el siguiente enlace para crear tu cuenta:</p>
-        <p><a href="${url}" style="display:inline-block;background:#122545;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:700;">Aceptar invitacion</a></p>
-        <p style="color:#666;font-size:13px;">Si no esperabas esta invitacion, puedes ignorar este mensaje.</p>
-      </div>
-    `,
+    subject: `Te invitaron a ${tenantName} en PQRS Services`,
+    html: renderEmailLayout({
+      accent: "navy",
+      eyebrow: "Invitación",
+      heading: "Te invitaron a PQRS Services",
+      bodyHtml: `
+        <p>Has recibido una invitación para acceder a <strong>${tenantName}</strong> con el rol de <strong>${INVITATION_ROLE_LABEL[role] || role}</strong>.</p>
+        <p>Crea tu contraseña para activar tu cuenta y empezar a usar la plataforma.</p>
+      `,
+      cta: { label: "Aceptar invitación", url },
+      footerNote: "Si no esperabas esta invitación, puedes ignorar este mensaje — tu correo no quedará registrado.",
+    }),
   });
 }
 
@@ -140,7 +152,7 @@ export async function createInvitation({
     metadata: { email: normalizedEmail, role, expiresAt: expiresAt.toISOString() },
   });
 
-  const emailResult = await sendInvitationEmail({ tenantId, email: normalizedEmail, tenantName: tenant.name, token });
+  const emailResult = await sendInvitationEmail({ tenantId, email: normalizedEmail, tenantName: tenant.name, role, token });
 
   if (invitedById) {
     await createNotification({
@@ -228,7 +240,7 @@ export async function resendInvitation({
     metadata: { email: invitation.email, role: invitation.role },
   });
 
-  const emailResult = await sendInvitationEmail({ tenantId, email: invitation.email, tenantName: invitation.tenant.name, token });
+  const emailResult = await sendInvitationEmail({ tenantId, email: invitation.email, tenantName: invitation.tenant.name, role: invitation.role, token });
   return { invitation: updated, token, invitationUrl: invitationUrl(token), emailResult };
 }
 
@@ -268,6 +280,7 @@ export async function acceptInvitation({
   name,
   bloque,
   apto,
+  acceptedLegal,
   origin,
 }: {
   token: string;
@@ -275,6 +288,7 @@ export async function acceptInvitation({
   name: string;
   bloque?: number | null;
   apto?: number | null;
+  acceptedLegal: boolean;
   origin?: string | null;
 }) {
   if (!token || token.length < 20) throw new Error("Token de invitacion invalido");
@@ -300,6 +314,7 @@ export async function acceptInvitation({
     throw new Error("Esta invitacion esta vencida");
   }
 
+  if (!acceptedLegal) throw new Error("Debes aceptar los terminos y la politica de tratamiento de datos");
   const passwordHash = await bcrypt.hash(password, 10);
   const normalizedEmail = normalizeEmail(invitation.email);
 
@@ -325,6 +340,10 @@ export async function acceptInvitation({
             apto: invitation.role === "RESIDENTE" ? apto ?? existing.apto : null,
             isActive: true,
             onboardingCompletedAt: null,
+            termsAcceptedAt: new Date(),
+            privacyAcceptedAt: new Date(),
+            termsVersion: LEGAL_DOCUMENT_VERSION,
+            privacyVersion: LEGAL_DOCUMENT_VERSION,
           },
         })
       : await tx.user.create({
@@ -337,6 +356,10 @@ export async function acceptInvitation({
             bloque: invitation.role === "RESIDENTE" ? bloque ?? null : null,
             apto: invitation.role === "RESIDENTE" ? apto ?? null : null,
             isActive: true,
+            termsAcceptedAt: new Date(),
+            privacyAcceptedAt: new Date(),
+            termsVersion: LEGAL_DOCUMENT_VERSION,
+            privacyVersion: LEGAL_DOCUMENT_VERSION,
           },
         });
 

@@ -16,6 +16,7 @@ export default function InvitacionPage() {
   const [password, setPassword] = useState('');
   const [bloque, setBloque] = useState('');
   const [apto, setApto] = useState('');
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   useEffect(() => {
     const currentToken = new URLSearchParams(window.location.search).get('token') || '';
@@ -26,10 +27,11 @@ export default function InvitacionPage() {
   }, []);
 
   async function accept() {
+    if (!legalAccepted) return;
     setError('');
     const res = await fetch('/api/invitations/accept', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, name: fullName, password, bloque: bloque || null, apto: apto || null }),
+      body: JSON.stringify({ token, name: fullName, password, bloque: bloque || null, apto: apto || null, acceptedLegal: true }),
     });
     const body = await res.json().catch(() => null);
     if (!res.ok) { setError(body?.error || 'No se pudo aceptar la invitación'); return; }
@@ -82,30 +84,35 @@ export default function InvitacionPage() {
             <label style={labelStyle}>Crear contraseña</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caracteres, una letra y un número" style={{ ...inputStyle, marginBottom: 22 }} />
 
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.5, marginBottom: 18, cursor: 'pointer' }}>
+              <input type="checkbox" checked={legalAccepted} onChange={(e) => setLegalAccepted(e.target.checked)} style={{ marginTop: 3, accentColor: COLORS.navy }} />
+              <span>Acepto los <Link href="/legal/terminos" target="_blank" style={{ color: COLORS.navy, fontWeight: 700 }}>términos de uso</Link> y he leído la <Link href="/legal/privacidad" target="_blank" style={{ color: COLORS.navy, fontWeight: 700 }}>política de tratamiento de datos</Link>.</span>
+            </label>
+
             {error && (
               <p role="alert" style={{ color: COLORS.warning, fontSize: 13, fontWeight: 600, marginBottom: 14 }}>{error}</p>
             )}
 
             <button
               onClick={accept}
-              disabled={!canSubmit}
+              disabled={!canSubmit || !legalAccepted}
               style={{
                 width: '100%',
                 border: 0,
                 textAlign: 'center',
-                background: canSubmit ? COLORS.navy : COLORS.neutralSoft,
-                color: canSubmit ? '#FFFFFF' : COLORS.textMuted,
+                background: canSubmit && legalAccepted ? COLORS.navy : COLORS.neutralSoft,
+                color: canSubmit && legalAccepted ? '#FFFFFF' : COLORS.textMuted,
                 fontSize: 14.5,
                 fontWeight: 700,
                 padding: '13px 0',
                 borderRadius: RADIUS.pill,
-                cursor: canSubmit ? 'pointer' : 'default',
+                cursor: canSubmit && legalAccepted ? 'pointer' : 'default',
               }}
             >
               Confirmar cuenta
             </button>
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
-              Al confirmar aceptas los términos de uso de PQRS Services.
+              La invitación queda asociada automáticamente a tu conjunto y rol.
             </p>
           </div>
         )}

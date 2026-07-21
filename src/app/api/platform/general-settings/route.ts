@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getGeneralSettings, getIntegrationStatus, upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
-import { sendEmailSafe } from "@/lib/email";
+import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
 
 export async function GET() {
   const session = await auth();
@@ -46,7 +46,12 @@ export async function POST(req: NextRequest) {
       const result = await sendEmailSafe({
         to: session.user.email as string,
         subject: "Correo de prueba — PQRS Services",
-        html: "<p>Este es un correo de prueba enviado desde Configuración → Integraciones. Si lo recibiste, Resend está funcionando correctamente.</p>",
+        html: renderEmailLayout({
+          accent: "success",
+          eyebrow: "Prueba",
+          heading: "Resend está funcionando",
+          bodyHtml: `<p>Este es un correo de prueba enviado desde <strong>Configuración → Integraciones</strong>. Si lo recibiste, tu conexión con Resend quedó bien configurada y lista para enviar correos reales.</p>`,
+        }),
         template: "platform_test_email",
       });
       if (!result.ok) {

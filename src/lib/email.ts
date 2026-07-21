@@ -145,6 +145,76 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
   }
 }
 
+type EmailAccent = "navy" | "success" | "warning" | "danger";
+
+const ACCENT_COLORS: Record<EmailAccent, { fg: string; bg: string }> = {
+  navy: { fg: "#122545", bg: "#EAEEF6" },
+  success: { fg: "#1A6B3A", bg: "#ECF6EF" },
+  warning: { fg: "#8A5A00", bg: "#FBF3DF" },
+  danger: { fg: "#B3261E", bg: "#FBEAEA" },
+};
+
+/**
+ * Shared branded HTML shell for every transactional email — keeps every
+ * template (invitaciones, PQRS, soporte, contraseña) visually consistent
+ * with the app's palette instead of ad-hoc inline HTML per call site.
+ */
+export function renderEmailLayout({
+  accent = "navy",
+  eyebrow,
+  heading,
+  bodyHtml,
+  cta,
+  footerNote,
+}: {
+  accent?: EmailAccent;
+  eyebrow: string;
+  heading: string;
+  bodyHtml: string;
+  cta?: { label: string; url: string };
+  footerNote?: string;
+}) {
+  const { fg, bg } = ACCENT_COLORS[accent];
+  return `
+  <div style="background:#F5F5F7;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <tr>
+        <td style="background:#122545;padding:26px 32px;">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td style="vertical-align:middle;padding-right:10px;">
+              <svg width="24" height="24" viewBox="0 0 128 128" style="display:block;">
+                <path d="M24 8h80c8.837 0 16 7.163 16 16v64c0 8.837-7.163 16-16 16H48l-16 16c-2.52 2.52-8 1.087-8-3V104c-8.837 0-16-7.163-16-16V24C8 15.163 15.163 8 24 8z" fill="#FFFFFF" />
+                <path d="M40 62l17 17 31-34" fill="none" stroke="#122545" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </td>
+            <td style="vertical-align:middle;">
+              <span style="font-weight:800;font-size:16px;color:#FFFFFF;">PQRS <span style="font-weight:500;color:#8FA1BF;">Services</span></span>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:36px 32px 8px;">
+          <span style="display:inline-block;background:${bg};color:${fg};font-size:11px;font-weight:700;letter-spacing:0.05em;padding:5px 12px;border-radius:999px;margin-bottom:14px;">${eyebrow.toUpperCase()}</span>
+          <h1 style="margin:14px 0 16px;font-size:21px;font-weight:800;color:#1D1D1F;letter-spacing:-0.02em;">${heading}</h1>
+          <div style="font-size:14px;line-height:1.65;color:#3C3C43;">${bodyHtml}</div>
+          ${cta ? `
+          <div style="text-align:center;margin:30px 0 6px;">
+            <a href="${cta.url}" style="display:inline-block;background:#122545;color:#FFFFFF;font-weight:700;font-size:14px;padding:14px 34px;border-radius:999px;text-decoration:none;">${cta.label}</a>
+          </div>` : ""}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 32px 32px;">
+          <div style="border-top:1px solid #E5E5EA;padding-top:20px;font-size:12px;color:#8E8E93;line-height:1.6;">
+            ${footerNote || "Este correo fue enviado automáticamente por PQRS Services. Por favor no respondas a este mensaje."}
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>`;
+}
+
 export async function sendEmailSafe(options: SendEmailOptions): Promise<EmailResult> {
   try {
     const result = await sendEmail(options);

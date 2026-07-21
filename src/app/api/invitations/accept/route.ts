@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       name: String(body.name || ""),
       bloque: body.bloque ? Number(body.bloque) : null,
       apto: body.apto ? Number(body.apto) : null,
+      acceptedLegal: body.acceptedLegal === true,
       origin: req.headers.get("x-forwarded-for") || req.headers.get("user-agent") || "api",
     });
 
