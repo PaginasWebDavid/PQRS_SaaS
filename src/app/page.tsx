@@ -287,7 +287,7 @@ export default function PqrsLandingPage() {
     {
       num: 'Paso 1',
       title: 'Configuramos tu conjunto',
-      desc: 'Cargamos unidades, torres y tu equipo. Nosotros hacemos el montaje, incluida la migración de tu Excel.',
+      desc: 'Te acompañamos en el montaje y, si ya tienes información en Excel, te ayudamos a organizarla.',
     },
     {
       num: 'Paso 2',
@@ -334,7 +334,7 @@ export default function PqrsLandingPage() {
     },
     {
       q: '¿Cómo funciona el cobro?',
-      a: 'Una tarifa mensual por conjunto, según su número de unidades. Sin costos por usuario ni sorpresas.',
+      a: 'Una tarifa mensual por conjunto, según su número de unidades. Sin cobros por usuario.',
     },
     {
       q: '¿Y si administro varios conjuntos?',
@@ -626,7 +626,7 @@ export default function PqrsLandingPage() {
                   transition: 'background 200ms, transform 200ms',
                 }}
               >
-                Agendar una demo
+                Solicitar una demo
               </a>
               <a
                 href="#producto"
@@ -799,7 +799,7 @@ export default function PqrsLandingPage() {
                 margin: '0 0 18px',
               }}
             >
-              Hoy las solicitudes llegan por seis canales distintos.
+              Hoy las solicitudes llegan por varios canales distintos.
               <br />
               <span style={{ color: '#6E6E73' }}>Y no quedan en ninguno.</span>
             </h2>
@@ -840,7 +840,7 @@ export default function PqrsLandingPage() {
               <h2 style={{ fontSize: sizes.h2Size, fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.025em', margin: '0 0 18px' }}>
                 Un solo flujo.
                 <br />
-                De la queja al cierre.
+                De la solicitud al cierre.
               </h2>
               <p style={{ fontSize: sizes.bodySize, lineHeight: 1.6, fontWeight: 500, color: '#6E6E73', margin: '0 auto', maxWidth: 520 }}>
                 Cada solicitud entra con número de radicado, pasa por cinco estados definidos y termina con evidencia adjunta.
@@ -1231,7 +1231,7 @@ export default function PqrsLandingPage() {
                   transition: 'background 200ms, transform 200ms',
                 }}
               >
-                Agendar una demo
+                Solicitar una demo
               </a>
               <a
                 href="/auth/login"
@@ -1240,7 +1240,7 @@ export default function PqrsLandingPage() {
                 Iniciar sesión <span style={{ fontSize: 13 }}>›</span>
               </a>
             </div>
-            <div style={{ fontSize: 12.5, color: '#8E8E93', fontWeight: 500, marginTop: 18 }}>Sin compromiso · La demo es con una persona, no un video</div>
+            <div style={{ fontSize: 12.5, color: '#8E8E93', fontWeight: 500, marginTop: 18 }}>Sin compromiso · Te mostramos la plataforma con casos reales de conjuntos residenciales.</div>
           </div>
         </section>
 

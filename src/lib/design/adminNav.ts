@@ -1,7 +1,7 @@
 ﻿import type { NavItem } from '@/components/shell/AdminShell';
 
 export const ADMIN_NAV: NavItem[] = [
-  { key: 'dashboard', href: '/admin/dashboard', label: 'Dashboard' },
+  { key: 'dashboard', href: '/admin/dashboard', label: 'Inicio' },
   { key: 'pqrs', href: '/admin/pqrs', label: 'PQRS' },
   { key: 'usuarios', href: '/admin/usuarios', label: 'Usuarios' },
   { key: 'reportes', href: '/admin/reportes', label: 'Reportes' },

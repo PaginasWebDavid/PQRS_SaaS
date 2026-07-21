@@ -12,7 +12,7 @@ const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { key: 'financiero', label: 'Licencias y pagos' },
   { header: 'NEGOCIO' },
   { key: 'precios', label: 'Reglas de precio' },
-  { key: 'analytics', label: 'Analytics' },
+  { key: 'analytics', label: 'Analítica' },
   { header: 'SISTEMA' },
   { key: 'usuarios', label: 'Usuarios' },
   { key: 'auditoria', label: 'Auditoría' },
@@ -140,7 +140,7 @@ const TENANT_BADGE: Record<TenantGroup, React.CSSProperties> = {
   grace: badgeStyle(COLORS.warningSoft, COLORS.warning),
   suspended: badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt), cancelled: badgeStyle(COLORS.dangerSoft, COLORS.danger),
 };
-const TENANT_LABEL: Record<TenantGroup, string> = { active: 'Activo', trial: 'Trial', pending_payment: 'Falta primer pago', grace: 'En mora', suspended: 'Suspendido', cancelled: 'Cancelado' };
+const TENANT_LABEL: Record<TenantGroup, string> = { active: 'Activo', trial: 'En prueba', pending_payment: 'Falta primer pago', grace: 'En mora', suspended: 'Suspendido', cancelled: 'Cancelado' };
 
 const AUDIT_ICON_STYLE = { width: 26, height: 26, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1 } as const;
 
@@ -169,6 +169,9 @@ export default function DashboardSuperAdminPage() {
   const [pendingInvitations, setPendingInvitations] = useState<{ id: string; email: string; role: string; expiresAt: string }[]>([]);
   const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [grantingCourtesy, setGrantingCourtesy] = useState(false);
+  const [courtesyDays, setCourtesyDays] = useState('7');
+  const [courtesyReason, setCourtesyReason] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createPhase, setCreatePhase] = useState<'form' | 'progress' | 'done'>('form');
   const [createStep, setCreateStep] = useState(0);
@@ -403,6 +406,29 @@ export default function DashboardSuperAdminPage() {
     showToast('Licencia renovada ✓');
   };
 
+  const grantCourtesy = async (id: string) => {
+    const days = Number(courtesyDays);
+    if (!Number.isSafeInteger(days) || days <= 0 || days > 90 || !courtesyReason.trim()) {
+      showToast('Indica días (1-90) y un motivo');
+      return;
+    }
+    const response = await fetch('/api/platform/super-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'grantCourtesyExtension', tenantId: id, days, reason: courtesyReason.trim() }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      showToast(body?.error || 'No se pudo otorgar la cortesía');
+      return;
+    }
+    await fetchOverview();
+    setGrantingCourtesy(false);
+    setCourtesyReason('');
+    setCourtesyDays('7');
+    showToast(`Cortesía de ${days} día(s) aplicada ✓`);
+  };
+
   const openEdit = (t: Tenant) => {
     setEditingTenant(t);
     setEditName(t.name);
@@ -493,7 +519,7 @@ export default function DashboardSuperAdminPage() {
       return;
     }
     setGeneralSettings((prev) => ({ ...prev, pqrsCloseSlaDays: days }));
-    showToast('SLA de cierre actualizado ✓ Ya se refleja en Analytics.');
+    showToast('Tiempo objetivo de cierre actualizado ✓');
   };
 
   const toggleFeatureFlag = async (key: 'supportTicketsEnabled' | 'transactionalEmailEnabled') => {
@@ -856,7 +882,7 @@ export default function DashboardSuperAdminPage() {
     { label: 'Total conjuntos', value: String(stats.totalTenants), color: '#1D1D1F' },
     { label: 'Activos', value: String(stats.activeTenants), color: COLORS.success },
     { label: 'Suspendidos', value: String(stats.suspendedTenants), color: COLORS.textSecondaryAlt },
-    { label: 'Trial', value: String(stats.trialTenants), color: COLORS.navy },
+    { label: 'En prueba', value: String(stats.trialTenants), color: COLORS.navy },
     { label: 'Usuarios registrados', value: String(stats.totalUsers), color: COLORS.navy },
     { label: 'PQRS abiertas', value: String(Math.max(0, stats.totalPqrs - stats.closedPqrs)), color: COLORS.warning },
     { label: 'PQRS cerradas', value: String(stats.closedPqrs), color: COLORS.success },
@@ -1027,7 +1053,7 @@ export default function DashboardSuperAdminPage() {
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
             <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit' }}>{applyingOverdue ? 'Ejecutando…' : 'Ejecutar reglas de mora'}</button>
+              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit' }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
               <button type="button" onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: COLORS.navy, border: 'none', color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
             </div>
           </div>
@@ -1144,7 +1170,7 @@ export default function DashboardSuperAdminPage() {
                 </div>
                 <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Mercado Pago</div>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Proveedor de pagos</div>
                     <div style={{ fontSize: 14, fontWeight: 800 }}>{mercadoPago?.connected ? 'Conectado' : 'No conectado'}</div>
                   </div>
                   <span style={mercadoPago?.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{mercadoPago?.connected ? 'Activo' : 'Inactivo'}</span>
@@ -1184,7 +1210,7 @@ export default function DashboardSuperAdminPage() {
       {nav === 'precios' && (
         <div className="apl-up" style={{ maxWidth: 1000 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Reglas de precio</h1>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Esto es lo que genuinamente se le cobra a cada conjunto según su número de unidades.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Define cuánto paga cada conjunto según su número de unidades.</p>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
             <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
@@ -1692,7 +1718,7 @@ export default function DashboardSuperAdminPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: 12 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>Mercado Pago (cobros)</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>Proveedor de pagos (cobros)</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.mercadoPago.webhookSecretConfigured ? 'Webhook configurado' : 'Falta configurar webhook'}</div>
                   </div>
                   <span style={integrationsFull.mercadoPago.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.mercadoPago.connected ? 'Conectado' : 'No conectado'}</span>
@@ -1834,20 +1860,35 @@ export default function DashboardSuperAdminPage() {
       </Sheet>
 
       {/* Tenant detail sheet */}
-      <Sheet open={!!selected} onClose={() => { setSelectedId(null); setConfirmingCancel(false); }} maxWidth={600}>
+      <Sheet open={!!selected} onClose={() => { setSelectedId(null); setConfirmingCancel(false); setGrantingCourtesy(false); }} maxWidth={600}>
         {selected && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={TENANT_BADGE[selected.group]}>{TENANT_LABEL[selected.group]}</span>
-              <CloseButton onClick={() => { setSelectedId(null); setConfirmingCancel(false); }} />
+              <CloseButton onClick={() => { setSelectedId(null); setConfirmingCancel(false); setGrantingCourtesy(false); }} />
             </div>
             <h2 style={{ fontSize: 21, fontWeight: 800, margin: '12px 0 4px' }}>{selected.name}</h2>
             <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>{selected.city} · Cliente desde {selected.startDate}</p>
 
-            {!confirmingCancel && (
+            {!confirmingCancel && !grantingCourtesy && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
                 <button type="button" onClick={() => (selected.group === 'suspended' ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: selected.group === 'suspended' ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{selected.group === 'suspended' ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
+                <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
                 <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
+              </div>
+            )}
+            {grantingCourtesy && (
+              <div style={{ border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 18, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>Otorgar cortesía</div>
+                <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 14 }}>Extiende el período activo sin cobrar — para casos puntuales de atención al cliente. Queda registrado en la auditoría.</div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Días a extender (1-90)</label>
+                <input type="number" min={1} max={90} value={courtesyDays} onChange={(e) => setCourtesyDays(e.target.value)} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 12 }} />
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Motivo (queda en la auditoría)</label>
+                <input value={courtesyReason} onChange={(e) => setCourtesyReason(e.target.value)} placeholder="Ej: reclamo justificado, cortesía de bienvenida…" style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => grantCourtesy(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Confirmar cortesía</button>
+                  <button type="button" onClick={() => { setGrantingCourtesy(false); setCourtesyReason(''); }} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.textSecondary, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Cancelar</button>
+                </div>
               </div>
             )}
             {confirmingCancel && (

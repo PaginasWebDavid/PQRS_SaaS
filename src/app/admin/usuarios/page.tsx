@@ -12,7 +12,7 @@ type User = { id: string; name: string; email: string; role: Role; bloque?: numb
 type ProfileStats = User & { pqrsTotal: number; pqrsTerminadas: number };
 type UserPagination = { page: number; pageSize: number; total: number; totalPages: number };
 const EDITABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
-const roleLabel: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const roleLabel: Record<Role, string> = { ADMIN: 'Administrador', CONSEJO: 'Miembro del consejo', RESIDENTE: 'Residente' };
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const AVATAR_BG = [COLORS.navySoft, COLORS.successSoft, COLORS.warningSoft, COLORS.bgCard];
 const AVATAR_COLOR = [COLORS.navy, COLORS.success, COLORS.warning, COLORS.textSecondaryAlt];
@@ -149,7 +149,7 @@ export default function UsuariosPage() {
   return <AdminShell navItems={ADMIN_NAV} activeKey="usuarios" userName="Admin" userRole="Administración" initials="AD" mobileTitle="Usuarios">
     <div className="apl-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
       <div><h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 3px' }}>Usuarios</h1><p style={{ color: COLORS.textSecondary, margin: 0 }}>{users.length} usuarios del conjunto</p></div>
-      <button type="button" onClick={openInvite} style={{ background: COLORS.navy, color: '#FFF', border: 0, padding: '11px 22px', borderRadius: RADIUS.pill, fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>+ Invitar usuario</button>
+      <button type="button" onClick={openInvite} style={{ background: COLORS.navy, color: '#FFF', border: 0, padding: '11px 22px', borderRadius: RADIUS.pill, fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Invitar usuario</button>
     </div>
 
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>

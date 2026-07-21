@@ -249,7 +249,7 @@ export default function VistaResidentePage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en tus solicitudes" style={{ ...inputStyle, flex: 1 }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-          {[['all', 'Todas'], ['abiertas', 'En espera'], ['gestion', 'En proceso'], ['resuelta', 'Terminada']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
+          {[['all', 'Todas'], ['abiertas', 'Recibidas'], ['gestion', 'En gestión'], ['resuelta', 'Resueltas']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
         {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: 16, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
         {!loading && !loadError && pqrsTotal > PQRS_PAGE_SIZE && (
@@ -310,7 +310,7 @@ export default function VistaResidentePage() {
           <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>
-        {ticketsError ? <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600 }}>{ticketsError}<button type='button' onClick={() => void loadTickets()} style={{ ...secondary, width: 'auto', marginTop: 10 }}>Intentar de nuevo</button></div> : tickets.length === 0 ? <Empty text='Aun no has enviado ninguna solicitud.' /> : tickets.map((t) => (
+        {ticketsError ? <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600 }}>{ticketsError}<button type='button' onClick={() => void loadTickets()} style={{ ...secondary, width: 'auto', marginTop: 10 }}>Intentar de nuevo</button></div> : tickets.length === 0 ? <Empty text='Aún no has enviado ninguna solicitud.' /> : tickets.map((t) => (
           <div key={t.id} style={{ background: '#FFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <b style={{ fontSize: 13.5 }}>{t.subject}</b>
@@ -357,11 +357,11 @@ export default function VistaResidentePage() {
 
         {editing ? <><textarea rows={5} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} style={{ ...inputStyle, height: 'auto', paddingTop: 12, marginTop: 18 }} /><button onClick={saveEdit} style={primary}>Guardar edición</button></> : <p style={{ lineHeight: 1.6, color: COLORS.textSecondaryAlt, whiteSpace: 'pre-wrap', marginTop: 18 }}>{selected.descripcion}</p>}
         {!taken && !selected.editadoPorResidente && !editing && <button onClick={() => setEditing(true)} style={secondary}>Editar solicitud</button>}
-        {taken && <p style={{ fontSize: 12, color: COLORS.textMuted }}>La administración ya tomó esta solicitud; su contenido quedó bloqueado.</p>}
+        {taken && <p style={{ fontSize: 12, color: COLORS.textMuted }}>La administración ya empezó a gestionar esta solicitud; su contenido quedó bloqueado.</p>}
         {!taken && selected.editadoPorResidente && !editing && <p style={{ fontSize: 12, color: COLORS.textMuted }}>Ya editaste esta solicitud una vez; no puede editarse de nuevo.</p>}
         {selected.responsable && <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '18px 0 0' }}>Responsable: <b>{selected.responsable}</b></p>}
         {(selected.accionTomada || selected.evidenciaCierre || selected.queSeHizoParaCerrar) && <div style={{ background: COLORS.successSoft, borderRadius: 14, padding: '14px 16px', marginTop: 16 }}>
-          <b style={{ fontSize: 13.5, color: COLORS.success }}>Respuesta de la administracion</b>
+          <b style={{ fontSize: 13.5, color: COLORS.success }}>Respuesta de la administración</b>
           {selected.accionTomada && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.accionTomada}</p>}
           {selected.queSeHizoParaCerrar && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.queSeHizoParaCerrar}</p>}
           {selected.evidenciaCierre && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.evidenciaCierre}</p>}

@@ -2,6 +2,9 @@ import { AuditAction, PaymentStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
+import { SUBSCRIPTION_STATUS_LABEL } from "@/lib/design/licenseStatus";
+import { createNotification, NotificationTypes, type NotificationType } from "@/domains/notifications/notification.service";
+import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
 
 export const DEFAULT_TRIAL_DAYS = 15;
 const BILLING_PERIOD_DAYS = 30;
@@ -218,6 +221,91 @@ export async function renewSubscriptionWithSimulatedPayment({
   return updated;
 }
 
+// Le da al Super Admin una forma simple de otorgar una cortesia (extender dias sin
+// cobrar) sin tener que fabricar un pago a mano en la base de datos. Util para casos
+// puntuales de atencion al cliente: un reclamo justificado, un error de configuracion,
+// o simplemente dejar probar mas dias a un conjunto nuevo.
+export async function grantCourtesyExtension({
+  actorUserId,
+  tenantId,
+  days,
+  reason,
+}: {
+  actorUserId: string;
+  tenantId: string;
+  days: number;
+  reason: string;
+}) {
+  if (!Number.isSafeInteger(days) || days <= 0 || days > 90) {
+    throw new Error("Los dias de cortesia deben ser un entero entre 1 y 90");
+  }
+  if (!reason.trim()) {
+    throw new Error("Debes indicar un motivo para la cortesia");
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { tenantId },
+    include: { tenant: { select: { name: true } } },
+  });
+  if (!subscription) {
+    throw new Error("El tenant no tiene suscripción");
+  }
+
+  const now = new Date();
+  const periodStart = subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
+  const periodEnd = addDays(periodStart, days);
+
+  const [updated] = await prisma.$transaction(async (tx) => {
+    const renewed = await tx.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: "ACTIVE",
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        graceEndsAt: null,
+        payments: {
+          create: {
+            tenantId,
+            amountCents: 0,
+            currency: subscription.currency,
+            status: "APPROVED",
+            provider: "SIMULATED",
+            dueDate: now,
+            paidAt: now,
+            periodStart,
+            periodEnd,
+            externalReference: `courtesy-${now.toISOString()}`,
+          },
+        },
+      },
+    });
+
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: { status: "ACTIVE", cancelledAt: null },
+    });
+
+    return [renewed];
+  });
+
+  await registerAuditLog({
+    actorUserId,
+    tenantId,
+    action: AuditAction.SUBSCRIPTION_RENEWED,
+    targetType: "Subscription",
+    targetId: updated.id,
+    metadata: {
+      tenantId,
+      name: subscription.tenant.name,
+      courtesy: true,
+      days,
+      reason,
+    },
+  });
+
+  return updated;
+}
+
 export async function getBillingPlatformOverview() {
   const now = new Date();
   const renewalLimit = addDays(now, RENEWAL_WINDOW_DAYS);
@@ -291,10 +379,17 @@ export async function getBillingPlatformOverview() {
   };
 }
 
+// Fuente unica del periodo de gracia configurable por el Super Admin. El webhook de
+// Mercado Pago (mercado-pago.service.ts) tambien debe leer este mismo valor en vez de
+// tener su propia constante, para que ambos caminos apliquen siempre el mismo numero.
+export async function getGracePeriodDays(): Promise<number> {
+  const graceDaysSetting = await prisma.platformSetting.findUnique({ where: { key: "gracePeriodDays" } });
+  return typeof graceDaysSetting?.value === "number" ? graceDaysSetting.value : DEFAULT_GRACE_PERIOD_DAYS;
+}
+
 export async function applyOverdueLicenseRules(actorUserId: string | null) {
   const now = new Date();
-  const graceDaysSetting = await prisma.platformSetting.findUnique({ where: { key: "gracePeriodDays" } });
-  const graceDays = typeof graceDaysSetting?.value === "number" ? graceDaysSetting.value : DEFAULT_GRACE_PERIOD_DAYS;
+  const graceDays = await getGracePeriodDays();
 
   // Subscriptions whose current period already ended enter grace period.
   const overdue = await prisma.subscription.findMany({
@@ -313,6 +408,15 @@ export async function applyOverdueLicenseRules(actorUserId: string | null) {
     await prisma.tenant.updateMany({
       where: { id: { in: overdue.map((s) => s.tenantId) } },
       data: { status: "GRACE_PERIOD" },
+    });
+    await notifyTenantAdminsOfLicenseChange({
+      tenantIds: overdue.map((s) => s.tenantId),
+      type: NotificationTypes.LICENSE_EXPIRING,
+      title: "Tu licencia entró en período de gracia",
+      message: `Tu conjunto tiene ${graceDays} día(s) para regularizar el pago antes de que el servicio se suspenda.`,
+      emailHeading: "Tu licencia entró en período de gracia",
+      emailBodyHtml: `Detectamos que el pago de tu conjunto no se procesó a tiempo. Tienes <strong>${graceDays} día(s)</strong> para ponerte al día desde Licencias y pagos antes de que el servicio se suspenda.`,
+      accent: "warning",
     });
   }
 
@@ -334,6 +438,15 @@ export async function applyOverdueLicenseRules(actorUserId: string | null) {
       where: { id: { in: expired.map((s) => s.tenantId) } },
       data: { status: "SUSPENDED" },
     });
+    await notifyTenantAdminsOfLicenseChange({
+      tenantIds: expired.map((s) => s.tenantId),
+      type: NotificationTypes.LICENSE_SUSPENDED,
+      title: "Tu licencia fue suspendida",
+      message: "El período de gracia terminó sin pago y el servicio quedó suspendido. Paga desde Licencias y pagos para reactivarlo.",
+      emailHeading: "Tu licencia fue suspendida",
+      emailBodyHtml: "El período de gracia terminó sin que se registrara el pago, así que el servicio de tu conjunto quedó suspendido. Puedes reactivarlo pagando desde Licencias y pagos en cualquier momento.",
+      accent: "danger",
+    });
   }
 
   await registerAuditLog({
@@ -344,6 +457,70 @@ export async function applyOverdueLicenseRules(actorUserId: string | null) {
   });
 
   return { movedToGracePeriod: overdue.length, movedToSuspended: expired.length };
+}
+
+// Avisa a los ADMIN activos de cada conjunto cuando su licencia entra en gracia o se
+// suspende. Antes esto pasaba en silencio: el ADMIN solo se enteraba si entraba por su
+// cuenta a revisar Licencias y pagos, lo que puede costar clientes por un pago fallido
+// que nadie notó a tiempo.
+async function notifyTenantAdminsOfLicenseChange({
+  tenantIds,
+  type,
+  title,
+  message,
+  emailHeading,
+  emailBodyHtml,
+  accent,
+}: {
+  tenantIds: string[];
+  type: NotificationType;
+  title: string;
+  message: string;
+  emailHeading: string;
+  emailBodyHtml: string;
+  accent: "warning" | "danger";
+}) {
+  const adminRows = await prisma.user.findMany({
+    where: { tenantId: { in: tenantIds }, role: "ADMIN", isActive: true },
+    select: { id: true, email: true, tenantId: true },
+  });
+  const admins = adminRows.filter((admin): admin is typeof admin & { tenantId: string } => admin.tenantId !== null);
+
+  await Promise.allSettled(
+    admins.map((admin) =>
+      createNotification({
+        tenantId: admin.tenantId,
+        userId: admin.id,
+        type,
+        title,
+        message,
+      })
+    )
+  );
+
+  const appUrl = getAppUrl();
+  await Promise.allSettled(
+    admins.map((admin) =>
+      sendEmailSafe({
+        to: admin.email,
+        subject: title,
+        tenantId: admin.tenantId,
+        template: "license-status-change",
+        html: renderEmailLayout({
+          accent,
+          eyebrow: "Licencia",
+          heading: emailHeading,
+          bodyHtml: emailBodyHtml,
+          cta: appUrl ? { label: "Ir a Licencias y pagos", url: `${appUrl}/admin/licencias` } : undefined,
+        }),
+      })
+    )
+  );
+}
+
+function getAppUrl() {
+  const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL;
+  return appUrl ? appUrl.replace(/\/$/, "") : null;
 }
 
 export async function getTenantLicenseSummary(tenantId: string) {
@@ -515,20 +692,16 @@ export function formatMoneyFromCents(amountCents: number, currency = "COP") {
   }).format(amountCents / 100);
 }
 
-export function getSubscriptionStatusLabel(status: SubscriptionStatus | PaymentStatus | string) {
-  const labels: Record<string, string> = {
-    PENDING_PAYMENT: "Falta primer pago",
-    TRIAL: "Trial",
-    ACTIVE: "Activa",
-    GRACE_PERIOD: "Periodo de gracia",
-    SUSPENDED: "Suspendida",
-    CANCELLED: "Cancelada",
-    PENDING: "Pendiente",
-    APPROVED: "Aprobado",
-    REJECTED: "Rechazado",
-  };
+// Usa el mismo mapa que ya se muestra en admin/licencias, para que un mismo estado nunca
+// se lea distinto en dos pantallas ("En mora" vs "Periodo de gracia" para GRACE_PERIOD).
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Pendiente",
+  APPROVED: "Aprobado",
+  REJECTED: "Rechazado",
+};
 
-  return labels[status] || status;
+export function getSubscriptionStatusLabel(status: SubscriptionStatus | PaymentStatus | string) {
+  return SUBSCRIPTION_STATUS_LABEL[status] || PAYMENT_STATUS_LABEL[status] || status;
 }
 
 function addDays(date: Date, days: number) {
