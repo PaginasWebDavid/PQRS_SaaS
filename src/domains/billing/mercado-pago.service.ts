@@ -87,7 +87,10 @@ export async function createMercadoPagoSubscriptionForTenant({
     body: JSON.stringify({
       reason: `Licencia PQRS Services - ${tenant.name}`.slice(0, 60),
       external_reference: tenant.subscription.id,
-      payer_email: process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || admin.email,
+      // MERCADO_PAGO_TEST_PAYER_EMAIL solo aplica con token de sandbox (TEST-...): un
+      // token de produccion (APP_USR-...) tiene que usar el correo real del ADMIN, o
+      // Mercado Pago rechaza el preapproval (500 generico) por payer inexistente.
+      payer_email: isMercadoPagoTestToken() ? (process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || admin.email) : admin.email,
       back_url: resolveBackUrl(backUrl || ("/super-admin?tenantId=" + tenant.id), appUrl),
       status: "pending",
       auto_recurring: {
@@ -444,12 +447,16 @@ async function auditWebhook(subscriptionId: string, tenantId: string, topic: str
   });
 }
 
+function isMercadoPagoTestToken() {
+  return (process.env.MERCADO_PAGO_ACCESS_TOKEN || "").startsWith("TEST-");
+}
+
 async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
   if (!accessToken) {
     throw new Error("Falta MERCADO_PAGO_ACCESS_TOKEN");
   }
-  const isTestEnvironment = accessToken.startsWith("TEST-");
+  const isTestEnvironment = isMercadoPagoTestToken();
 
   const response = await fetch(`${MERCADO_PAGO_API_URL}${path}`, {
     ...init,
