@@ -8,6 +8,7 @@ import { createBulkInvitations } from "@/domains/organizations/invitation.servic
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ROWS = 500;
+const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2MB alcanza de sobra para 500 filas de un .xlsx simple
 const SELECTABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export async function POST(req: NextRequest) {
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
   if (!role) {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
+  // Rechazar archivos desproporcionados antes de que ExcelJS los cargue por completo en
+  // memoria: el tope de MAX_ROWS filas no protege nada si ya se parseo todo el archivo.
+  if (file.size > MAX_FILE_BYTES) {
+    return NextResponse.json({ error: `El archivo pesa demasiado (máximo ${MAX_FILE_BYTES / (1024 * 1024)}MB)` }, { status: 400 });
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -47,16 +53,21 @@ export async function POST(req: NextRequest) {
   }
 
   const emails: string[] = [];
+  let validRowCount = 0;
   sheet.eachRow((row) => {
+    if (validRowCount > MAX_ROWS) return;
     const raw = String(row.getCell(1).text || "").trim().toLowerCase();
-    if (EMAIL_REGEX.test(raw)) emails.push(raw);
+    if (EMAIL_REGEX.test(raw)) {
+      validRowCount++;
+      if (emails.length <= MAX_ROWS) emails.push(raw);
+    }
   });
 
   if (emails.length === 0) {
     return NextResponse.json({ error: "No se encontraron correos válidos en la primera columna del archivo" }, { status: 400 });
   }
-  if (emails.length > MAX_ROWS) {
-    return NextResponse.json({ error: `El archivo tiene ${emails.length} correos; el máximo por carga es ${MAX_ROWS}` }, { status: 400 });
+  if (validRowCount > MAX_ROWS) {
+    return NextResponse.json({ error: `El archivo tiene más de ${MAX_ROWS} correos; el máximo por carga es ${MAX_ROWS}` }, { status: 400 });
   }
 
   const results = await createBulkInvitations({

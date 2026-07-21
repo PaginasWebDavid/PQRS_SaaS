@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getGeneralSettings } from "@/domains/platform/platform-setting.service";
+import { daysSince, isVencida } from "@/domains/pqrs/sla";
 
 export type Granularity = "day" | "week" | "month" | "quarter";
 export type Estado = "EN_ESPERA" | "EN_PROGRESO" | "TERMINADO";
@@ -158,10 +159,6 @@ export function reportFileName(tenantName: string, ext: string) {
   return `reporte-pqrs-${slugifyTenantName(tenantName)}-${date}.${ext}`;
 }
 
-function daysSince(date: Date, now: Date) {
-  return Math.floor((now.getTime() - date.getTime()) / 86400000);
-}
-
 function avg(values: number[]) {
   if (values.length === 0) return null;
   return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
@@ -177,11 +174,6 @@ function median(values: number[]) {
 function pctDelta(current: number | null, previous: number | null): number | null {
   if (current == null || previous == null || previous === 0) return null;
   return Math.round(((current - previous) / previous) * 1000) / 10;
-}
-
-function isVencida(row: { estado: Estado; tiempoRespuestaCierre: number | null; fechaRecibido: Date }, slaDays: number, now: Date) {
-  if (row.estado === "TERMINADO") return (row.tiempoRespuestaCierre ?? 0) > slaDays;
-  return daysSince(row.fechaRecibido, now) > slaDays;
 }
 
 function bucketStart(date: Date, granularity: Granularity): Date {
@@ -303,6 +295,11 @@ export async function getPqrsReportData(filters: ReportesFilters) {
   const current = cumplimientoFilter(currentAll);
   const compare = cumplimientoFilter(compareAll);
   const open = cumplimientoFilter(openAll);
+
+  // fetchRows/openAll/lifetimeLight tienen un tope (5000/5000/20000 filas) por rendimiento;
+  // si un tenant tiene mas casos que el tope en el rango consultado, el reporte queda
+  // incompleto sin que el usuario se entere. Se avisa con datosTruncados en vez de fallar.
+  const datosTruncados = currentAll.length >= 5000 || compareAll.length >= 5000 || openAll.length >= 5000 || lifetimeLight.length >= 20000;
 
   // ---------- A. Resumen ejecutivo ----------
   const closedCurrent = current.filter((r) => r.estado === "TERMINADO");
@@ -553,5 +550,6 @@ export async function getPqrsReportData(filters: ReportesFilters) {
     hallazgos,
     hayDatosSuficientes: current.length > 0,
     hayComparacionSuficiente: compare.length > 0,
+    datosTruncados,
   };
 }
