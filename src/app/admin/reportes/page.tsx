@@ -34,6 +34,7 @@ type ReportData = {
   hallazgos: string[];
   hayDatosSuficientes: boolean;
   hayComparacionSuficiente: boolean;
+  datosTruncados?: boolean;
   tenantName: string;
   staff: { id: string; name: string }[];
   bloques: number[];
@@ -385,6 +386,12 @@ export default function ModuloReportesPage() {
       {!loading && error && <div style={{ textAlign: 'center', padding: '60px 0', color: COLORS.danger, fontSize: 13.5 }}>{error}</div>}
       {!loading && !error && data && !data.hayDatosSuficientes && (
         <div style={{ ...card, textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>No hay datos para el periodo y filtros seleccionados.</div>
+      )}
+
+      {!loading && !error && data && data.datosTruncados && (
+        <div style={{ ...card, marginBottom: 16, background: COLORS.warningSoft, color: COLORS.warning, fontSize: 13, fontWeight: 600 }}>
+          El volumen de PQRS en el periodo seleccionado supera el límite del reporte, por lo que algunas cifras pueden estar incompletas. Reduce el rango de fechas o afina los filtros para ver el detalle completo.
+        </div>
       )}
 
       {!loading && !error && data && data.hayDatosSuficientes && (

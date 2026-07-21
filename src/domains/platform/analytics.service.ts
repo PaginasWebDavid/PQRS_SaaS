@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getGeneralSettings } from "@/domains/platform/platform-setting.service";
+import { overdueCutoffDate } from "@/domains/pqrs/sla";
 
 const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -23,6 +24,7 @@ export async function getPlatformAnalytics() {
   const rangeStart = months[0].start;
   const { pqrsCloseSlaDays } = await getGeneralSettings();
   const slaWarnDays = Math.max(1, Math.round(pqrsCloseSlaDays / 2));
+  const warnCutoffDate = new Date(now.getTime() - slaWarnDays * 86400000);
 
   const [
     payments,
@@ -47,20 +49,23 @@ export async function getPlatformAnalytics() {
       where: { estado: "TERMINADO", fechaCierre: { gte: rangeStart }, tiempoRespuestaCierre: { not: null } },
       select: { fechaCierre: true, tiempoRespuestaCierre: true },
     }),
+    // Los limites de estos buckets deben coincidir exactamente con la regla de "vencida"
+    // de domains/pqrs/sla.ts (isVencida/overdueCutoffDate): un caso vencido es el que tardo
+    // MAS dias que el SLA, no el que tardo exactamente el SLA.
     Promise.all([
       prisma.pqrs.count({ where: { estado: "TERMINADO", tiempoRespuestaCierre: { lt: slaWarnDays } } }),
-      prisma.pqrs.count({ where: { estado: "TERMINADO", tiempoRespuestaCierre: { gte: slaWarnDays, lt: pqrsCloseSlaDays } } }),
-      prisma.pqrs.count({ where: { estado: "TERMINADO", tiempoRespuestaCierre: { gte: pqrsCloseSlaDays } } }),
+      prisma.pqrs.count({ where: { estado: "TERMINADO", tiempoRespuestaCierre: { gte: slaWarnDays, lte: pqrsCloseSlaDays } } }),
+      prisma.pqrs.count({ where: { estado: "TERMINADO", tiempoRespuestaCierre: { gt: pqrsCloseSlaDays } } }),
     ]),
     Promise.all([
-      prisma.pqrs.count({ where: { estado: { in: ["EN_ESPERA", "EN_PROGRESO"] }, fechaRecibido: { lt: new Date(now.getTime() - pqrsCloseSlaDays * 86400000) } } }),
+      prisma.pqrs.count({ where: { estado: { in: ["EN_ESPERA", "EN_PROGRESO"] }, fechaRecibido: { lte: overdueCutoffDate(pqrsCloseSlaDays, now) } } }),
       prisma.pqrs.count({
         where: {
           estado: { in: ["EN_ESPERA", "EN_PROGRESO"] },
-          fechaRecibido: { gte: new Date(now.getTime() - pqrsCloseSlaDays * 86400000), lt: new Date(now.getTime() - slaWarnDays * 86400000) },
+          fechaRecibido: { gt: overdueCutoffDate(pqrsCloseSlaDays, now), lte: warnCutoffDate },
         },
       }),
-      prisma.pqrs.count({ where: { estado: { in: ["EN_ESPERA", "EN_PROGRESO"] }, fechaRecibido: { gte: new Date(now.getTime() - slaWarnDays * 86400000) } } }),
+      prisma.pqrs.count({ where: { estado: { in: ["EN_ESPERA", "EN_PROGRESO"] }, fechaRecibido: { gt: warnCutoffDate } } }),
     ]),
     prisma.pqrs.groupBy({ by: ["tipoPqrs"], _count: true }),
     prisma.subscription.findMany({
