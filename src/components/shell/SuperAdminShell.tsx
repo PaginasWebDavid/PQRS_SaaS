@@ -33,7 +33,10 @@ export function SuperAdminShell({
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/me').then((res) => res.ok ? res.json() : null).then((data) => { if (alive) setProfile(data); }).catch(() => {});
+    fetch('/api/me').then((res) => {
+      if (res.status === 401) { logout(); return null; }
+      return res.ok ? res.json() : null;
+    }).then((data) => { if (alive) setProfile(data); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 

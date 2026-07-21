@@ -104,6 +104,28 @@ function getStorageConfig() {
   return { supabaseUrl, serviceRoleKey, bucket };
 }
 
+/**
+ * Verifica los primeros bytes del archivo contra el "magic number" real del
+ * tipo declarado por el cliente. El tipo MIME de un multipart/data-URL lo
+ * elige quien sube el archivo — sin esto, cualquiera puede etiquetar bytes
+ * arbitrarios como "image/png" y quedan almacenados/servidos con ese content-type.
+ */
+export function matchesDeclaredType(buffer: Buffer, declaredType: string): boolean {
+  if (buffer.length < 12) return false;
+  switch (declaredType) {
+    case "image/png":
+      return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case "image/jpeg":
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case "image/webp":
+      return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+    case "application/pdf":
+      return buffer.subarray(0, 4).toString("ascii") === "%PDF";
+    default:
+      return false;
+  }
+}
+
 function sanitizeFileName(fileName: string) {
   const normalized = fileName
     .normalize("NFD")

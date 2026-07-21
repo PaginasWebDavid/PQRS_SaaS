@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
   if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
-  const category = req.nextUrl.searchParams.get("category") || "all";
+  // CONSEJO es de solo lectura sobre PQRS/Reportes (asi se le comunica en la app);
+  // no debe poder ver actividad de usuarios/facturacion aunque la pida por query param.
+  const requestedCategory = req.nextUrl.searchParams.get("category") || "all";
+  const category = session.user.role === "CONSEJO" ? "pqrs" : requestedCategory;
   const rawTake = req.nextUrl.searchParams.get("take") || "20";
   const rawSkip = req.nextUrl.searchParams.get("skip") || "0";
   const take = Number(rawTake);

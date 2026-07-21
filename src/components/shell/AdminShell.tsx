@@ -29,7 +29,11 @@ export function AdminShell({
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/me').then((res) => { if (!res.ok) throw new Error('profile'); return res.json(); }).then((data) => { if (alive) setProfile(data); }).catch(() => { if (alive) setProfileError(true); });
+    fetch('/api/me').then((res) => {
+      if (res.status === 401) { logout(); return null; }
+      if (!res.ok) throw new Error('profile');
+      return res.json();
+    }).then((data) => { if (alive && data) setProfile(data); }).catch(() => { if (alive) setProfileError(true); });
     return () => { alive = false; };
   }, []);
 

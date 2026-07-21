@@ -43,6 +43,14 @@ function ResidentBlockedScreen({ status }: { status: string }) {
   );
 }
 
+function ResidentErrorScreen() {
+  return (
+    <div style={{ maxWidth: 380, margin: '60px auto 0', textAlign: 'center' }}>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6 }}>No pudimos verificar tu sesión. Intenta recargar la página.</p>
+    </div>
+  );
+}
+
 function ShellLoadingScreen() {
   return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,15 +65,20 @@ export function ResidentShell({
   const isMobile = useIsMobile(860);
   const [tenantStatus, setTenantStatus] = useState<string | null | undefined>(undefined);
 
+  const [profileError, setProfileError] = useState(false);
+
   useEffect(() => {
     let alive = true;
-    fetch('/api/me').then((res) => { if (!res.ok) throw new Error('profile'); return res.json(); })
-      .then((data) => { if (alive) setTenantStatus(data?.tenant?.status ?? data?.licenseSummary?.status ?? null); })
-      .catch(() => { if (alive) setTenantStatus(null); });
+    fetch('/api/me').then((res) => {
+      if (res.status === 401) { logout(); return null; }
+      if (!res.ok) throw new Error('profile');
+      return res.json();
+    }).then((data) => { if (alive && data) setTenantStatus(data?.tenant?.status ?? data?.licenseSummary?.status ?? null); })
+      .catch(() => { if (alive) setProfileError(true); });
     return () => { alive = false; };
   }, []);
 
-  const profileLoading = tenantStatus === undefined;
+  const profileLoading = tenantStatus === undefined && !profileError;
   const blockedStatus = tenantStatus && BLOCKING_STATUSES.includes(tenantStatus) ? tenantStatus : null;
 
   return (
@@ -112,7 +125,7 @@ export function ResidentShell({
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ maxWidth: 640, margin: '0 auto', padding: isMobile ? '22px 20px 24px' : '40px 44px 60px' }}>
-            {profileLoading ? <ShellLoadingScreen /> : blockedStatus ? <ResidentBlockedScreen status={blockedStatus} /> : children}
+            {profileLoading ? <ShellLoadingScreen /> : profileError ? <ResidentErrorScreen /> : blockedStatus ? <ResidentBlockedScreen status={blockedStatus} /> : children}
           </div>
         </div>
 
