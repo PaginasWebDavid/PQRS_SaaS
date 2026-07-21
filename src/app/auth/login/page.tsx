@@ -93,7 +93,7 @@ export default function LoginPage() {
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 8px' }}>Hola de nuevo.</h1>
           <p style={{ fontSize: 14.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 32px' }}>
-            Inicia sesión para gestionar tu conjunto.
+            Accede a PQRS Services y continúa donde lo dejaste.
           </p>
 
           {error && (
@@ -220,7 +220,7 @@ export default function LoginPage() {
           </form>
 
           <p style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500, marginTop: 28, textAlign: "center", lineHeight: 1.6 }}>
-            El acceso se activa con una invitacion enviada por el administrador de tu conjunto.
+            El acceso se habilita desde la invitación enviada por la administración de tu conjunto.
           </p>
 
           <p style={{ fontSize: 12, color: '#C7C7CC', fontWeight: 500, marginTop: 28, textAlign: 'center' }}>

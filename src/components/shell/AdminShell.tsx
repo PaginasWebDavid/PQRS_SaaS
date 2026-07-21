@@ -194,7 +194,7 @@ function BlockedScreen({
           disabled={payLoading}
           style={{ border: 0, background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 28px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit' }}
         >
-          {payLoading ? 'Redirigiendo a Mercado Pago…' : 'Pagar ahora'}
+          {payLoading ? 'Abriendo el portal de pagos…' : 'Pagar mensualidad'}
         </button>
       )}
       {copy.canPay && !isAdmin && (

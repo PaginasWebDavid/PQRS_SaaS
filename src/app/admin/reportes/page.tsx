@@ -279,12 +279,12 @@ export default function ModuloReportesPage() {
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>Reportes de PQRS</h1>
-          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Centro de control para entender qué pasa en tu conjunto y decidir con datos</p>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Mide la atención de tus PQRS y encuentra dónde actuar.</p>
           {data && <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, margin: '4px 0 0' }}>Periodo: {fmtDate(data.periodo.from)} — {fmtDate(new Date(new Date(data.periodo.to).getTime() - 1).toISOString())}</p>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={downloadExcel} disabled={exporting || !data?.hayDatosSuficientes} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', color: '#1D1D1F', fontFamily: 'inherit' }}>Excel</button>
-          <button type="button" onClick={() => setPdfOpen(true)} disabled={!data?.hayDatosSuficientes} style={{ border: 'none', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' }}>PDF</button>
+          <button type="button" onClick={downloadExcel} disabled={exporting || !data?.hayDatosSuficientes} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', color: '#1D1D1F', fontFamily: 'inherit' }}>Descargar Excel</button>
+          <button type="button" onClick={() => setPdfOpen(true)} disabled={!data?.hayDatosSuficientes} style={{ border: 'none', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' }}>Descargar PDF</button>
         </div>
       </div>
 
@@ -463,7 +463,7 @@ export default function ModuloReportesPage() {
           {/* C. Tiempos de atención */}
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={sectionTitle}>Tiempos de atención</div>
-            <p style={sectionSubtitle}>SLA esperado: {data.slaDays} días para cierre</p>
+            <p style={sectionSubtitle}>Tiempo objetivo de cierre: {data.slaDays} días</p>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>PRIMER CONTACTO — PROMEDIO<InfoTip text="Días promedio entre la radicación y el primer contacto del equipo." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.avg)}</div></div>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>MEDIANA<InfoTip text="El valor central: la mitad de los casos tardó menos, la otra mitad tardó más. Menos sensible a casos extremos que el promedio." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.median)}</div></div>

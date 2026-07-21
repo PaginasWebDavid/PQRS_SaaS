@@ -16,7 +16,7 @@ const STATUS_META: Record<Status, { label: string; style: React.CSSProperties }>
   EXPIRED: { label: 'Expirada', style: badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt) },
   CANCELLED: { label: 'Cancelada', style: badgeStyle(COLORS.neutralSoft, COLORS.textMuted) },
 };
-const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Admin', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
+const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', CONSEJO: 'Miembro del consejo', RESIDENTE: 'Residente' };
 const SELECTABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
 const FILTERS = [{ key: 'all', label: 'Todas' }, ...Object.entries(STATUS_META).map(([key, value]) => ({ key, label: value.label }))];
 
@@ -112,7 +112,7 @@ export default function InvitacionesPage() {
     <AdminShell navItems={ADMIN_NAV} activeKey="invitaciones" userName="Admin" userRole="Administración" initials="AD" mobileTitle="Invitaciones">
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
         <div><h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 3px' }}>Invitaciones</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Invita nuevos usuarios a tu conjunto</p></div>
-        <button onClick={() => setCreateOpen(true)} style={{ border: 0, background: COLORS.navy, color: '#FFF', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>+ Nueva invitación</button>
+        <button onClick={() => setCreateOpen(true)} style={{ border: 0, background: COLORS.navy, color: '#FFF', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Invitar usuario</button>
       </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por correo" style={{ width: '100%', maxWidth: 360, height: 42, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>{FILTERS.map((f) => <button key={f.key} onClick={() => { setFilter(f.key); setPage(1); }} style={{ border: 0, ...tabStyle(filter === f.key) }}>{f.label}</button>)}</div>
@@ -141,7 +141,7 @@ export default function InvitacionesPage() {
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
           <button onClick={() => setCreateTab('single')} style={{ border: 0, flex: 1, ...tabStyle(createTab === 'single') }}>Uno por uno</button>
-          <button onClick={() => setCreateTab('bulk')} style={{ border: 0, flex: 1, ...tabStyle(createTab === 'bulk') }}>Subir Excel</button>
+          <button onClick={() => setCreateTab('bulk')} style={{ border: 0, flex: 1, ...tabStyle(createTab === 'bulk') }}>Cargar archivo</button>
         </div>
 
         {createTab === 'single' && (
@@ -159,22 +159,22 @@ export default function InvitacionesPage() {
             <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 14px', lineHeight: 1.6 }}>
               Sube un archivo .xlsx con una sola columna de correos electrónicos (sin encabezado, o con un encabezado que no sea un correo — se ignora automáticamente). Se enviará una invitación a cada uno con el rol que elijas. Podrás ver quién ya ingresó y quién sigue pendiente en la lista.
             </p>
-            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Archivo Excel (.xlsx)</label>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Archivo de usuarios (.xlsx)</label>
             <input
               type="file"
               accept=".xlsx"
               onChange={(e) => { setBulkFile(e.target.files?.[0] || null); setBulkResult(null); }}
               style={{ width: '100%', marginBottom: 16, fontSize: 12.5 }}
             />
-            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Rol para todos los correos del archivo</label>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Rol para todos los usuarios</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>{SELECTABLE_ROLES.map((r) => <button key={r} onClick={() => setBulkRole(r)} style={{ border: 0, ...chipStyle(bulkRole === r) }}>{ROLE_LABEL[r]}</button>)}</div>
             <button onClick={uploadBulk} disabled={!bulkFile || bulkLoading} style={{ width: '100%', border: 0, background: bulkFile && !bulkLoading ? COLORS.navy : COLORS.neutralSoft, color: bulkFile && !bulkLoading ? '#FFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginBottom: 14 }}>{bulkLoading ? 'Enviando invitaciones…' : 'Subir y enviar invitaciones'}</button>
             {bulkResult && (
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14, fontSize: 12.5 }}>
-                <div style={{ fontWeight: 800, marginBottom: 6 }}>{bulkResult.created} de {bulkResult.total} invitaciones enviadas</div>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>{bulkResult.created} de {bulkResult.total} invitaciones creadas</div>
                 {bulkResult.failed.length > 0 && (
                   <div style={{ color: COLORS.warning }}>
-                    {bulkResult.failed.length} no se pudieron enviar:
+                    {bulkResult.failed.length} correos no enviados:
                     <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                       {bulkResult.failed.map((f) => <li key={f.email}>{f.email} — {f.error}</li>)}
                     </ul>

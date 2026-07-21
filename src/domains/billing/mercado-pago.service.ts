@@ -1,11 +1,10 @@
 import crypto from "crypto";
 import { AuditAction, PaymentStatus, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { calculatePriceForUnits } from "./billing.service";
+import { calculatePriceForUnits, getGracePeriodDays } from "./billing.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 
 const MERCADO_PAGO_API_URL = "https://api.mercadopago.com";
-const GRACE_PERIOD_DAYS = 5;
 const BILLING_PERIOD_DAYS = 30;
 
 type MercadoPagoPreapproval = {
@@ -277,7 +276,7 @@ async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreappr
       mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || subscription.mercadoPagoInitPoint,
       mercadoPagoStatus: preapproval.status || null,
       lastWebhookAt: now,
-      graceEndsAt: status === "GRACE_PERIOD" ? addDays(now, GRACE_PERIOD_DAYS) : subscription.graceEndsAt,
+      graceEndsAt: status === "GRACE_PERIOD" ? addDays(now, await getGracePeriodDays()) : subscription.graceEndsAt,
     },
   });
 
@@ -403,7 +402,7 @@ async function upsertMercadoPagoPayment({
       }
     : {
         status: nextSubscriptionStatus,
-        graceEndsAt: addDays(now, GRACE_PERIOD_DAYS),
+        graceEndsAt: addDays(now, await getGracePeriodDays()),
         lastWebhookAt: now,
       };
 

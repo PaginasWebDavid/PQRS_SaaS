@@ -199,7 +199,7 @@ function ModuloPqrsPageContent() {
         body: JSON.stringify({ primerContacto: true, asunto: contactAsunto, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
       });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo registrar el primer contacto'); return; }
-      setContactOpen(false); await load(); showToast('Primer contacto registrado ✓ Correo enviado al residente.');
+      setContactOpen(false); await load(); showToast('Recepción confirmada ✓ Se avisó al residente.');
     } finally { setContactSubmitting(false); }
   }
 
@@ -293,7 +293,7 @@ function ModuloPqrsPageContent() {
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>PQRS</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes...' : `${data.length} solicitudes reales`}</p>
         </div>
-        <button type="button" onClick={() => setCreateOpen(true)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>+ Crear PQRS</button>
+        <button type="button" onClick={() => setCreateOpen(true)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar una PQRS</button>
       </div>
 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por asunto, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
@@ -318,7 +318,7 @@ function ModuloPqrsPageContent() {
                 </div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginBottom: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning }}>{p.numeroRadicacion || 'Sin radicar'}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning }}>{p.numeroRadicacion || 'Pendiente'}</span>
                   <span style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombreResidente}</span>
                 </div>
               </button>
@@ -329,7 +329,7 @@ function ModuloPqrsPageContent() {
                 onClick={() => setSelectedId(p.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
               >
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Pendiente'}</span>
                 <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
@@ -416,12 +416,12 @@ function ModuloPqrsPageContent() {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {selected.estado === 'EN_ESPERA' && (
-                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Registrar primer contacto</button>
+                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Confirmar recepción</button>
                 )}
                 {selected.estado === 'EN_PROGRESO' && (
                   <>
-                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: '#1D1D1F', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Gestionar fase</button>
-                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Cerrar PQRS</button>
+                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: '#1D1D1F', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Actualizar gestión</button>
+                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Marcar como resuelta</button>
                   </>
                 )}
                 {selected.estado === 'TERMINADO' && (
@@ -436,10 +436,10 @@ function ModuloPqrsPageContent() {
       {/* Create sheet */}
       <Sheet open={createOpen} onClose={() => setCreateOpen(false)} maxWidth={460}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Crear PQRS</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Registrar una solicitud</div>
           <CloseButton onClick={() => setCreateOpen(false)} />
         </div>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Radica una nueva solicitud real en la base de datos.</p>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Registra una solicitud para hacerle seguimiento.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Título</label>
         <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría (opcional)</label>
@@ -459,7 +459,7 @@ function ModuloPqrsPageContent() {
       {/* Primer contacto sheet */}
       <Sheet open={contactOpen} onClose={() => setContactOpen(false)} maxWidth={460}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Registrar primer contacto</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Confirmar recepción</div>
           <CloseButton onClick={() => setContactOpen(false)} />
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Esto pasa la PQRS a &quot;En proceso&quot;, genera su número de radicación y avisa al residente por correo.</p>
@@ -476,7 +476,7 @@ function ModuloPqrsPageContent() {
         </div>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de primer contacto</label>
         <textarea value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="¿Qué se le informó o gestionó al residente?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
-        <button type="button" onClick={submitContact} disabled={!contactAsunto || !contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: (contactAsunto && contactNota.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (contactAsunto && contactNota.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Registrar primer contacto'}</button>
+        <button type="button" onClick={submitContact} disabled={!contactAsunto || !contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: (contactAsunto && contactNota.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (contactAsunto && contactNota.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
       </Sheet>
 
       {/* Fase sheet */}
@@ -527,14 +527,14 @@ function ModuloPqrsPageContent() {
         )}
 
         {faseActual === 5 && (
-          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: 11, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puedes cerrar la PQRS desde el botón &quot;Cerrar PQRS&quot;.</div>
+          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: 11, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puedes marcar la PQRS como resuelta.</div>
         )}
       </Sheet>
 
       {/* Cerrar sheet */}
       <Sheet open={closeOpen} onClose={() => setCloseOpen(false)} maxWidth={480}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Cerrar PQRS</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Marcar como resuelta</div>
           <CloseButton onClick={() => setCloseOpen(false)} />
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>El residente recibirá una notificación y un correo con esta información{closeFile || closeHasExistingEvidence ? ', incluyendo el archivo de evidencia' : ''}.</p>
@@ -558,7 +558,7 @@ function ModuloPqrsPageContent() {
         <p style={{ fontSize: 11, color: COLORS.textMuted, margin: '0 0 20px' }}>Máx. 2MB · imagen o PDF</p>
         {closeFileError && <div style={{ fontSize: 11.5, color: COLORS.danger, fontWeight: 600, marginBottom: 16 }}>{closeFileError}</div>}
 
-        <button type="button" onClick={submitClose} disabled={!closeCanSubmit || closeSubmitting} style={{ width: '100%', textAlign: 'center', background: closeCanSubmit ? COLORS.navy : COLORS.neutralSoft, color: closeCanSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{closeSubmitting ? 'Cerrando…' : 'Cerrar PQRS'}</button>
+        <button type="button" onClick={submitClose} disabled={!closeCanSubmit || closeSubmitting} style={{ width: '100%', textAlign: 'center', background: closeCanSubmit ? COLORS.navy : COLORS.neutralSoft, color: closeCanSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{closeSubmitting ? 'Guardando…' : 'Marcar como resuelta'}</button>
       </Sheet>
 
       <Toast message={toast} />

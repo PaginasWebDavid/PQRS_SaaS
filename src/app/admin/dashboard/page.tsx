@@ -77,22 +77,22 @@ export default function DashboardAdminPage() {
   const licenseActive = data?.licenseSummary?.status === 'ACTIVE';
 
   const metrics = [
-    { label: 'Abiertas', value: data?.resumen.enEspera ?? '—', color: COLORS.warning, href: '/admin/pqrs?estado=EN_ESPERA' },
+    { label: 'En espera', value: data?.resumen.enEspera ?? '—', color: COLORS.warning, href: '/admin/pqrs?estado=EN_ESPERA' },
     { label: 'En proceso', value: data?.resumen.enProgreso ?? '—', color: COLORS.navy, href: '/admin/pqrs?estado=EN_PROGRESO' },
-    { label: 'Terminadas', value: data?.resumen.terminado ?? '—', color: COLORS.success, hint: 'este año', href: '/admin/pqrs?estado=TERMINADO' },
+    { label: 'Resueltas', value: data?.resumen.terminado ?? '—', color: COLORS.success, hint: 'este año', href: '/admin/pqrs?estado=TERMINADO' },
     { label: 'Tiempo promedio', value: data?.resumen.tiempoPromedioCierre ? `${data.resumen.tiempoPromedioCierre}d` : '—', color: '#1D1D1F', hint: 'de cierre', href: '/admin/reportes' },
     { label: 'Usuarios con cuenta', value: data?.usersActiveCount ?? '—', color: '#1D1D1F', hint: me?.tenant?.units ? `de ${me.tenant.units} unidades` : undefined, href: '/admin/usuarios' },
     { label: 'Licencia', value: licenseActive ? 'Activa' : (data?.licenseSummary?.status || '—'), color: licenseActive ? COLORS.success : COLORS.warning, hint: shortDate(data?.licenseSummary?.currentPeriodEnd), href: '/admin/licencias' },
   ];
 
   return (
-    <AdminShell navItems={ADMIN_NAV} activeKey="dashboard" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Dashboard">
+    <AdminShell navItems={ADMIN_NAV} activeKey="dashboard" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Inicio">
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Buen día, {(me?.user?.name || 'Ana').split(' ')[0]}.</h1>
           <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{error || `Así va tu conjunto hoy, ${longDate(new Date())}.`}</p>
         </div>
-        <Link href="/admin/pqrs" style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: 999 }}>+ Crear PQRS</Link>
+        <Link href="/admin/pqrs" style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: 999 }}>Radicar una PQRS</Link>
       </div>
 
       {showLicenseBanner && (
@@ -162,11 +162,11 @@ export default function DashboardAdminPage() {
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 3 }}>Excel · PDF</div>
             </Link>
             <Link href="/admin/licencias" style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 16, color: '#1D1D1F' }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Licencia</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Licencia y pagos</div>
               <div style={{ fontSize: 11.5, color: licenseActive ? COLORS.success : COLORS.warning, fontWeight: 700, marginTop: 3 }}>{licenseActive ? 'Activa' : (data?.licenseSummary?.status || '—')} · renueva {shortDate(data?.licenseSummary?.currentPeriodEnd)}</div>
             </Link>
             <Link href="/admin/pqrs" style={{ background: COLORS.navy, borderRadius: 14, padding: 16, color: '#FFFFFF' }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Crear PQRS</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Radicar una PQRS</div>
               <div style={{ fontSize: 11.5, color: COLORS.navyMuted, fontWeight: 500, marginTop: 3 }}>Radicar solicitud</div>
             </Link>
           </div>

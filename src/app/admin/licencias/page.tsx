@@ -5,6 +5,7 @@ import { useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { SUBSCRIPTION_STATUS_LABEL } from '@/lib/design/licenseStatus';
 
 type Payment = { id: string; amountCents: number; currency: string; status: string; dueDate: string; paidAt?: string | null };
 type LicenseSummary = {
@@ -16,10 +17,7 @@ type MeData = { tenant?: { name?: string | null; units?: number | null } | null;
 function money(cents = 0, currency = 'COP') { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(cents / 100); }
 function shortDate(value?: string | null) { return value ? new Date(value).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: 'Falta primer pago', TRIAL: 'Trial', ACTIVE: 'Activa',
-  GRACE_PERIOD: 'En mora', SUSPENDED: 'Suspendida', CANCELLED: 'Cancelada',
-};
+const STATUS_LABEL = SUBSCRIPTION_STATUS_LABEL;
 const STATUS_DOT: Record<string, string> = {
   PENDING_PAYMENT: COLORS.warning, TRIAL: COLORS.navy, ACTIVE: COLORS.success,
   GRACE_PERIOD: COLORS.warning, SUSPENDED: COLORS.textMuted, CANCELLED: COLORS.danger,
@@ -110,8 +108,8 @@ export default function ModuloLicenciasPage() {
             </div>
             <div style={{ fontSize: 13, color: COLORS.navyMuted }}>{me?.tenant?.name || 'Conjunto'}</div>
           </div>
-          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Plan</div><div style={{ fontSize: 16, fontWeight: 800 }}>{license ? `${license.unitsSnapshot} unidades` : '—'}</div></div>
-          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Unidades</div><div style={{ fontSize: 16, fontWeight: 800 }}>{me?.tenant?.units || license?.unitsSnapshot || '—'}</div></div>
+          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Plan de unidades</div><div style={{ fontSize: 16, fontWeight: 800 }}>{license ? `${license.unitsSnapshot} unidades` : '—'}</div></div>
+          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Unidades contratadas</div><div style={{ fontSize: 16, fontWeight: 800 }}>{me?.tenant?.units || license?.unitsSnapshot || '—'}</div></div>
           <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Próxima renovación</div><div style={{ fontSize: 16, fontWeight: 800 }}>{shortDate(license?.currentPeriodEnd)}</div></div>
         </div>
       </div>
@@ -154,9 +152,9 @@ export default function ModuloLicenciasPage() {
             <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
             <button type="button" onClick={() => setDetailOpen((v) => !v)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}>{detailOpen ? 'Ocultar detalle' : 'Ver detalle de factura'}</button>
             {needsPayment ? (
-              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Redirigiendo…' : 'Pagar ahora con Mercado Pago'}</button>
+              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Pagar mensualidad'}</button>
             ) : (
-              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Redirigiendo…' : 'Renovar / cambiar método de pago'}</button>
+              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Renovar o actualizar el pago'}</button>
             )}
             {detailOpen && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.08)', fontSize: 12.5, color: COLORS.textSecondaryAlt, lineHeight: 1.8 }}>
@@ -178,8 +176,8 @@ export default function ModuloLicenciasPage() {
             </div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.6, margin: '0 0 12px' }}>
               {license?.autoRenew
-                ? 'Mercado Pago cobrará automáticamente cada mes. Si la desactivas, deberás pagar manualmente antes de cada vencimiento.'
-                : 'Debes pagar manualmente cada mes. Al volver a pagar con el botón de arriba, la renovación automática se reactiva.'}
+                ? 'El proveedor de pagos cobrará automáticamente cada mes. Si la desactivas, deberás pagar manualmente antes de cada vencimiento.'
+                : 'Debes pagar manualmente cada mes. Al pagar nuevamente, podrás activar la renovación automática.'}
             </p>
             {license?.autoRenew && (
               <button type="button" onClick={disableAutoRenew} disabled={autoRenewLoading} style={{ border: 0, background: 'none', color: COLORS.danger, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{autoRenewLoading ? 'Desactivando…' : 'Desactivar renovación automática'}</button>

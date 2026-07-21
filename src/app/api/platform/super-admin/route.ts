@@ -6,6 +6,7 @@ import { createTenantWithAdmin, updateTenantStatusForSuperAdmin, updateTenantDet
 import { resendInvitation } from "@/domains/organizations/invitation.service";
 import {
   renewSubscriptionWithSimulatedPayment,
+  grantCourtesyExtension,
   applyOverdueLicenseRules,
   createPricingRule,
   updatePricingRule,
@@ -43,6 +44,13 @@ const tenantStatusSchema = z.object({
 const tenantIdSchema = z.object({
   action: z.literal("renewSubscription"),
   tenantId: identifierSchema,
+});
+
+const courtesyExtensionSchema = z.object({
+  action: z.literal("grantCourtesyExtension"),
+  tenantId: identifierSchema,
+  days: z.coerce.number().int().min(1).max(90),
+  reason: z.string().trim().min(1).max(250),
 });
 
 const updateTenantSchema = z
@@ -142,6 +150,16 @@ export async function POST(req: NextRequest) {
     if (action === "renewSubscription") {
       const input = tenantIdSchema.parse(body);
       const result = await renewSubscriptionWithSimulatedPayment({ actorUserId: session.user.id, tenantId: input.tenantId });
+      return NextResponse.json(result);
+    }
+    if (action === "grantCourtesyExtension") {
+      const input = courtesyExtensionSchema.parse(body);
+      const result = await grantCourtesyExtension({
+        actorUserId: session.user.id,
+        tenantId: input.tenantId,
+        days: input.days,
+        reason: input.reason,
+      });
       return NextResponse.json(result);
     }
     if (action === "updateTenant") {

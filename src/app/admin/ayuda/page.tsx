@@ -10,7 +10,7 @@ const FAQS = [
   { q: '¿Cómo invito a un nuevo usuario?', a: 'Ve a Invitaciones → Nueva invitación, ingresa el correo y el rol. El usuario recibirá un enlace para activar su cuenta.' },
   { q: '¿Puedo cambiar el número de unidades de mi conjunto?', a: 'No directamente. Esa información la administra PQRS Services — escríbenos abajo y lo ajustamos por ti.' },
   { q: '¿Cómo pago o renuevo mi licencia?', a: 'Ve a Licencias y pagos. Si te falta el primer pago o estás en mora, verás el botón "Pagar ahora con Mercado Pago". Mientras la renovación automática esté activada, el cobro mensual se hace solo.' },
-  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes un período de gracia (normalmente 5 días) para ponerte al día antes de que la licencia se suspenda. Puedes pagar en cualquier momento desde Licencias y pagos.' },
+  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes el período de gracia que se muestra en Licencias y pagos para ponerte al día antes de que la licencia se suspenda. Puedes pagar en cualquier momento desde ahí.' },
 ];
 
 type Category = 'TECNICO' | 'FACTURACION' | 'CUENTA' | 'OTRO';
