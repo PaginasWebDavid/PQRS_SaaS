@@ -1,5 +1,5 @@
 ﻿'use client';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
@@ -11,10 +11,62 @@ function logout() {
 
 export type BottomNavItem = { key: string; label: string; icon: string; onClick: () => void };
 
+const BLOCKING_STATUSES = ['PENDING_PAYMENT', 'SUSPENDED', 'CANCELLED'];
+
+const BLOCKED_COPY: Record<string, { title: string; body: string }> = {
+  PENDING_PAYMENT: {
+    title: 'Tu conjunto no tiene el servicio activo',
+    body: 'La administración de tu conjunto aún no completa el primer pago de la licencia. Pídele que active el servicio para poder radicar y ver tus solicitudes.',
+  },
+  SUSPENDED: {
+    title: 'Servicio suspendido',
+    body: 'La licencia de tu conjunto está suspendida por falta de pago. Contacta a la administración para reactivar el acceso.',
+  },
+  CANCELLED: {
+    title: 'Servicio no disponible',
+    body: 'La licencia de tu conjunto fue cancelada. Contacta a la administración de tu conjunto para más información.',
+  },
+};
+
+function ResidentBlockedScreen({ status }: { status: string }) {
+  const copy = BLOCKED_COPY[status] || BLOCKED_COPY.SUSPENDED;
+  return (
+    <div style={{ maxWidth: 420, margin: '60px auto 0', textAlign: 'center' }}>
+      <div style={{ width: 56, height: 56, borderRadius: 999, background: COLORS.warningSoft, color: COLORS.warning, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, margin: '0 auto 20px' }}>!</div>
+      <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{copy.title}</h1>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 10px' }}>{copy.body}</p>
+      <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, marginTop: 22 }}>
+        ¿Necesitas ayuda?{' '}
+        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbenos</a>.
+      </p>
+    </div>
+  );
+}
+
+function ShellLoadingScreen() {
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 999, border: `3px solid ${COLORS.borderSoft}`, borderTopColor: COLORS.navy, animation: 'apl-spin 800ms linear infinite' }} />
+    </div>
+  );
+}
+
 export function ResidentShell({
   activeKey, initials, greetingName, bottomNav, children,
 }: { activeKey: string; initials: string; greetingName: string; bottomNav: BottomNavItem[]; children: ReactNode }) {
   const isMobile = useIsMobile(860);
+  const [tenantStatus, setTenantStatus] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/me').then((res) => { if (!res.ok) throw new Error('profile'); return res.json(); })
+      .then((data) => { if (alive) setTenantStatus(data?.tenant?.status ?? data?.licenseSummary?.status ?? null); })
+      .catch(() => { if (alive) setTenantStatus(null); });
+    return () => { alive = false; };
+  }, []);
+
+  const profileLoading = tenantStatus === undefined;
+  const blockedStatus = tenantStatus && BLOCKING_STATUSES.includes(tenantStatus) ? tenantStatus : null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFFFFF', display: 'flex' }}>
@@ -60,7 +112,7 @@ export function ResidentShell({
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ maxWidth: 640, margin: '0 auto', padding: isMobile ? '22px 20px 24px' : '40px 44px 60px' }}>
-            {children}
+            {profileLoading ? <ShellLoadingScreen /> : blockedStatus ? <ResidentBlockedScreen status={blockedStatus} /> : children}
           </div>
         </div>
 

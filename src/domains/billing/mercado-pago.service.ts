@@ -248,8 +248,22 @@ async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreappr
 
   if (!subscription) return null;
 
-  const status = mapPreapprovalStatus(preapproval.status);
+  let status = mapPreapprovalStatus(preapproval.status);
   const now = new Date();
+
+  if (status === "ACTIVE") {
+    // "authorized" en Mercado Pago solo significa que el preapproval (autorizacion de cobro
+    // recurrente) fue aceptado por el pagador; NO garantiza que ya se haya efectuado un cobro.
+    // No se puede activar el tenant sin al menos un pago APROBADO registrado.
+    const approvedPayment = await prisma.payment.findFirst({
+      where: { subscriptionId: subscription.id, status: "APPROVED" },
+      select: { id: true },
+    });
+    if (!approvedPayment) {
+      status = subscription.trialEndsAt && subscription.trialEndsAt > now ? "TRIAL" : "PENDING_PAYMENT";
+    }
+  }
+
   const updated = await prisma.subscription.update({
     where: { id: subscription.id },
     data: {
@@ -400,6 +414,14 @@ async function upsertMercadoPagoPayment({
 
 async function updateTenantStatusFromSubscription(tenantId: string, status: SubscriptionStatus) {
   if (status === "ACTIVE" || status === "TRIAL") {
+    // Nunca marcar el tenant como ACTIVE por un webhook sin al menos un pago APROBADO real
+    // registrado (evita reactivar/activar un tenant solo porque Mercado Pago autorizo el
+    // preapproval, que no implica que ya se haya cobrado).
+    const approvedPayment = await prisma.payment.findFirst({
+      where: { tenantId, status: "APPROVED" },
+      select: { id: true },
+    });
+    if (!approvedPayment) return;
     await prisma.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE" } });
   } else if (status === "GRACE_PERIOD") {
     await prisma.tenant.update({ where: { id: tenantId }, data: { status: "GRACE_PERIOD" } });

@@ -406,8 +406,14 @@ export async function acceptInvitation({
     tenantId: invitation.tenantId,
     to: result.user.email,
     template: "account_confirmation",
-    subject: "Tu cuenta de PQRS Services esta activa",
-    html: "<p>Tu cuenta fue activada correctamente. Ya puedes iniciar sesion.</p>",
+    subject: "Tu cuenta de PQRS Services está activa",
+    html: renderEmailLayout({
+      accent: "success",
+      eyebrow: "Cuenta activada",
+      heading: "Tu cuenta ya está lista",
+      bodyHtml: `<p>Hola <strong>${result.user.name}</strong>,</p><p>Tu cuenta fue activada correctamente. Ya puedes iniciar sesión y empezar a usar la plataforma.</p>`,
+      cta: { label: "Iniciar sesión", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/auth/login` },
+    }),
   });
 
   return result;

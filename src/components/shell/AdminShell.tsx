@@ -133,7 +133,9 @@ export function AdminShell({
           </div>
         )}
         <div style={{ maxWidth: 1080, margin: '0 auto', padding: isMobile ? '24px 20px 70px' : '40px 40px 90px' }}>
-          {blockedStatus ? (
+          {profile === null && !profileError ? (
+            <ShellLoadingScreen />
+          ) : blockedStatus ? (
             <BlockedScreen
               status={blockedStatus}
               role={profile?.user?.role || null}
@@ -198,6 +200,14 @@ function BlockedScreen({
         ¿Problemas con el pago o con tu licencia?{' '}
         <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbenos</a>.
       </p>
+    </div>
+  );
+}
+
+function ShellLoadingScreen() {
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 999, border: `3px solid ${COLORS.borderSoft}`, borderTopColor: COLORS.navy, animation: 'apl-spin 800ms linear infinite' }} />
     </div>
   );
 }
