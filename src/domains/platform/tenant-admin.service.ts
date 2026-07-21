@@ -1,7 +1,7 @@
 import { AuditAction, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
-import { calculatePriceForUnits } from "@/domains/billing/billing.service";
+import { calculatePriceForUnits, DEFAULT_TRIAL_DAYS } from "@/domains/billing/billing.service";
 import { updateMercadoPagoPreapprovalAmount } from "@/domains/billing/mercado-pago.service";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 
@@ -122,7 +122,10 @@ export async function createTenantWithAdmin(
 
   const price = await calculatePriceForUnits(input.units);
   const now = new Date();
-  const periodEnd = addDays(now, 30);
+  // El tenant nace en TRIAL, con acceso completo por DEFAULT_TRIAL_DAYS sin pagar.
+  // currentPeriodEnd marca el fin del trial: el cron de mora (applyOverdueLicenseRules)
+  // lo mueve a GRACE_PERIOD al vencer, igual que hace con una suscripcion ACTIVE vencida.
+  const trialEndsAt = addDays(now, DEFAULT_TRIAL_DAYS);
 
   const tenant = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
@@ -132,19 +135,20 @@ export async function createTenantWithAdmin(
         city: emptyToNull(input.city),
         address: emptyToNull(input.address),
         units: input.units,
-        status: "PENDING_PAYMENT",
+        status: "TRIAL",
       },
     });
 
     const subscription = await tx.subscription.create({
       data: {
         tenantId: tenant.id,
-        status: "PENDING_PAYMENT",
+        status: "TRIAL",
         unitsSnapshot: price.units,
         priceCents: price.priceCents,
         currency: price.currency,
         currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
+        currentPeriodEnd: trialEndsAt,
+        trialEndsAt,
       },
     });
 
@@ -179,7 +183,7 @@ export async function createTenantWithAdmin(
           priceCents: price.priceCents,
           currency: price.currency,
           pricingRuleId: price.pricingRuleId,
-          status: "PENDING_PAYMENT",
+          status: "TRIAL",
         },
       },
     });
