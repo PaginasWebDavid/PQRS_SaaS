@@ -9,11 +9,16 @@
     "release:check": "prisma validate && npm run build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx scripts/run-tests.ts",
+    "test:db:deploy": "tsx scripts/run-test-prisma.ts deploy",
+    "test:db:push": "tsx scripts/run-test-prisma.ts push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:studio": "npx prisma studio"
+  },
+  "engines": {
+    "node": ">=20.6.0"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
