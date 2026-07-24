@@ -44,6 +44,7 @@ export const AUDIT_CATEGORIES: Record<string, AuditAction[]> = {
     AuditAction.SUBSCRIPTION_AUTO_RENEW_DISABLED,
     AuditAction.SUBSCRIPTION_AUTO_RENEW_ENABLED,
     AuditAction.SUBSCRIPTION_PAYMENT_FAILED,
+    AuditAction.PAYMENT_RECONCILED,
   ],
   administracion: [AuditAction.PLATFORM_SETTING_CHANGED, AuditAction.PRICING_RULE_CHANGED],
   usuarios: [
@@ -121,21 +122,29 @@ export async function getTenantAuditLogPage({
   return { entries, total };
 }
 
-export async function registerAuditLog({
-  actorUserId,
-  tenantId,
-  action,
-  targetType,
-  targetId,
-  resourceType,
-  resourceId,
-  origin,
-  metadata,
-}: AuditInput) {
+// Cliente Prisma o cliente transaccional: permite crear la auditoria DENTRO de la
+// misma transaccion del webhook. Por defecto usa el singleton global (compatibilidad
+// total con todos los callers existentes, que llaman con un solo argumento).
+type AuditClient = Prisma.TransactionClient | typeof prisma;
+
+export async function registerAuditLog(
+  {
+    actorUserId,
+    tenantId,
+    action,
+    targetType,
+    targetId,
+    resourceType,
+    resourceId,
+    origin,
+    metadata,
+  }: AuditInput,
+  client: AuditClient = prisma
+) {
   const finalResourceType = resourceType ?? targetType ?? null;
   const finalResourceId = resourceId ?? targetId ?? null;
 
-  return prisma.auditLog.create({
+  return client.auditLog.create({
     data: {
       actorUserId,
       tenantId,

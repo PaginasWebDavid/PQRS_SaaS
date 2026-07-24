@@ -1,11 +1,95 @@
 import crypto from "crypto";
-import { AuditAction, PaymentStatus, SubscriptionStatus } from "@prisma/client";
+import { AuditAction, PaymentStatus, Prisma, SubscriptionStatus, WebhookEventResult } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculatePriceForUnits, getGracePeriodDays } from "./billing.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import { addDays, BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
+import { buildPaymentEffectKey, sanitizeWebhookMetadata } from "./webhook-metadata";
+import { isHistoricalQuarantined } from "./reconciliation";
 
 const MERCADO_PAGO_API_URL = "https://api.mercadopago.com";
-const BILLING_PERIOD_DAYS = 30;
+const MERCADO_PAGO_PROVIDER = "MERCADO_PAGO";
+
+type TxClient = Prisma.TransactionClient;
+
+// --- Seam de fallos SOLO para pruebas ----------------------------------------
+// Permite inyectar un fallo en un punto exacto de la transaccion del pago para
+// probar el rollback. El flujo productivo usa una implementacion vacia: las rutas
+// HTTP no lo aceptan, no se controla por variables de entorno y no es una API
+// publica general. Solo las pruebas lo inyectan via __unsafeSetBillingTestHooks.
+export type BillingTransactionStep =
+  | "AFTER_PAYMENT_UPSERT"
+  | "AFTER_EFFECT_CLAIM"
+  | "AFTER_SUBSCRIPTION_UPDATE"
+  | "AFTER_TENANT_UPDATE"
+  | "BEFORE_AUDIT_LOG"
+  | "BEFORE_WEBHOOK_RESULT";
+
+type BillingTestHooks = { onStep?: (step: BillingTransactionStep) => void | Promise<void> };
+let billingTestHooks: BillingTestHooks = {};
+
+/** Uso EXCLUSIVO de pruebas. No invocar desde codigo productivo ni rutas HTTP. */
+export function __unsafeSetBillingTestHooks(hooks: BillingTestHooks) {
+  billingTestHooks = hooks;
+}
+
+async function runBillingStep(step: BillingTransactionStep) {
+  if (billingTestHooks.onStep) await billingTestHooks.onStep(step);
+}
+
+// --- Ledger de entregas de webhook (trazabilidad, NO garantia economica) -----
+
+async function recordWebhookReceived(input: {
+  topic: string;
+  dataId: string;
+  requestId?: string | null;
+  rawStatus?: string | null;
+}): Promise<string> {
+  const event = await prisma.webhookEvent.create({
+    data: {
+      provider: MERCADO_PAGO_PROVIDER,
+      topic: input.topic || "unknown",
+      dataId: input.dataId,
+      requestId: input.requestId ?? null,
+      rawStatus: input.rawStatus ?? null,
+      result: WebhookEventResult.RECEIVED,
+      metadata: sanitizeWebhookMetadata({ topic: input.topic, dataId: input.dataId }),
+    },
+  });
+  return event.id;
+}
+
+async function markWebhookResult(
+  client: TxClient | typeof prisma,
+  eventId: string,
+  input: {
+    result: WebhookEventResult;
+    tenantId?: string | null;
+    subscriptionId?: string | null;
+    rawStatus?: string | null;
+    errorCode?: string | null;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  await client.webhookEvent.update({
+    where: { id: eventId },
+    data: {
+      result: input.result,
+      tenantId: input.tenantId ?? undefined,
+      subscriptionId: input.subscriptionId ?? undefined,
+      rawStatus: input.rawStatus ?? undefined,
+      errorCode: input.errorCode ?? undefined,
+      processedAt: new Date(),
+      metadata: input.metadata ? sanitizeWebhookMetadata(input.metadata) : undefined,
+    },
+  });
+}
+
+// Mensaje de error seguro (sin cuerpos completos ni secretos) para el ledger.
+function safeErrorCode(error: unknown): string {
+  if (error instanceof Error) return error.message.slice(0, 120);
+  return "unknown-error";
+}
 
 type MercadoPagoPreapproval = {
   id: string;
@@ -145,32 +229,52 @@ export async function processMercadoPagoWebhook({
 }) {
   const dataId = String(payload.data?.id || payload.id || dataIdFromQuery || "");
   const topic = payload.type || payload.topic || "";
+  const requestId = headers.get("x-request-id");
 
   if (!dataId) {
+    // Sin dataId no hay manifiesto verificable: la peticion NO puede autenticarse.
+    // No se persiste en el ledger economico (evita ruido/crecimiento no autenticado),
+    // no se consulta a Mercado Pago y no se aplica ningun efecto.
     return { processed: false, reason: "missing-data-id" };
   }
 
+  // 1. Autenticidad primero: una firma invalida aborta antes de tocar el ledger.
   validateWebhookSignatureIfConfigured({ headers, dataId });
 
-  if (topic === "subscription_preapproval") {
-    const preapproval = await getMercadoPagoPreapproval(dataId);
-    const subscription = await updateSubscriptionFromPreapproval(preapproval);
-    return { processed: Boolean(subscription), topic, dataId };
-  }
+  // 2. Registrar la recepcion minima del webhook.
+  const eventId = await recordWebhookReceived({ topic, dataId, requestId });
 
-  if (topic === "subscription_authorized_payment") {
-    const authorizedPayment = await getMercadoPagoAuthorizedPayment(dataId);
-    const payment = await registerAuthorizedPayment(authorizedPayment);
-    return { processed: Boolean(payment), topic, dataId };
-  }
+  try {
+    // 3-5. Consultar a Mercado Pago FUERA de la transaccion; los handlers abren
+    // una transaccion corta para aplicar el estado local y marcar el ledger.
+    if (topic === "subscription_preapproval") {
+      const preapproval = await getMercadoPagoPreapproval(dataId);
+      const subscription = await updateSubscriptionFromPreapproval(preapproval, eventId);
+      return { processed: Boolean(subscription), topic, dataId };
+    }
 
-  if (topic === "payment") {
-    const payment = await getMercadoPagoPayment(dataId);
-    const stored = await registerPayment(payment);
-    return { processed: Boolean(stored), topic, dataId };
-  }
+    if (topic === "subscription_authorized_payment") {
+      const authorizedPayment = await getMercadoPagoAuthorizedPayment(dataId);
+      const payment = await registerAuthorizedPayment(authorizedPayment, eventId);
+      return { processed: Boolean(payment), topic, dataId };
+    }
 
-  return { processed: false, topic, dataId, reason: "unsupported-topic" };
+    if (topic === "payment") {
+      const payment = await getMercadoPagoPayment(dataId);
+      const stored = await registerPayment(payment, eventId);
+      return { processed: Boolean(stored), topic, dataId };
+    }
+
+    await markWebhookResult(prisma, eventId, { result: WebhookEventResult.UNSUPPORTED_TOPIC });
+    return { processed: false, topic, dataId, reason: "unsupported-topic" };
+  } catch (error) {
+    // 6. Fallo de consulta externa o de la transaccion: se registra de forma segura.
+    await markWebhookResult(prisma, eventId, {
+      result: WebhookEventResult.FAILED,
+      errorCode: safeErrorCode(error),
+    }).catch(() => {});
+    throw error;
+  }
 }
 
 export async function disableAutoRenewForTenant({
@@ -240,7 +344,7 @@ async function getMercadoPagoPayment(id: string) {
   return mercadoPagoRequest<MercadoPagoPayment>(`/v1/payments/${id}`);
 }
 
-async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreapproval) {
+async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreapproval, eventId: string) {
   const subscription = await prisma.subscription.findFirst({
     where: {
       OR: [
@@ -250,10 +354,16 @@ async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreappr
     },
   });
 
-  if (!subscription) return null;
+  if (!subscription) {
+    await markWebhookResult(prisma, eventId, {
+      result: WebhookEventResult.ENTITY_NOT_FOUND,
+      rawStatus: preapproval.status ?? null,
+    });
+    return null;
+  }
 
-  let status = mapPreapprovalStatus(preapproval.status);
   const now = new Date();
+  let status = mapPreapprovalStatus(preapproval.status);
 
   if (status === "ACTIVE") {
     // "authorized" en Mercado Pago solo significa que el preapproval (autorizacion de cobro
@@ -268,32 +378,73 @@ async function updateSubscriptionFromPreapproval(preapproval: MercadoPagoPreappr
     }
   }
 
-  const updated = await prisma.subscription.update({
-    where: { id: subscription.id },
-    data: {
-      status,
-      mercadoPagoPreapprovalId: preapproval.id,
-      mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || subscription.mercadoPagoInitPoint,
-      mercadoPagoStatus: preapproval.status || null,
-      lastWebhookAt: now,
-      graceEndsAt: status === "GRACE_PERIOD" ? addDays(now, await getGracePeriodDays()) : subscription.graceEndsAt,
-    },
-  });
+  const graceDays = status === "GRACE_PERIOD" ? await getGracePeriodDays() : 0;
+  const prevStatus = subscription.status;
 
-  await updateTenantStatusFromSubscription(updated.tenantId, status);
-  await auditWebhook(updated.id, updated.tenantId, "subscription_preapproval", preapproval.id, preapproval.status);
+  // Transaccion local corta: Subscription + Tenant + AuditLog + ledger coherentes.
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedSubscription = await tx.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status,
+        mercadoPagoPreapprovalId: preapproval.id,
+        mercadoPagoInitPoint: preapproval.init_point || preapproval.sandbox_init_point || subscription.mercadoPagoInitPoint,
+        mercadoPagoStatus: preapproval.status || null,
+        lastWebhookAt: now,
+        graceEndsAt: status === "GRACE_PERIOD" ? addDays(now, graceDays) : subscription.graceEndsAt,
+      },
+    });
+
+    await applyTenantStatusInTx(tx, updatedSubscription.tenantId, status);
+
+    await registerAuditLog(
+      {
+        actorUserId: null,
+        tenantId: updatedSubscription.tenantId,
+        action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
+        targetType: "Subscription",
+        targetId: updatedSubscription.id,
+        metadata: {
+          provider: MERCADO_PAGO_PROVIDER,
+          topic: "subscription_preapproval",
+          externalId: preapproval.id,
+          rawStatus: preapproval.status ?? null,
+          prevStatus,
+          nextStatus: status,
+          effectApplied: false,
+        },
+      },
+      tx
+    );
+
+    await markWebhookResult(tx, eventId, {
+      result: WebhookEventResult.PROCESSED,
+      tenantId: updatedSubscription.tenantId,
+      subscriptionId: updatedSubscription.id,
+      rawStatus: preapproval.status ?? null,
+      metadata: { prevStatus, nextStatus: status },
+    });
+
+    return updatedSubscription;
+  });
 
   return updated;
 }
 
-async function registerAuthorizedPayment(authorizedPayment: MercadoPagoAuthorizedPayment) {
-  if (!authorizedPayment.preapproval_id) return null;
+async function registerAuthorizedPayment(authorizedPayment: MercadoPagoAuthorizedPayment, eventId: string) {
+  if (!authorizedPayment.preapproval_id) {
+    await markWebhookResult(prisma, eventId, { result: WebhookEventResult.ENTITY_NOT_FOUND, errorCode: "missing-preapproval-id" });
+    return null;
+  }
 
   const subscription = await prisma.subscription.findUnique({
     where: { mercadoPagoPreapprovalId: authorizedPayment.preapproval_id },
   });
 
-  if (!subscription) return null;
+  if (!subscription) {
+    await markWebhookResult(prisma, eventId, { result: WebhookEventResult.ENTITY_NOT_FOUND });
+    return null;
+  }
 
   return upsertMercadoPagoPayment({
     subscription,
@@ -303,15 +454,19 @@ async function registerAuthorizedPayment(authorizedPayment: MercadoPagoAuthorize
     rawStatus: authorizedPayment.status,
     date: authorizedPayment.date_created,
     topic: "subscription_authorized_payment",
+    eventId,
   });
 }
 
-async function registerPayment(payment: MercadoPagoPayment) {
+async function registerPayment(payment: MercadoPagoPayment, eventId: string) {
   const subscription = payment.external_reference
     ? await prisma.subscription.findUnique({ where: { id: payment.external_reference } })
     : null;
 
-  if (!subscription) return null;
+  if (!subscription) {
+    await markWebhookResult(prisma, eventId, { result: WebhookEventResult.ENTITY_NOT_FOUND });
+    return null;
+  }
 
   return upsertMercadoPagoPayment({
     subscription,
@@ -321,6 +476,7 @@ async function registerPayment(payment: MercadoPagoPayment) {
     rawStatus: payment.status,
     date: payment.date_approved || payment.date_created,
     topic: "payment",
+    eventId,
   });
 }
 
@@ -332,118 +488,280 @@ async function upsertMercadoPagoPayment({
   rawStatus,
   date,
   topic,
+  eventId,
 }: {
-  subscription: { id: string; tenantId: string; currentPeriodEnd: Date; priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot: number | null; pendingPriceCents: number | null; pendingCurrency: string | null };
+  subscription: { id: string; tenantId: string; status: SubscriptionStatus; currentPeriodEnd: Date; priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot: number | null; pendingPriceCents: number | null; pendingCurrency: string | null };
   externalId: string;
   amount?: number;
   currency?: string;
   rawStatus?: string;
   date?: string;
   topic: string;
+  eventId: string;
 }) {
   const status = mapPaymentStatus(rawStatus);
   const now = new Date();
-  const periodStart = subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
-  const periodEnd = addDays(periodStart, BILLING_PERIOD_DAYS);
   const paidAt = status === "APPROVED" ? parseDateOrNow(date) : null;
   const amountCents = Math.round((amount || subscription.priceCents / 100) * 100);
-
-  const payment = await prisma.payment.upsert({
-    where: { mercadoPagoPaymentId: externalId },
-    update: {
-      status,
-      rawStatus: rawStatus || null,
-      paidAt,
-    },
-    create: {
-      tenantId: subscription.tenantId,
-      subscriptionId: subscription.id,
-      amountCents,
-      currency: currency || subscription.currency,
-      status,
-      provider: "MERCADO_PAGO",
-      dueDate: now,
-      paidAt,
-      periodStart,
-      periodEnd,
-      externalReference: externalId,
-      mercadoPagoPaymentId: externalId,
-      rawStatus: rawStatus || null,
-    },
-  });
-
   const nextSubscriptionStatus = paymentStatusToSubscriptionStatus(status);
-  const pendingTerms =
-    status === "APPROVED" &&
-    subscription.pendingUnitsSnapshot !== null &&
-    subscription.pendingPriceCents !== null
-      ? {
-          unitsSnapshot: subscription.pendingUnitsSnapshot,
-          priceCents: subscription.pendingPriceCents,
-          currency: subscription.pendingCurrency || subscription.currency,
-        }
-      : null;
-  const subscriptionUpdate = status === "APPROVED"
-    ? {
-        status: nextSubscriptionStatus,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
-        graceEndsAt: null,
-        lastWebhookAt: now,
-        ...(pendingTerms
-          ? {
-              ...pendingTerms,
-              pendingUnitsSnapshot: null,
-              pendingPriceCents: null,
-              pendingCurrency: null,
-              pendingPriceEffectiveAt: null,
-            }
-          : {}),
-      }
-    : {
-        status: nextSubscriptionStatus,
-        graceEndsAt: addDays(now, await getGracePeriodDays()),
-        lastWebhookAt: now,
-      };
+  // Se resuelve fuera de la transaccion (lectura de PlatformSetting) para no
+  // mantener llamadas ajenas abiertas dentro de ella.
+  const graceDays = status === "APPROVED" ? 0 : await getGracePeriodDays();
 
-  await prisma.subscription.update({
-    where: { id: subscription.id },
-    data: subscriptionUpdate,
+  const { payment } = await prisma.$transaction(async (tx) => {
+    // 1. Fila Payment idempotente por mercadoPagoPaymentId unico.
+    const payment = await tx.payment.upsert({
+      where: { mercadoPagoPaymentId: externalId },
+      update: {
+        status,
+        rawStatus: rawStatus || null,
+        paidAt,
+      },
+      create: {
+        tenantId: subscription.tenantId,
+        subscriptionId: subscription.id,
+        amountCents,
+        currency: currency || subscription.currency,
+        status,
+        provider: "MERCADO_PAGO",
+        dueDate: now,
+        paidAt,
+        periodStart: now,
+        periodEnd: now,
+        externalReference: externalId,
+        mercadoPagoPaymentId: externalId,
+        rawStatus: rawStatus || null,
+      },
+    });
+
+    await runBillingStep("AFTER_PAYMENT_UPSERT");
+
+    if (status === "APPROVED") {
+      // CUARENTENA: un pago historico (previo a la migracion de idempotencia) tiene
+      // approvedEffectReconciliationRequired=true. NUNCA se reclama su efecto (no puede
+      // extender por replay historico). Se registra como RECONCILIATION_REQUIRED, que es
+      // DISTINTO de DUPLICATE (aun no se ha afirmado que el efecto este reconciliado).
+      if (isHistoricalQuarantined(payment)) {
+        await registerAuditLog(
+          {
+            actorUserId: null,
+            tenantId: subscription.tenantId,
+            action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
+            targetType: "Subscription",
+            targetId: subscription.id,
+            metadata: {
+              provider: MERCADO_PAGO_PROVIDER,
+              topic,
+              externalId,
+              rawStatus: rawStatus ?? null,
+              effectKey: buildPaymentEffectKey(MERCADO_PAGO_PROVIDER, externalId),
+              effectApplied: false,
+              reconciliationRequired: true,
+            },
+          },
+          tx
+        );
+        await markWebhookResult(tx, eventId, {
+          result: WebhookEventResult.RECONCILIATION_REQUIRED,
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          rawStatus: rawStatus ?? null,
+          metadata: { effectApplied: false, reconciliationRequired: true },
+        });
+        return { payment };
+      }
+
+      // 2. RECLAMO ATOMICO del efecto economico: solo un procesamiento gana el update
+      // condicional (status APPROVED, sin efecto previo Y sin cuarentena). Un APPROVED
+      // repetido (o concurrente) obtiene count === 0 y NO vuelve a extender.
+      const claim = await tx.payment.updateMany({
+        where: {
+          id: payment.id,
+          status: "APPROVED",
+          approvedEffectAppliedAt: null,
+          approvedEffectReconciliationRequired: false,
+        },
+        data: { approvedEffectAppliedAt: now },
+      });
+      await runBillingStep("AFTER_EFFECT_CLAIM");
+      const effectApplied = claim.count === 1;
+
+      if (effectApplied) {
+        // 3-5. Primera aplicacion: calcular periodo (fuente unica), aplicar terminos
+        // pendientes, actualizar Subscription y Tenant.
+        const current = await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } });
+        const next = computeNextPeriod({
+          currentPeriodEnd: current.currentPeriodEnd,
+          now,
+          periodDays: BILLING_PERIOD_DAYS,
+          pending: {
+            pendingUnitsSnapshot: current.pendingUnitsSnapshot,
+            pendingPriceCents: current.pendingPriceCents,
+            pendingCurrency: current.pendingCurrency,
+            fallbackCurrency: current.currency,
+          },
+        });
+
+        await tx.subscription.update({
+          where: { id: current.id },
+          data: {
+            status: nextSubscriptionStatus,
+            currentPeriodStart: next.periodStart,
+            currentPeriodEnd: next.periodEnd,
+            graceEndsAt: null,
+            lastWebhookAt: now,
+            ...(next.effectiveTerms
+              ? {
+                  unitsSnapshot: next.effectiveTerms.unitsSnapshot,
+                  priceCents: next.effectiveTerms.priceCents,
+                  currency: next.effectiveTerms.currency,
+                }
+              : {}),
+            ...(next.clearPending
+              ? {
+                  pendingUnitsSnapshot: null,
+                  pendingPriceCents: null,
+                  pendingCurrency: null,
+                  pendingPriceEffectiveAt: null,
+                }
+              : {}),
+          },
+        });
+        await runBillingStep("AFTER_SUBSCRIPTION_UPDATE");
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { periodStart: next.periodStart, periodEnd: next.periodEnd },
+        });
+        await applyTenantStatusInTx(tx, subscription.tenantId, nextSubscriptionStatus);
+        await runBillingStep("AFTER_TENANT_UPDATE");
+
+        await runBillingStep("BEFORE_AUDIT_LOG");
+        await registerAuditLog(
+          {
+            actorUserId: null,
+            tenantId: subscription.tenantId,
+            action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
+            targetType: "Subscription",
+            targetId: subscription.id,
+            metadata: {
+              provider: MERCADO_PAGO_PROVIDER,
+              topic,
+              externalId,
+              rawStatus: rawStatus ?? null,
+              effectKey: buildPaymentEffectKey(MERCADO_PAGO_PROVIDER, externalId),
+              effectApplied: true,
+              prevStatus: subscription.status,
+              nextStatus: nextSubscriptionStatus,
+              prevPeriodEnd: current.currentPeriodEnd.toISOString(),
+              nextPeriodEnd: next.periodEnd.toISOString(),
+            },
+          },
+          tx
+        );
+
+        await runBillingStep("BEFORE_WEBHOOK_RESULT");
+        await markWebhookResult(tx, eventId, {
+          result: WebhookEventResult.PROCESSED,
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          rawStatus: rawStatus ?? null,
+          metadata: { effectApplied: true, nextStatus: nextSubscriptionStatus },
+        });
+      } else {
+        // APPROVED repetido: el efecto ya fue aplicado. No se toca el periodo ni
+        // los terminos pendientes; solo se registra como duplicado.
+        await registerAuditLog(
+          {
+            actorUserId: null,
+            tenantId: subscription.tenantId,
+            action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
+            targetType: "Subscription",
+            targetId: subscription.id,
+            metadata: {
+              provider: MERCADO_PAGO_PROVIDER,
+              topic,
+              externalId,
+              rawStatus: rawStatus ?? null,
+              effectKey: buildPaymentEffectKey(MERCADO_PAGO_PROVIDER, externalId),
+              effectApplied: false,
+              duplicate: true,
+            },
+          },
+          tx
+        );
+        await markWebhookResult(tx, eventId, {
+          result: WebhookEventResult.DUPLICATE,
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          rawStatus: rawStatus ?? null,
+          metadata: { effectApplied: false, duplicate: true },
+        });
+      }
+    } else {
+      // No-APPROVED (PENDING/REJECTED): se conserva el comportamiento actual
+      // (mover a GRACE_PERIOD) pero ahora dentro de la transaccion. La precedencia
+      // de eventos fuera de orden queda para una subfase posterior (fuera de alcance).
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: nextSubscriptionStatus,
+          graceEndsAt: addDays(now, graceDays),
+          lastWebhookAt: now,
+        },
+      });
+      await applyTenantStatusInTx(tx, subscription.tenantId, nextSubscriptionStatus);
+
+      await registerAuditLog(
+        {
+          actorUserId: null,
+          tenantId: subscription.tenantId,
+          action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
+          targetType: "Subscription",
+          targetId: subscription.id,
+          metadata: {
+            provider: MERCADO_PAGO_PROVIDER,
+            topic,
+            externalId,
+            rawStatus: rawStatus ?? null,
+            effectApplied: false,
+            prevStatus: subscription.status,
+            nextStatus: nextSubscriptionStatus,
+          },
+        },
+        tx
+      );
+      await markWebhookResult(tx, eventId, {
+        result: WebhookEventResult.PROCESSED,
+        tenantId: subscription.tenantId,
+        subscriptionId: subscription.id,
+        rawStatus: rawStatus ?? null,
+        metadata: { effectApplied: false, nextStatus: nextSubscriptionStatus },
+      });
+    }
+
+    return { payment };
   });
-  await updateTenantStatusFromSubscription(subscription.tenantId, nextSubscriptionStatus);
-  await auditWebhook(subscription.id, subscription.tenantId, topic, externalId, rawStatus);
 
   return payment;
 }
 
-async function updateTenantStatusFromSubscription(tenantId: string, status: SubscriptionStatus) {
+// Version tx-aware de la sincronizacion de estado del Tenant. Mantiene la regla de
+// no marcar ACTIVE sin un pago APROBADO existente.
+async function applyTenantStatusInTx(tx: TxClient, tenantId: string, status: SubscriptionStatus) {
   if (status === "ACTIVE" || status === "TRIAL") {
-    // Nunca marcar el tenant como ACTIVE por un webhook sin al menos un pago APROBADO real
-    // registrado (evita reactivar/activar un tenant solo porque Mercado Pago autorizo el
-    // preapproval, que no implica que ya se haya cobrado).
-    const approvedPayment = await prisma.payment.findFirst({
+    const approvedPayment = await tx.payment.findFirst({
       where: { tenantId, status: "APPROVED" },
       select: { id: true },
     });
     if (!approvedPayment) return;
-    await prisma.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE" } });
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE" } });
   } else if (status === "GRACE_PERIOD") {
-    await prisma.tenant.update({ where: { id: tenantId }, data: { status: "GRACE_PERIOD" } });
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "GRACE_PERIOD" } });
   } else if (status === "SUSPENDED") {
-    await prisma.tenant.update({ where: { id: tenantId }, data: { status: "SUSPENDED" } });
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "SUSPENDED" } });
   } else if (status === "CANCELLED") {
-    await prisma.tenant.update({ where: { id: tenantId }, data: { status: "CANCELLED" } });
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "CANCELLED" } });
   }
-}
-
-async function auditWebhook(subscriptionId: string, tenantId: string, topic: string, externalId: string, rawStatus?: string) {
-  await registerAuditLog({
-    actorUserId: null,
-    action: AuditAction.MERCADO_PAGO_WEBHOOK_PROCESSED,
-    targetType: "Subscription",
-    targetId: subscriptionId,
-    metadata: { tenantId, topic, externalId, rawStatus },
-  });
 }
 
 function isMercadoPagoTestToken() {
@@ -525,12 +843,6 @@ function paymentStatusToSubscriptionStatus(status: PaymentStatus): SubscriptionS
   if (status === "APPROVED") return "ACTIVE";
   if (status === "REJECTED") return "GRACE_PERIOD";
   return "GRACE_PERIOD";
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
 }
 
 function parseDateOrNow(value?: string) {

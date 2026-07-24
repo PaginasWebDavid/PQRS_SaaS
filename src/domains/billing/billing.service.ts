@@ -5,9 +5,9 @@ import { upsertPlatformSetting } from "@/domains/platform/platform-setting.servi
 import { SUBSCRIPTION_STATUS_LABEL } from "@/lib/design/licenseStatus";
 import { createNotification, NotificationTypes, type NotificationType } from "@/domains/notifications/notification.service";
 import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
+import { addDays, BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
 
 export const DEFAULT_TRIAL_DAYS = 15;
-const BILLING_PERIOD_DAYS = 30;
 const RENEWAL_WINDOW_DAYS = 15;
 export const DEFAULT_GRACE_PERIOD_DAYS = 5;
 export const DEFAULT_MIN_PRICING_RULE_CENTS = 50_000 * 100;
@@ -159,8 +159,13 @@ export async function renewSubscriptionWithSimulatedPayment({
       }
     : await calculatePriceForUnits(subscription.tenant.units);
   const now = new Date();
-  const periodStart = subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
-  const periodEnd = addDays(periodStart, BILLING_PERIOD_DAYS);
+  // Usa la fuente unica de calculo de periodo (misma que el webhook). El precio ya
+  // se resolvio arriba, asi que aqui solo se comparte la matematica de fechas.
+  const { periodStart, periodEnd } = computeNextPeriod({
+    currentPeriodEnd: subscription.currentPeriodEnd,
+    now,
+    periodDays: BILLING_PERIOD_DAYS,
+  });
 
   const [updated] = await prisma.$transaction(async (tx) => {
     const renewed = await tx.subscription.update({
@@ -702,12 +707,6 @@ const PAYMENT_STATUS_LABEL: Record<string, string> = {
 
 export function getSubscriptionStatusLabel(status: SubscriptionStatus | PaymentStatus | string) {
   return SUBSCRIPTION_STATUS_LABEL[status] || PAYMENT_STATUS_LABEL[status] || status;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
 }
 
 function startOfMonth(date: Date) {
