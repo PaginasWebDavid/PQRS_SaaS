@@ -155,6 +155,7 @@ enum AuditAction {
   SUBSCRIPTION_AUTO_RENEW_DISABLED
   SUBSCRIPTION_AUTO_RENEW_ENABLED
   SUBSCRIPTION_PAYMENT_FAILED
+  PAYMENT_RECONCILED
 }
 
 enum SupportTicketStatus {
@@ -261,6 +262,18 @@ model Payment {
   externalReference    String?
   mercadoPagoPaymentId String?         @unique
   rawStatus            String?
+  // Marcador atomico de idempotencia del efecto economico: se fija (via update
+  // condicional WHERE approvedEffectAppliedAt IS NULL) la primera vez que un pago
+  // APPROVED extiende el periodo. Un APPROVED repetido lo encuentra ya fijado y
+  // no vuelve a extender. No confundir con `status` (que puede transicionar
+  // PENDING -> APPROVED de forma legitima).
+  approvedEffectAppliedAt DateTime?
+  // Cuarentena de pagos historicos: los pagos MERCADO_PAGO+APPROVED que existian
+  // antes de la migracion de idempotencia se marcan =true. El handler NUNCA reclama
+  // el efecto de un pago en cuarentena (no puede extender por replay historico);
+  // solo la reconciliacion manual (scripts/reconcile-historical-payment-effects.ts)
+  // lo baja a false tras verificar evidencia. Los pagos nuevos nacen en false.
+  approvedEffectReconciliationRequired Boolean @default(false)
   createdAt            DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -280,6 +293,45 @@ enum PaymentStatus {
 enum PaymentProvider {
   SIMULATED
   MERCADO_PAGO
+}
+
+// Ledger de ENTREGAS de webhook (no es la garantia economica). Registra cada
+// solicitud entrante y su resultado para trazabilidad. La idempotencia del efecto
+// economico vive en Payment.approvedEffectAppliedAt, no aqui. tenantId/subscriptionId
+// se guardan como texto plano (sin FK) para mantener el ledger desacoplado y aditivo.
+model WebhookEvent {
+  id             String             @id @default(cuid())
+  provider       String
+  topic          String
+  dataId         String
+  requestId      String?
+  rawStatus      String?
+  tenantId       String?
+  subscriptionId String?
+  result         WebhookEventResult @default(RECEIVED)
+  errorCode      String?
+  metadata       Json?
+  receivedAt     DateTime           @default(now())
+  processedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([provider, topic])
+  @@index([dataId])
+  @@index([tenantId])
+  @@index([receivedAt])
+}
+
+enum WebhookEventResult {
+  RECEIVED
+  PROCESSED
+  DUPLICATE
+  IGNORED
+  FAILED
+  ENTITY_NOT_FOUND
+  UNSUPPORTED_TOPIC
+  // Pago historico en cuarentena: no se aplico efecto; requiere reconciliacion manual.
+  RECONCILIATION_REQUIRED
 }
 
 model Pqrs {
