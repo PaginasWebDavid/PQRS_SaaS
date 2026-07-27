@@ -1,9 +1,19 @@
-import { AuditAction, SubscriptionStatus, TenantStatus } from "@prisma/client";
+import { AuditAction, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
 import { calculatePriceForUnits, DEFAULT_TRIAL_DAYS } from "@/domains/billing/billing.service";
-import { updateMercadoPagoPreapprovalAmount } from "@/domains/billing/mercado-pago.service";
+import { updateMercadoPagoPreapprovalAmount, __billingTestSeam } from "@/domains/billing/mercado-pago.service";
+import { hasCurrentAppliedAccessEvidence } from "@/domains/billing/precedence";
 import { createInvitation } from "@/domains/organizations/invitation.service";
+
+// Error de negocio controlado ante un conflicto de serializacion (F2F-04). No es
+// un bucle de reintentos: el operador reintenta manualmente la accion.
+export class SerializationConflictError extends Error {
+  constructor() {
+    super("El estado cambio durante la operacion. Intenta nuevamente.");
+    this.name = "SerializationConflictError";
+  }
+}
 
 export type CreateTenantInput = {
   name: string;
@@ -213,43 +223,6 @@ export async function updateTenantStatusForSuperAdmin(
   tenantId: string,
   status: Extract<TenantStatus, "ACTIVE" | "SUSPENDED" | "CANCELLED">
 ) {
-  if (status === "ACTIVE") {
-    // No basta con que haya pagado alguna vez: el pago aprobado debe cubrir el
-    // periodo vigente (periodEnd >= ahora). Un tenant que pago una vez, se atraso
-    // y quedo suspendido no puede reactivarse gratis solo por tener un pago viejo.
-    const approvedPayment = await prisma.payment.findFirst({
-      where: { tenantId, status: "APPROVED", periodEnd: { gte: new Date() } },
-      select: { id: true },
-    });
-    if (!approvedPayment) {
-      throw new Error(
-        "No se puede activar: este conjunto no tiene un pago aprobado que cubra el periodo actual. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
-      );
-    }
-  }
-
-  const tenant = await prisma.$transaction(async (tx) => {
-    await tx.subscription.findUniqueOrThrow({ where: { tenantId }, select: { id: true } });
-
-    const updatedTenant = await tx.tenant.update({
-      where: { id: tenantId },
-      data: {
-        status,
-        cancelledAt: status === "CANCELLED" ? new Date() : null,
-      },
-    });
-
-    await tx.subscription.update({
-      where: { tenantId },
-      data: {
-        status: status as SubscriptionStatus,
-        graceEndsAt: status === "ACTIVE" ? null : undefined,
-      },
-    });
-
-    return updatedTenant;
-  });
-
   const action =
     status === "SUSPENDED"
       ? AuditAction.TENANT_SUSPENDED
@@ -257,20 +230,95 @@ export async function updateTenantStatusForSuperAdmin(
         ? AuditAction.TENANT_CANCELLED
         : AuditAction.TENANT_REACTIVATED;
 
-  await registerAuditLog({
-    actorUserId,
-    tenantId: tenant.id,
-    action,
-    targetType: "Tenant",
-    targetId: tenant.id,
-    metadata: {
-      name: tenant.name,
-      slug: tenant.slug,
-      status,
-    },
-  });
+  // Transaccion SERIALIZABLE (F2F-04): la evidencia leida no puede cambiar bajo los
+  // pies de la escritura. Evidencia, Subscription, Tenant y AuditLog quedan en una
+  // sola unidad atomica (F2F-03): no hay acceso reactivado sin auditoria.
+  try {
+    const tenant = await prisma.$transaction(
+      async (tx) => {
+        const subscription = await tx.subscription.findUniqueOrThrow({
+          where: { tenantId },
+          select: { id: true, tenantId: true },
+        });
 
-  return tenant;
+        if (status === "ACTIVE") {
+          // La validacion de evidencia ocurre DENTRO de la transaccion serializable.
+          // Identidad EXACTA tenant+subscription (F2F-02). hasCurrentAppliedAccessEvidence
+          // acepta pago real de Mercado Pago (aprobado, efecto aplicado, sin cuarentena,
+          // periodo vigente) o renovacion simulada/cortesia vigente; NUNCA historico en
+          // cuarentena, sin efecto aplicado o con periodo vencido.
+          const now = new Date();
+          const rows = await tx.payment.findMany({
+            where: { tenantId, subscriptionId: subscription.id },
+            select: {
+              tenantId: true,
+              subscriptionId: true,
+              provider: true,
+              status: true,
+              periodEnd: true,
+              approvedEffectAppliedAt: true,
+              approvedEffectReconciliationRequired: true,
+            },
+          });
+          if (!hasCurrentAppliedAccessEvidence(rows, now, { tenantId, subscriptionId: subscription.id })) {
+            throw new Error(
+              "No se puede activar: este conjunto no tiene evidencia de pago o renovacion vigente que cubra el periodo actual. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
+            );
+          }
+          // Seam: la evidencia YA fue leida y validada. Una transaccion concurrente que
+          // invalide la evidencia y toque la Subscription hara fallar el UPDATE serializable.
+          await __billingTestSeam("AFTER_REACTIVATION_EVIDENCE_READ");
+        }
+
+        const updatedTenant = await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            status,
+            cancelledAt: status === "CANCELLED" ? new Date() : null,
+          },
+        });
+
+        await tx.subscription.update({
+          where: { tenantId },
+          data: {
+            status: status as SubscriptionStatus,
+            graceEndsAt: status === "ACTIVE" ? null : undefined,
+          },
+        });
+
+        // AuditLog DENTRO de la transaccion (F2F-03): si falla, Tenant y Subscription
+        // se revierten; no queda acceso reactivado sin registro de quien lo hizo.
+        await __billingTestSeam("BEFORE_REACTIVATION_AUDIT_LOG");
+        await registerAuditLog(
+          {
+            actorUserId,
+            tenantId: updatedTenant.id,
+            action,
+            targetType: "Tenant",
+            targetId: updatedTenant.id,
+            metadata: {
+              name: updatedTenant.name,
+              slug: updatedTenant.slug,
+              status,
+            },
+          },
+          tx
+        );
+
+        return updatedTenant;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+
+    return tenant;
+  } catch (error) {
+    // Conflicto de serializacion / write conflict: Prisma lo mapea a P2034. Se
+    // traduce a un error de negocio controlado; el resto de errores se relanza tal cual.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      throw new SerializationConflictError();
+    }
+    throw error;
+  }
 }
 
 export async function updateTenantDetails(
