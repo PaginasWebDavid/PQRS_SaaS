@@ -1,15 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
-import { dataUrlToBuffer, uploadToStorage, matchesDeclaredType } from "@/lib/storage";
+import { deleteFromStorage, uploadToStorage } from "@/lib/storage";
 import { sendEmail, sendEmailSafe, renderEmailLayout } from "@/lib/email";
 import { AuditAction, Prisma } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { pqrsScopeForUser } from "@/domains/pqrs/pqrs-permissions";
 import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
+import {
+  escapePqrsHtml,
+  isRecord,
+  optionalBoundedText,
+  PqrsValidationError,
+  validatePqrsFile,
+} from "@/domains/pqrs/pqrs-security";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -21,7 +28,7 @@ const MESES = [
 const ESTADOS_VALIDOS = new Set(["EN_ESPERA", "EN_PROGRESO", "TERMINADO"]);
 const ASUNTOS_VALIDOS = new Set(["AREA COMUN", "AREA PRIVADA", "CONTABILIDAD", "CONVIVENCIA", "HUMEDAD/CUBIERTA", "HUMEDAD/DEPOSITO", "HUMEDAD/VENTANAS", "HUMEDAD/FACHADA", "HUMEDAD/GARAJE"]);
 
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -142,7 +149,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -159,21 +166,26 @@ export async function POST(req: NextRequest) {
   const tenantId = getTenantIdFromSession(session);
 
   const body = await req.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  if (!isRecord(body)) {
     return NextResponse.json({ error: "Cuerpo invalido" }, { status: 400 });
   }
-  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body as Record<string, unknown>;
-
-  if (typeof descripcion !== "string" || descripcion.trim() === "") {
+  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
+  if (typeof descripcion !== "string" || !descripcion.trim()) {
     return NextResponse.json({ error: "La descripcion es obligatoria" }, { status: 400 });
   }
-
-  const wordCount = descripcion.trim().split(/\s+/).length;
-  if (wordCount > 300) {
+  const finalDescripcion = descripcion.trim();
+  if (finalDescripcion.length > 6000 || finalDescripcion.split(/\s+/).length > 300) {
     return NextResponse.json(
-      { error: "La descripcion no puede superar 300 palabras" },
+      { error: "La descripcion no puede superar 300 palabras ni 6000 caracteres" },
       { status: 400 }
     );
+  }
+  let finalTitulo: string | undefined;
+  try {
+    finalTitulo = optionalBoundedText(titulo, "Titulo", 120);
+  } catch (error) {
+    const message = error instanceof PqrsValidationError ? error.message : "Datos invalidos";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   const isAdmin = session.user.role === "ADMIN";
@@ -202,80 +214,84 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nombre, bloque y apartamento son obligatorios y validos" }, { status: 400 });
   }
 
-  // Validar fotos opcionales
-  const fotosArray: { data: string; nombre: string; tipo: string; orden: number }[] = [];
-  if (fotos && Array.isArray(fotos)) {
+  const fotosArray: { buffer: Buffer; nombre: string; tipo: string; orden: number }[] = [];
+  if (fotos !== undefined && !Array.isArray(fotos)) {
+    return NextResponse.json({ error: "Formato de fotos invalido" }, { status: 400 });
+  }
+  if (Array.isArray(fotos)) {
     if (fotos.length > 3) {
-      return NextResponse.json({ error: "Máximo 3 fotos permitidas" }, { status: 400 });
+      return NextResponse.json({ error: "Maximo 3 fotos permitidas" }, { status: 400 });
     }
-    for (let i = 0; i < fotos.length; i++) {
-      const foto = fotos[i];
-      if (!foto || typeof foto !== "object" || !foto.data || !foto.nombre || !foto.tipo) {
-        return NextResponse.json({ error: "Datos de foto incompletos" }, { status: 400 });
+    try {
+      for (let i = 0; i < fotos.length; i++) {
+        const foto = fotos[i];
+        if (!isRecord(foto)) throw new PqrsValidationError("Datos de foto incompletos");
+        const validated = validatePqrsFile({
+          dataUrl: foto.data,
+          fileName: foto.nombre,
+          allowedTypes: ALLOWED_IMAGE_TYPES,
+          maxBytes: 1024 * 1024,
+        });
+        if (foto.tipo !== validated.contentType) {
+          throw new PqrsValidationError("El contenido no coincide con el tipo declarado");
+        }
+        fotosArray.push({
+          buffer: validated.buffer,
+          nombre: validated.fileName,
+          tipo: validated.contentType,
+          orden: i,
+        });
       }
-      if (!ALLOWED_IMAGE_TYPES.has(foto.tipo)) {
-        return NextResponse.json({ error: "Solo se permiten imagenes JPG, PNG o WEBP" }, { status: 400 });
-      }
-      if (foto.nombre.length > 180 || /[\/]/.test(foto.nombre)) {
-        return NextResponse.json({ error: "Nombre de archivo invalido" }, { status: 400 });
-      }
-      if (!foto.data.startsWith("data:" + foto.tipo + ";base64,")) {
-        return NextResponse.json({ error: "El contenido no coincide con el tipo de archivo" }, { status: 400 });
-      }
-      const base64Data = foto.data.replace(/^data:[^;]+;base64,/, "");
-      const sizeBytes = Math.ceil(base64Data.length * 0.75);
-      if (sizeBytes > 1024 * 1024) {
-        return NextResponse.json({ error: `La foto "${foto.nombre}" supera 1MB` }, { status: 400 });
-      }
-      if (!matchesDeclaredType(Buffer.from(base64Data, "base64"), foto.tipo)) {
-        return NextResponse.json({ error: `El archivo "${foto.nombre}" no es una imagen ${foto.tipo} valida` }, { status: 400 });
-      }
-      fotosArray.push({ data: foto.data, nombre: foto.nombre, tipo: foto.tipo, orden: i });
+    } catch (error) {
+      const message = error instanceof PqrsValidationError ? error.message : "Datos de foto invalidos";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
   }
 
   const ahora = new Date();
 
-  let storedFotos: {
-    url: string;
+  const storedFotos: {
+    url: string | null;
     storagePath: string;
     nombre: string;
     tipo: string;
     size: number;
     orden: number;
   }[] = [];
-
+  const cleanupStoredFotos = async () => {
+    await Promise.allSettled(
+      storedFotos.map((foto) =>
+        deleteFromStorage(foto.storagePath, { tenantId, folders: ["fotos"] })
+      )
+    );
+  };
   try {
-    storedFotos = await Promise.all(
-      fotosArray.map(async (foto) => {
-        const { contentType, buffer } = dataUrlToBuffer(foto.data);
-        const stored = await uploadToStorage({
-          tenantId,
-          folder: "fotos",
-          fileName: foto.nombre,
-          contentType: foto.tipo || contentType,
-          buffer,
-        });
-
-        return {
-          url: stored.url,
-          storagePath: stored.path,
-          nombre: stored.fileName,
-          tipo: stored.contentType,
-          size: stored.size,
-          orden: foto.orden,
-        };
-      })
-    );
-  } catch (error) {
-    console.error("Error subiendo fotos de PQRS:", error);
-    return NextResponse.json(
-      { error: "No se pudieron subir las fotos" },
-      { status: 500 }
-    );
+    for (const foto of fotosArray) {
+      const stored = await uploadToStorage({
+        tenantId,
+        folder: "fotos",
+        fileName: foto.nombre,
+        contentType: foto.tipo,
+        buffer: foto.buffer,
+      });
+      storedFotos.push({
+        url: null,
+        storagePath: stored.path,
+        nombre: stored.fileName,
+        tipo: stored.contentType,
+        size: stored.size,
+        orden: foto.orden,
+      });
+    }
+  } catch {
+    await cleanupStoredFotos();
+    console.error("[pqrs/create] No se pudieron subir las fotos");
+    return NextResponse.json({ error: "No se pudieron subir las fotos" }, { status: 500 });
   }
 
-  const pqrs = await prisma.$transaction(async (tx) => {
+  let pqrs;
+  try {
+    pqrs = await prisma.$transaction(async (tx) => {
     const nuevoPqrs = await tx.pqrs.create({
       data: {
         tenantId,
@@ -285,9 +301,9 @@ export async function POST(req: NextRequest) {
         bloque: finalBloque,
         apto: finalApto,
         nombreResidente: finalNombre,
-        titulo: titulo ? String(titulo).trim().slice(0, 120) : null,
+        titulo: finalTitulo || null,
         asunto: typeof asunto === "string" ? asunto : null,
-        descripcion,
+        descripcion: finalDescripcion,
         creadoPorId: session.user.id,
       },
     });
@@ -319,6 +335,11 @@ export async function POST(req: NextRequest) {
 
     return nuevoPqrs;
   });
+  } catch {
+    await cleanupStoredFotos();
+    console.error("[pqrs/create] No se pudo persistir la solicitud");
+    return NextResponse.json({ error: "No se pudo crear la PQRS" }, { status: 500 });
+  }
 
   await registerAuditLog({
     actorUserId: session.user.id,
@@ -360,9 +381,9 @@ export async function POST(req: NextRequest) {
           html: renderEmailLayout({
             accent: "warning",
             eyebrow: "Nueva PQRS",
-            heading: pqrs.titulo || `Solicitud #${pqrs.numero}`,
+            heading: escapePqrsHtml(pqrs.titulo || `Solicitud #${pqrs.numero}`),
             bodyHtml: `
-              <p>Se registró la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}, radicada por <strong>${finalNombre}</strong> (Bloque ${finalBloque}, apto ${finalApto}).</p>
+              <p>Se registró la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}, radicada por <strong>${escapePqrsHtml(finalNombre)}</strong> (Bloque ${finalBloque}, apto ${finalApto}).</p>
               <p>Ingresa al panel de administración para revisarla y dar el primer contacto.</p>
             `,
             cta: { label: "Ver en el panel", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/admin/pqrs?id=${pqrs.id}` },
@@ -382,16 +403,16 @@ export async function POST(req: NextRequest) {
         html: renderEmailLayout({
           accent: "navy",
           eyebrow: "Solicitud recibida",
-          heading: pqrs.titulo || "Recibimos tu solicitud",
+          heading: escapePqrsHtml(pqrs.titulo || "Recibimos tu solicitud"),
           bodyHtml: `
-            <p>Hola <strong>${finalNombre}</strong>,</p>
+            <p>Hola <strong>${escapePqrsHtml(finalNombre)}</strong>,</p>
             <p>Ya recibimos tu PQRS y en breve la administración se pondrá en contacto contigo. Te avisaremos por correo tan pronto quede radicada oficialmente.</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:separate;border-spacing:0;background:#F5F5F7;border-radius:12px;overflow:hidden;">
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;width:40%;">NÚMERO INTERNO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;">#${pqrs.numero}</td></tr>
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">UBICACIÓN</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">Bloque ${finalBloque}, apto ${finalApto}</td></tr>
             </table>
             <div style="background:#EAEEF6;border-radius:12px;padding:16px 18px;">
-              <p style="margin:0;font-size:13.5px;color:#122545;line-height:1.6;">${descripcion}</p>
+              <p style="margin:0;font-size:13.5px;color:#122545;line-height:1.6;">${escapePqrsHtml(finalDescripcion)}</p>
             </div>
           `,
         }),
@@ -404,4 +425,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(withoutStorageUrls(pqrs), { status: 201 });
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    return await handleGet(req);
+  } catch {
+    console.error("[pqrs/list] Error inesperado");
+    return NextResponse.json({ error: "No se pudieron obtener las PQRS" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    return await handlePost(req);
+  } catch {
+    console.error("[pqrs/create] Error inesperado");
+    return NextResponse.json({ error: "No se pudo crear la PQRS" }, { status: 500 });
+  }
+}
 
