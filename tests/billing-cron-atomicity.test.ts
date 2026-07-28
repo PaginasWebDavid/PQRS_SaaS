@@ -23,6 +23,10 @@ import {
   type CronRunOptions,
 } from "../src/domains/billing/billing.service";
 import { processMercadoPagoWebhook } from "../src/domains/billing/mercado-pago.service";
+import {
+  __unsafeResetBillingOutboxTestHooks,
+  __unsafeSetBillingOutboxTestHooks,
+} from "../src/domains/billing/billing-outbox.service";
 import { updateTenantStatusForSuperAdmin } from "../src/domains/platform/tenant-admin.service";
 import { GET as overdueRulesGET } from "../src/app/api/cron/overdue-rules/route";
 
@@ -163,6 +167,7 @@ async function sendApprovedPaymentWebhook(subscriptionId: string) {
 
 function resetCronHook() {
   __unsafeSetCronTestHooks({});
+  __unsafeResetBillingOutboxTestHooks();
 }
 
 // Acota SIEMPRE la corrida del cron a los tenants de este archivo.
@@ -620,13 +625,9 @@ test("18b. Notification y email fallidos no revierten ni detienen efectos de otr
   await createActiveAdmin(successfulNotification.tenant.id);
 
   let deactivated = false;
-  __unsafeSetCronTestHooks({
+  __unsafeSetBillingOutboxTestHooks({
     onStep: async (step, ctx) => {
-      if (
-        step === "AFTER_CRON_EFFECT_RECIPIENTS_READ" &&
-        ctx.tenantIds?.includes(failedNotification.tenant.id) &&
-        !deactivated
-      ) {
+      if (step === "AFTER_OUTBOX_SELECTED" && ctx.outboxIds?.length && !deactivated) {
         deactivated = true;
         await prisma.user.update({ where: { id: failedAdminId }, data: { isActive: false } });
       }

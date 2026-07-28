@@ -2,6 +2,7 @@ import { AuditAction, EmailLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { isFeatureEnabled } from "@/domains/platform/platform-setting.service";
+import { classifyProviderHttpStatus, sanitizeOutboxErrorCode, type BillingFailureStatus } from "@/domains/billing/billing-outbox-policy";
 
 interface Attachment {
   filename: string;
@@ -227,5 +228,87 @@ export async function sendEmailSafe(options: SendEmailOptions): Promise<EmailRes
       ok: false,
       errorMessage: error instanceof Error ? error.message : "Error desconocido enviando correo",
     };
+  }
+}
+export type BillingOutboxEmailResult =
+  | { status: "SENT"; providerMessageId: string }
+  | { status: BillingFailureStatus; errorCode: string };
+
+function isValidTransactionalRecipient(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
+}
+
+/**
+ * Provider-only email primitive for the billing outbox. Persistence belongs to
+ * the dispatcher so the provider boundary can be marked durably immediately
+ * before this function performs the fetch.
+ */
+export async function sendBillingOutboxEmail({
+  to,
+  subject,
+  html,
+  beforeProviderAttempt,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  beforeProviderAttempt: () => Promise<void>;
+}): Promise<BillingOutboxEmailResult> {
+  if (!(await isFeatureEnabled("transactionalEmailEnabled"))) {
+    return { status: "FAILED_FINAL", errorCode: "TRANSACTIONAL_EMAIL_DISABLED" };
+  }
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { status: "FAILED_FINAL", errorCode: "RESEND_API_KEY_MISSING" };
+  if (!isValidTransactionalRecipient(to)) {
+    return { status: "FAILED_FINAL", errorCode: "INVALID_RECIPIENT" };
+  }
+
+  const from = process.env.RESEND_FROM_EMAIL || "PQRS Services <notificaciones@pqrs-services.com>";
+  await beforeProviderAttempt();
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      signal: controller.signal,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    });
+
+    if (!response.ok) {
+      const classification = classifyProviderHttpStatus(response.status);
+      return {
+        status: classification === "COMPLETED" ? "DELIVERY_UNKNOWN" : classification,
+        errorCode: sanitizeOutboxErrorCode(`RESEND_HTTP_${response.status}`),
+      };
+    }
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      return { status: "DELIVERY_UNKNOWN", errorCode: "RESEND_RESPONSE_UNREADABLE" };
+    }
+    const providerMessageId =
+      typeof data === "object" && data !== null && typeof (data as { id?: unknown }).id === "string"
+        ? (data as { id: string }).id.slice(0, 255)
+        : null;
+    if (!providerMessageId) {
+      return { status: "DELIVERY_UNKNOWN", errorCode: "RESEND_MESSAGE_ID_MISSING" };
+    }
+    return { status: "SENT", providerMessageId };
+  } catch (error) {
+    return {
+      status: "DELIVERY_UNKNOWN",
+      errorCode: error instanceof Error && error.name === "AbortError"
+        ? "RESEND_TIMEOUT_AFTER_ATTEMPT"
+        : "RESEND_NETWORK_UNKNOWN",
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }

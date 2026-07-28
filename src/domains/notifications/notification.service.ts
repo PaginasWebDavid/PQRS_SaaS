@@ -1,4 +1,4 @@
-import { AuditAction } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 
@@ -35,6 +35,75 @@ export async function createNotification({
   return notification;
 }
 
+type NotificationClient = Prisma.TransactionClient | typeof prisma;
+
+export class NotificationRecipientUnavailableError extends Error {
+  readonly code = "RECIPIENT_UNAVAILABLE";
+
+  constructor() {
+    super("No se puede crear una notificacion para este destinatario");
+    this.name = "NotificationRecipientUnavailableError";
+  }
+}
+
+export async function createNotificationIdempotent(
+  {
+    tenantId,
+    userId,
+    type,
+    title,
+    message,
+    resourceType,
+    resourceId,
+    dedupeKey,
+  }: {
+    tenantId: string;
+    userId: string;
+    type: NotificationType | string;
+    title: string;
+    message: string;
+    resourceType?: string | null;
+    resourceId?: string | null;
+    dedupeKey: string;
+  },
+  client: NotificationClient
+) {
+  const user = await client.user.findFirst({
+    where: { id: userId, tenantId, isActive: true },
+    select: { id: true },
+  });
+  if (!user) throw new NotificationRecipientUnavailableError();
+
+  const inserted = await client.notification.createMany({
+    data: [{
+      tenantId,
+      userId,
+      type,
+      title,
+      message,
+      resourceType: resourceType ?? null,
+      resourceId: resourceId ?? null,
+      dedupeKey,
+    }],
+    skipDuplicates: true,
+  });
+  const notification = await client.notification.findUnique({ where: { dedupeKey } });
+  if (!notification) throw new Error("NOTIFICATION_DEDUPE_LOOKUP_FAILED");
+
+  if (inserted.count === 1) {
+    await registerAuditLog({
+      tenantId,
+      action: AuditAction.NOTIFICATION_CREATED,
+      targetType: "Notification",
+      targetId: notification.id,
+      resourceType,
+      resourceId,
+      metadata: { type, userId, dedupeKey },
+    }, client);
+  }
+
+  return { notification, created: inserted.count === 1 };
+}
 export async function listNotificationsForUser({ tenantId, userId }: { tenantId: string; userId: string }) {
   return prisma.notification.findMany({ where: { tenantId, userId }, orderBy: { createdAt: "desc" }, take: 50 });
 }
