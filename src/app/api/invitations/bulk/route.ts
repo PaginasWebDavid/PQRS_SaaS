@@ -1,84 +1,122 @@
 import ExcelJS from "exceljs";
-import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
-import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { createBulkInvitations } from "@/domains/organizations/invitation.service";
+import {
+  ensureInvitableRole,
+  MAX_BULK_INVITATIONS,
+  prepareBulkInvitationEmails,
+} from "@/domains/organizations/invitation-security";
+import { resolveUserManagementAccess } from "@/domains/organizations/user-management-access";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_ROWS = 500;
-const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2MB alcanza de sobra para 500 filas de un .xlsx simple
-const SELECTABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let access;
+  try {
+    access = await resolveUserManagementAccess(
+      session,
+      req.nextUrl.searchParams.get("tenantId")
+    );
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
-
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
-
-  const tenantId = getTenantIdFromSession(session);
 
   const formData = await req.formData().catch(() => null);
   const file = formData?.get("file");
-  const roleRaw = String(formData?.get("role") || "RESIDENTE").toUpperCase();
-  const role = SELECTABLE_ROLES.includes(roleRaw as Role) ? (roleRaw as Role) : null;
-
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Debes adjuntar un archivo Excel (.xlsx)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Debes adjuntar un archivo Excel (.xlsx)" },
+      { status: 400 }
+    );
   }
-  if (!role) {
-    return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
+  if (!file.name.toLowerCase().endsWith(".xlsx")) {
+    return NextResponse.json(
+      { error: "Solo se permiten archivos .xlsx" },
+      { status: 400 }
+    );
   }
-  // Rechazar archivos desproporcionados antes de que ExcelJS los cargue por completo en
-  // memoria: el tope de MAX_ROWS filas no protege nada si ya se parseo todo el archivo.
-  if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json({ error: `El archivo pesa demasiado (máximo ${MAX_FILE_BYTES / (1024 * 1024)}MB)` }, { status: 400 });
+  if (file.size <= 0 || file.size > MAX_FILE_BYTES) {
+    return NextResponse.json(
+      { error: "El archivo pesa demasiado o esta vacio" },
+      { status: 400 }
+    );
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  let role;
+  try {
+    role = ensureInvitableRole(formData?.get("role") ?? "RESIDENTE");
+  } catch {
+    return NextResponse.json({ error: "Rol invalido" }, { status: 400 });
+  }
+
   const workbook = new ExcelJS.Workbook();
   try {
-    await workbook.xlsx.load(arrayBuffer);
+    await workbook.xlsx.load(await file.arrayBuffer());
   } catch {
-    return NextResponse.json({ error: "No se pudo leer el archivo. Verifica que sea un .xlsx válido" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No se pudo leer el archivo .xlsx" },
+      { status: 400 }
+    );
   }
-
   const sheet = workbook.worksheets[0];
   if (!sheet) {
-    return NextResponse.json({ error: "El archivo no tiene hojas con datos" }, { status: 400 });
+    return NextResponse.json(
+      { error: "El archivo no tiene hojas con datos" },
+      { status: 400 }
+    );
   }
 
-  const emails: string[] = [];
-  let validRowCount = 0;
-  sheet.eachRow((row) => {
-    if (validRowCount > MAX_ROWS) return;
-    const raw = String(row.getCell(1).text || "").trim().toLowerCase();
-    if (EMAIL_REGEX.test(raw)) {
-      validRowCount++;
-      if (emails.length <= MAX_ROWS) emails.push(raw);
-    }
+  const firstColumn: unknown[] = [];
+  sheet.eachRow({ includeEmpty: false }, (row) => {
+    firstColumn.push(row.getCell(1).text);
   });
 
-  if (emails.length === 0) {
-    return NextResponse.json({ error: "No se encontraron correos válidos en la primera columna del archivo" }, { status: 400 });
-  }
-  if (validRowCount > MAX_ROWS) {
-    return NextResponse.json({ error: `El archivo tiene más de ${MAX_ROWS} correos; el máximo por carga es ${MAX_ROWS}` }, { status: 400 });
+  let emails: string[];
+  try {
+    emails = prepareBulkInvitationEmails(
+      firstColumn,
+      MAX_BULK_INVITATIONS
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "El archivo contiene datos invalidos",
+      },
+      { status: 400 }
+    );
   }
 
-  const results = await createBulkInvitations({
-    tenantId,
-    emails,
-    role,
-    invitedById: session.user.id,
-    origin: req.headers.get("x-forwarded-for") || "bulk-upload",
-  });
-
-  const created = results.filter((r) => r.ok).length;
-  const failed = results.filter((r) => !r.ok);
-  return NextResponse.json({ total: emails.length, created, failed });
+  try {
+    const results = await createBulkInvitations({
+      tenantId: access.tenantId,
+      emails,
+      role,
+      invitedById: access.actorUserId,
+      origin: req.headers.get("x-forwarded-for") || "bulk-upload",
+    });
+    const created = results.filter((result) => result.ok).length;
+    const emailPending = results.filter(
+      (result) => result.ok && result.emailSent === false
+    ).length;
+    return NextResponse.json({
+      mode: "PARTIAL",
+      total: emails.length,
+      created,
+      emailPending,
+      failed: results.filter((result) => !result.ok),
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "No se pudo procesar el lote de invitaciones" },
+      { status: 500 }
+    );
+  }
 }

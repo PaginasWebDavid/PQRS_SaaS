@@ -5,53 +5,140 @@ import { registerAuditLog } from "@/domains/platform/audit.service";
 const MANAGEABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export async function updateManagedUser({
-  tenantId, actorUserId, targetUserId, role, isActive, bloque, apto, origin,
+  tenantId,
+  actorUserId,
+  targetUserId,
+  role,
+  isActive,
+  bloque,
+  apto,
+  origin,
 }: {
-  tenantId: string; actorUserId: string; targetUserId: string; role?: Role; isActive?: boolean;
-  bloque?: number | null; apto?: number | null; origin?: string | null;
+  tenantId: string;
+  actorUserId: string;
+  targetUserId: string;
+  role?: Role;
+  isActive?: boolean;
+  bloque?: number | null;
+  apto?: number | null;
+  origin?: string | null;
 }) {
   if (role && !MANAGEABLE_ROLES.includes(role)) throw new Error("Rol invalido");
-  const normalizeLocation = (value: number | null | undefined, label: string, max: number) => {
-    if (value === undefined || value === null) return value;
-    if (!Number.isInteger(value) || value < 1 || value > max) throw new Error(label + " invalido");
-    return value;
-  };
   bloque = normalizeLocation(bloque, "Bloque", 999);
   apto = normalizeLocation(apto, "Apartamento", 9999);
-  if (targetUserId === actorUserId && ((role && role !== "ADMIN") || isActive === false)) throw new Error("No puedes cambiar tu propio rol ni desactivar tu cuenta");
+  if (
+    targetUserId === actorUserId &&
+    ((role && role !== "ADMIN") || isActive === false)
+  ) {
+    throw new Error("No puedes cambiar tu propio rol ni desactivar tu cuenta");
+  }
 
-  // La verificacion de "al menos un admin activo" + la escritura deben ser atomicas:
-  // sin un lock, dos solicitudes concurrentes (ej. desactivar dos admins distintos al
-  // mismo tiempo, cuando solo hay 2 activos) pueden leer el mismo conteo antes de que
-  // cualquiera escriba, dejando el conjunto sin ningun admin activo. SELECT ... FOR UPDATE
-  // serializa esas solicitudes: la segunda espera a que la primera termine y entonces
-  // ve el conteo ya actualizado.
-  const { target, user } = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT id FROM "User" WHERE "tenantId" = ${tenantId} AND role = 'ADMIN' AND "isActive" = true FOR UPDATE`;
+  const user = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "User"
+      WHERE id = ${targetUserId} AND "tenantId" = ${tenantId}
+      FOR UPDATE
+    `;
+    await tx.$queryRaw`
+      SELECT id FROM "User"
+      WHERE "tenantId" = ${tenantId} AND role = 'ADMIN' AND "isActive" = true
+      FOR UPDATE
+    `;
 
-    const target = await tx.user.findFirst({ where: { id: targetUserId, tenantId }, select: { id: true, role: true, isActive: true } });
-    if (!target) throw new Error("Usuario no encontrado");
-    // Defensa en profundidad: una ruta con alcance de tenant nunca debe poder
-    // modificar ni desactivar a un SUPER_ADMIN (no es un rol gestionable de
-    // tenant). Si por mala configuracion un SUPER_ADMIN tuviera tenantId y
-    // coincidiera con el filtro, se oculta como inexistente en lugar de
-    // permitir la operacion o revelar su existencia.
-    if (!MANAGEABLE_ROLES.includes(target.role)) throw new Error("Usuario no encontrado");
-    if (target.role === "ADMIN" && target.isActive && ((role && role !== "ADMIN") || isActive === false)) {
-      const activeAdmins = await tx.user.count({ where: { tenantId, role: "ADMIN", isActive: true } });
-      if (activeAdmins <= 1) throw new Error("El conjunto debe conservar al menos un administrador activo");
-    }
-    const user = await tx.user.update({
-      where: { id: targetUserId },
-      data: {
-        ...(role ? { role } : {}), ...(isActive !== undefined ? { isActive } : {}),
-        ...(bloque !== undefined ? { bloque } : {}), ...(apto !== undefined ? { apto } : {}),
-      },
-      select: { id: true, name: true, email: true, role: true, bloque: true, apto: true, phone: true, isActive: true, createdAt: true },
+    const target = await tx.user.findFirst({
+      where: { id: targetUserId, tenantId },
+      select: { id: true, role: true, isActive: true },
     });
-    return { target, user };
+    if (!target || !MANAGEABLE_ROLES.includes(target.role)) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    const effectiveRole = role ?? target.role;
+    if (effectiveRole !== "RESIDENTE" && (bloque != null || apto != null)) {
+      throw new Error("La ubicacion solo aplica a residentes");
+    }
+    if (
+      target.role === "ADMIN" &&
+      target.isActive &&
+      ((role && role !== "ADMIN") || isActive === false)
+    ) {
+      const activeAdmins = await tx.user.count({
+        where: { tenantId, role: "ADMIN", isActive: true },
+      });
+      if (activeAdmins <= 1) {
+        throw new Error(
+          "El conjunto debe conservar al menos un administrador activo"
+        );
+      }
+    }
+
+    const data = {
+      ...(role ? { role } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
+      ...(effectiveRole === "RESIDENTE"
+        ? {
+            ...(bloque !== undefined ? { bloque } : {}),
+            ...(apto !== undefined ? { apto } : {}),
+          }
+        : role
+          ? { bloque: null, apto: null }
+          : {}),
+    };
+    const updated = await tx.user.updateMany({
+      where: { id: targetUserId, tenantId },
+      data,
+    });
+    if (updated.count !== 1) throw new Error("Usuario no encontrado");
+    const user = await tx.user.findFirstOrThrow({
+      where: { id: targetUserId, tenantId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        bloque: true,
+        apto: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    await registerAuditLog(
+      {
+        actorUserId,
+        tenantId,
+        action:
+          isActive === false
+            ? AuditAction.USER_DEACTIVATED
+            : isActive === true
+              ? AuditAction.USER_REACTIVATED
+              : AuditAction.USER_UPDATED,
+        targetType: "User",
+        targetId: targetUserId,
+        origin,
+        metadata: {
+          before: target,
+          after: { role: user.role, isActive: user.isActive },
+        },
+      },
+      tx
+    );
+
+    return user;
   });
-  const action = isActive === false ? AuditAction.USER_DEACTIVATED : isActive === true ? AuditAction.USER_REACTIVATED : AuditAction.USER_UPDATED;
-  await registerAuditLog({ actorUserId, tenantId, action, targetType: "User", targetId: targetUserId, origin, metadata: { before: target, after: { role: user.role, isActive: user.isActive } } });
+
   return user;
+}
+
+function normalizeLocation(
+  value: number | null | undefined,
+  label: string,
+  max: number
+) {
+  if (value === undefined || value === null) return value;
+  if (!Number.isInteger(value) || value < 1 || value > max) {
+    throw new Error(label + " invalido");
+  }
+  return value;
 }

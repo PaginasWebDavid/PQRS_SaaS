@@ -129,20 +129,28 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
 
     clearTimeout(timeout);
     if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`Error enviando correo con Resend: ${detail}`);
+      throw new Error(`Resend rechazo el correo (HTTP ${response.status})`);
     }
 
     const data = await response.json();
     const providerMessageId = typeof data?.id === "string" ? data.id : null;
     await logEmailAttempt({ tenantId, recipient: to, template, status: "SENT", providerMessageId });
     return data;
-  } catch (error) {
-    const errorMessage = error instanceof Error && error.name === "AbortError"
-      ? "Tiempo de espera agotado enviando correo con Resend"
-      : error instanceof Error ? error.message : "Error desconocido enviando correo";
-    await logEmailAttempt({ tenantId, recipient: to, template, status: "FAILED", errorMessage });
-    throw error;
+} catch (error) {
+    const errorMessage =
+      error instanceof Error && error.name === "AbortError"
+        ? "Tiempo de espera agotado enviando correo con Resend"
+        : error instanceof Error && /^Resend rechazo el correo \(HTTP \d{3}\)$/.test(error.message)
+          ? error.message
+          : "No se pudo enviar el correo con Resend";
+    await logEmailAttempt({
+      tenantId,
+      recipient: to,
+      template,
+      status: "FAILED",
+      errorMessage,
+    });
+    throw new Error(errorMessage);
   }
 }
 

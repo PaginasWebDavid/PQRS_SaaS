@@ -20,7 +20,7 @@ const ROLE_LABEL: Record<Role, string> = { ADMIN: 'Administrador', CONSEJO: 'Mie
 const SELECTABLE_ROLES: Role[] = ['ADMIN', 'CONSEJO', 'RESIDENTE'];
 const FILTERS = [{ key: 'all', label: 'Todas' }, ...Object.entries(STATUS_META).map(([key, value]) => ({ key, label: value.label }))];
 
-type BulkResult = { total: number; created: number; failed: { email: string; error?: string }[] };
+type BulkResult = { total: number; created: number; emailPending?: number; failed: { email: string; error?: string }[] };
 
 export default function InvitacionesPage() {
   const isMobile = useIsMobile();
@@ -104,7 +104,10 @@ export default function InvitacionesPage() {
     const body = await res.json().catch(() => null);
     setWorkingId('');
     if (!res.ok) return showToast(body?.error || 'No se pudo completar la acción');
-    await load(); showToast(actionName === 'resend' ? 'Invitación reenviada' : 'Invitación cancelada');
+    await load();
+    showToast(actionName === 'resend'
+      ? (body?.email?.sent === false ? 'Token renovado; el correo quedo pendiente' : 'Invitacion reenviada')
+      : 'Invitacion cancelada');
   }
 
   const filtered = invites;
@@ -172,6 +175,7 @@ export default function InvitacionesPage() {
             {bulkResult && (
               <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14, fontSize: 12.5 }}>
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>{bulkResult.created} de {bulkResult.total} invitaciones creadas</div>
+                {Boolean(bulkResult.emailPending) && <div style={{ color: COLORS.warning, marginBottom: 6 }}>{bulkResult.emailPending} correos quedaron pendientes de envio.</div>}
                 {bulkResult.failed.length > 0 && (
                   <div style={{ color: COLORS.warning }}>
                     {bulkResult.failed.length} correos no enviados:

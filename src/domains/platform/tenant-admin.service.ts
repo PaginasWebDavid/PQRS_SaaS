@@ -5,6 +5,7 @@ import { calculatePriceForUnits, DEFAULT_TRIAL_DAYS } from "@/domains/billing/bi
 import { updateMercadoPagoPreapprovalAmount, __billingTestSeam } from "@/domains/billing/mercado-pago.service";
 import { hasCurrentAppliedAccessEvidence } from "@/domains/billing/precedence";
 import { createInvitation } from "@/domains/organizations/invitation.service";
+import { mapInvitationError, normalizeInvitationEmail } from "@/domains/organizations/invitation-security";
 
 // Error de negocio controlado ante un conflicto de serializacion (F2F-04). No es
 // un bucle de reintentos: el operador reintenta manualmente la accion.
@@ -128,7 +129,7 @@ export async function createTenantWithAdmin(
 ): Promise<CreateTenantResult> {
   assertValidTenantInput(input);
   const slug = normalizeSlug(input.slug);
-  const adminEmail = input.adminEmail.trim().toLowerCase();
+  const adminEmail = normalizeInvitationEmail(input.adminEmail);
 
   const price = await calculatePriceForUnits(input.units);
   const now = new Date();
@@ -207,7 +208,9 @@ export async function createTenantWithAdmin(
     role: "ADMIN",
     invitedById: actorUserId,
     origin: "tenant-created",
-  }).catch((error) => ({ emailResult: { ok: false, errorMessage: error instanceof Error ? error.message : "No se pudo enviar la invitacion" } }));
+  }).catch((error) => ({
+    emailResult: { ok: false, errorMessage: mapInvitationError(error).message },
+  }));
 
   return {
     tenantId: tenant.id,
