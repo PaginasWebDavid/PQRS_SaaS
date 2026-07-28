@@ -31,6 +31,12 @@ export async function updateManagedUser({
 
     const target = await tx.user.findFirst({ where: { id: targetUserId, tenantId }, select: { id: true, role: true, isActive: true } });
     if (!target) throw new Error("Usuario no encontrado");
+    // Defensa en profundidad: una ruta con alcance de tenant nunca debe poder
+    // modificar ni desactivar a un SUPER_ADMIN (no es un rol gestionable de
+    // tenant). Si por mala configuracion un SUPER_ADMIN tuviera tenantId y
+    // coincidiera con el filtro, se oculta como inexistente en lugar de
+    // permitir la operacion o revelar su existencia.
+    if (!MANAGEABLE_ROLES.includes(target.role)) throw new Error("Usuario no encontrado");
     if (target.role === "ADMIN" && target.isActive && ((role && role !== "ADMIN") || isActive === false)) {
       const activeAdmins = await tx.user.count({ where: { tenantId, role: "ADMIN", isActive: true } });
       if (activeAdmins <= 1) throw new Error("El conjunto debe conservar al menos un administrador activo");

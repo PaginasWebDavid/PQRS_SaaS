@@ -37,16 +37,31 @@ export function getTenantAccessBlockedMessage(user: TenantAccessUser): string {
   return "La licencia de esta copropiedad se encuentra suspendida. Contacta al equipo administrador para reactivar el servicio.";
 }
 export async function refreshTenantAccessForUser(user: TenantAccessUser): Promise<TenantAccessUser> {
-  if (user.role === "SUPER_ADMIN" || !user.tenantId) return user;
   const dbUser = user.id ? await prisma.user.findUnique({
     where: { id: user.id },
-    select: { isActive: true, tenant: { select: { status: true, subscription: { select: { status: true } } } } },
+    select: {
+      role: true,
+      tenantId: true,
+      isActive: true,
+      tenant: { select: { status: true, subscription: { select: { status: true } } } },
+    },
   }) : null;
+  if (!dbUser) {
+    return {
+      ...user,
+      tenantId: null,
+      isActive: false,
+      tenantStatus: null,
+      subscriptionStatus: null,
+    };
+  }
   return {
     ...user,
-    isActive: dbUser?.isActive ?? user.isActive,
-    tenantStatus: dbUser?.tenant?.status ?? null,
-    subscriptionStatus: dbUser?.tenant?.subscription?.status ?? null,
+    role: dbUser.role,
+    tenantId: dbUser.tenantId,
+    isActive: dbUser.isActive,
+    tenantStatus: dbUser.tenant?.status ?? null,
+    subscriptionStatus: dbUser.tenant?.subscription?.status ?? null,
   };
 }
 export async function ensureDefaultTenant() { return ensureInitialTenant(prisma); }
