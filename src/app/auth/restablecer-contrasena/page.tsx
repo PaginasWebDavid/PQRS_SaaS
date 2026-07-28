@@ -73,7 +73,7 @@ function ResetForm() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password: pass1 }) });
+      const res = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password: pass1, confirmPassword: pass2 }) });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'No se pudo actualizar la contraseña.');
@@ -137,6 +137,7 @@ function ResetForm() {
           type="password"
           value={pass1}
           onChange={(e) => setPass1(e.target.value)}
+          maxLength={128}
           placeholder="••••••••"
           style={{ width: '100%', height: 48, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14.5, fontFamily: 'inherit', marginBottom: 14 }}
         />
@@ -146,6 +147,7 @@ function ResetForm() {
           type="password"
           value={pass2}
           onChange={(e) => setPass2(e.target.value)}
+          maxLength={128}
           placeholder="••••••••"
           style={{ width: '100%', height: 48, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14.5, fontFamily: 'inherit', marginBottom: 8 }}
         />

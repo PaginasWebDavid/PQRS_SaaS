@@ -17,6 +17,7 @@ declare module "next-auth" {
       bloque: number | null;
       apto: number | null;
       isActive: boolean;
+      sessionVersion: number | null;
       onboardingCompletedAt: string | null;
     };
   }
@@ -35,6 +36,7 @@ declare module "next-auth/jwt" {
     bloque?: number | null;
     apto?: number | null;
     isActive?: boolean;
+    sessionVersion?: number;
     onboardingCompletedAt?: string | null;
   }
 }

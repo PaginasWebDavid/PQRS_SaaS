@@ -66,7 +66,6 @@ async function logEmailAttempt({
       targetType: "EmailLog",
       targetId: emailLog.id,
       metadata: {
-        recipient,
         template,
         provider: "RESEND",
         status,
@@ -93,6 +92,9 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
     throw new Error(errorMessage);
   }
 
+  const safeSubject = subject.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+  if (!safeSubject) throw new Error("Asunto de correo invalido");
+
   const payload: {
     from: string;
     to: string[];
@@ -102,7 +104,7 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
   } = {
     from,
     to: [to],
-    subject,
+    subject: safeSubject,
     html,
   };
 

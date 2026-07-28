@@ -36,7 +36,7 @@ function fakeUser(overrides: Partial<FakeUser> = {}): FakeUser {
   return { id: "user-1", globalRole: "RESIDENTE", isActive: true, memberships: [membership()], ...overrides };
 }
 function session(overrides: Partial<NonNullable<AuthorizationSession["user"]>> = {}): AuthorizationSession {
-  return { user: { id: "user-1", role: "ADMIN", tenantId: TENANT_A, selectedTenantId: TENANT_A, selectedMembershipId: "membership-tenant-a", ...overrides } };
+  return { user: { id: "user-1", role: "ADMIN", tenantId: TENANT_A, selectedTenantId: TENANT_A, selectedMembershipId: "membership-tenant-a", isActive: true, ...overrides } };
 }
 function setup(initialUsers: FakeUser[] = [fakeUser()]) {
   const users = new Map(initialUsers.map((entry) => [entry.id, entry]));
@@ -179,4 +179,18 @@ test("27. fallo de repositorio no reutiliza claims", async () => {
 test("28. assert de claims solo compara la seleccion, no el rol obsoleto", async () => {
   const identity = await setup().service.requireTenantRole(session({ role: "CONSEJO" }), "ADMIN");
   assert.doesNotThrow(() => assertSessionClaimsCurrent(session({ role: "CONSEJO" }), identity));
+});
+// Tras cambiar o restablecer la contrasena el callback JWT invalida el token
+// (isActive=false) pero conserva el id; la unica membresia activa no debe
+// autoseleccionarse ni devolver acceso tenant.
+test("29. una sesion revocada no conserva acceso tenant con una sola membresia", async () => {
+  const revoked = session({ isActive: false, role: null, tenantId: null, selectedTenantId: null, selectedMembershipId: null });
+  await rejectsCode(() => setup().service.requireTenantRole(revoked, "ADMIN"), "UNAUTHENTICATED");
+  await rejectsCode(() => setup().service.requireAuthenticatedUser(revoked), "UNAUTHENTICATED");
+});
+test("30. una sesion revocada no conserva el contexto global de SUPER_ADMIN", async () => {
+  const service = setup([fakeUser({ globalRole: "SUPER_ADMIN", memberships: [] })]).service;
+  const revoked = session({ isActive: false, role: null, tenantId: null, selectedTenantId: null });
+  await rejectsCode(() => service.requireSuperAdmin(revoked), "UNAUTHENTICATED");
+  await rejectsCode(() => service.requireSuperAdminTenantTarget(revoked, TENANT_A), "UNAUTHENTICATED");
 });

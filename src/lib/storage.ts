@@ -208,6 +208,119 @@ export function sanitizeFileName(fileName: string) {
   return normalized || "archivo";
 }
 
+const AVATAR_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export function assertAvatarFileName(fileName: string, contentType: string) {
+  if (
+    typeof fileName !== "string" ||
+    fileName.length < 1 ||
+    fileName.length > 180 ||
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    fileName.includes("\0") ||
+    fileName.includes("..")
+  ) {
+    throw new Error("AVATAR_FILE_INVALID");
+  }
+  const extension = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : null;
+  const expected = AVATAR_EXTENSIONS[contentType];
+  if (!expected || !extension || (expected === "jpg" ? !["jpg", "jpeg"].includes(extension) : extension !== expected)) {
+    throw new Error("AVATAR_FILE_INVALID");
+  }
+}
+
+export function buildGlobalAvatarStoragePath({
+  userId,
+  contentType,
+  objectId = crypto.randomUUID(),
+}: {
+  userId: string;
+  contentType: string;
+  objectId?: string;
+}) {
+  const extension = AVATAR_EXTENSIONS[contentType];
+  if (!extension || !/^[a-zA-Z0-9_-]{1,128}$/.test(userId) || !/^[a-zA-Z0-9_-]{1,128}$/.test(objectId)) {
+    throw new Error("AVATAR_PATH_INVALID");
+  }
+  return `users/${userId}/avatar-${objectId}.${extension}`;
+}
+
+export function assertGlobalAvatarPath(path: string, userId: string) {
+  if (!path || path.includes("%") || path.includes("\\") || path.includes("\0") || path.includes("..")) {
+    throw new Error("AVATAR_PATH_INVALID");
+  }
+  const segments = path.split("/");
+  if (
+    segments.length !== 3 ||
+    segments[0] !== "users" ||
+    segments[1] !== userId ||
+    !/^avatar-[a-zA-Z0-9_-]{1,128}\.(jpg|png|webp)$/.test(segments[2] || "")
+  ) {
+    throw new Error("AVATAR_PATH_INVALID");
+  }
+}
+
+export async function uploadGlobalUserAvatar(input: {
+  userId: string;
+  contentType: string;
+  buffer: Buffer;
+}): Promise<StoredFile> {
+  const { supabaseUrl, serviceRoleKey, bucket } = getStorageConfig();
+  const path = buildGlobalAvatarStoragePath({ userId: input.userId, contentType: input.contentType });
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeStoragePath(path)}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      "Content-Type": input.contentType,
+      "x-upsert": "false",
+    },
+    body: new Uint8Array(input.buffer),
+  });
+  if (!response.ok) throw new Error("AVATAR_STORAGE_UPLOAD_FAILED");
+  return {
+    url: getPublicStorageUrl(path),
+    path,
+    fileName: path.split("/").pop() || "avatar",
+    contentType: input.contentType,
+    size: input.buffer.length,
+  };
+}
+
+export async function deleteGlobalUserAvatar(path: string, userId: string) {
+  assertGlobalAvatarPath(path, userId);
+  const { supabaseUrl, serviceRoleKey, bucket } = getStorageConfig();
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeStoragePath(path)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
+  });
+  if (!response.ok && response.status !== 404) throw new Error("AVATAR_STORAGE_DELETE_FAILED");
+}
+
+export function getOwnedGlobalAvatarPathFromUrl(value: string | null, userId: string): string | null {
+  if (!value) return null;
+  const { supabaseUrl, bucket } = getStorageConfig();
+  const prefix = `${supabaseUrl}/storage/v1/object/public/${bucket}/`;
+  if (!value.startsWith(prefix)) return null;
+  const encodedPath = value.slice(prefix.length);
+  if (!encodedPath || encodedPath.includes("?") || encodedPath.includes("#")) return null;
+  let path: string;
+  try {
+    path = encodedPath.split("/").map((segment) => decodeURIComponent(segment)).join("/");
+  } catch {
+    return null;
+  }
+  try {
+    assertGlobalAvatarPath(path, userId);
+    return path;
+  } catch {
+    return null;
+  }
+}
 function encodeStoragePath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
