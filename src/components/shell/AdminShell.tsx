@@ -5,6 +5,7 @@ import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { BrandLockup } from './Logo';
 import { useIsMobile } from './Sheet';
+import { TenantSwitcher } from '@/components/TenantSwitcher';
 
 function logout() {
   void signOut({ callbackUrl: '/auth/login' });
@@ -95,6 +96,7 @@ export function AdminShell({
               <div style={{ width: 7, height: 7, borderRadius: 999, background: displayLicenseActive ? COLORS.success : COLORS.textMuted }} />
               <span style={{ fontSize: 11.5, fontWeight: 700, color: displayLicenseActive ? COLORS.success : COLORS.textMuted }}>{displayLicenseActive ? 'Licencia activa' : 'Licencia suspendida'}</span>
             </div>
+            <TenantSwitcher />
           </div>
           <NavLinks />
           <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 8px', borderTop: `1px solid ${COLORS.borderSoft}` }}>
@@ -116,6 +118,7 @@ export function AdminShell({
               <BrandLockup size={21} />
               <div onClick={() => setDrawerOpen(false)} style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textMuted, cursor: 'pointer', fontSize: 13 }}>✕</div>
             </div>
+            <div style={{ marginBottom: 14 }}><TenantSwitcher /></div>
             <NavLinks onNavigate={() => setDrawerOpen(false)} />
             <div style={{ marginTop: 'auto', borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 34, height: 34, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{displayInitials}</div>

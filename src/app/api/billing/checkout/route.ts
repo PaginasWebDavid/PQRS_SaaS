@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createMercadoPagoSubscriptionForTenant, disableAutoRenewForTenant } from "@/domains/billing/mercado-pago.service";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
+import { requireTenantRole } from "@/lib/authorization";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let identity;
+  try {
+    identity = await requireTenantRole(session, "ADMIN");
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
-  if (!session.user.isActive) {
-    return NextResponse.json({ error: "Cuenta desactivada" }, { status: 403 });
-  }
-  const tenantId = getTenantIdFromSession(session);
+  const tenantId = identity.tenantId;
   const body = await req.json();
   const action = body.action;
 
@@ -19,14 +22,14 @@ export async function POST(req: NextRequest) {
     if (action === "createPreapproval") {
       const backUrl = typeof body.backUrl === "string" ? body.backUrl : undefined;
       const subscription = await createMercadoPagoSubscriptionForTenant({
-        actorUserId: session.user.id,
+        actorUserId: identity.userId,
         tenantId,
         backUrl,
       });
       return NextResponse.json({ initPoint: subscription.mercadoPagoInitPoint });
     }
     if (action === "disableAutoRenew") {
-      const subscription = await disableAutoRenewForTenant({ actorUserId: session.user.id, tenantId });
+      const subscription = await disableAutoRenewForTenant({ actorUserId: identity.userId, tenantId });
       return NextResponse.json({ autoRenew: subscription.autoRenew });
     }
     return NextResponse.json({ error: "Acción inválida" }, { status: 400 });

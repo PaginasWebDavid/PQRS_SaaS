@@ -45,6 +45,9 @@ async function fixture(options: { status?: "ACTIVE" | "GRACE_PERIOD"; admin?: bo
     data: {
       email: `${RUN}-${number}@example.test`, password: "x", name: "QA Admin",
       role: "ADMIN", tenantId: tenant.id, isActive: true,
+      memberships: {
+        create: { tenantId: tenant.id, role: "ADMIN", isActive: true },
+      },
     },
   });
   return { tenant, subscription, admin };

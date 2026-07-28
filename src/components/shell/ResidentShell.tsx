@@ -1,9 +1,10 @@
-﻿'use client';
+'use client';
 import { ReactNode, useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { COLORS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
 import { useIsMobile } from './Sheet';
+import { TenantSwitcher } from '@/components/TenantSwitcher';
 
 function logout() {
   void signOut({ callbackUrl: '/auth/login' });
@@ -89,6 +90,7 @@ export function ResidentShell({
             <LogoMark size={22} />
             <span style={{ fontWeight: 800, fontSize: 14.5 }}>PQRS <span style={{ fontWeight: 500, color: COLORS.textSecondary }}>Services</span></span>
           </div>
+          <div style={{ padding: '0 8px 16px' }}><TenantSwitcher /></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {bottomNav.map((n) => (
               <div key={n.key} onClick={n.onClick} style={{
@@ -120,6 +122,7 @@ export function ResidentShell({
                 <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
               </div>
             </div>
+            <div style={{ padding: '0 20px 10px' }}><TenantSwitcher /></div>
           </div>
         )}
 

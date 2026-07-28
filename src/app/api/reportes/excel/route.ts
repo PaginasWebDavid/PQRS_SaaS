@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (!["ADMIN", "CONSEJO"].includes(session.user.role)) {
+  if (session.user.role !== "ADMIN" && session.user.role !== "CONSEJO") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
   const tenantAccessResponse = await getTenantAccessResponse(session);

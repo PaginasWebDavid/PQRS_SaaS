@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AuditAction, Role } from "@prisma/client";
@@ -61,6 +61,9 @@ async function createUser(tenantId: string, role: Role = "ADMIN") {
       email: nextEmail(role.toLowerCase()),
       name: `QA ${role}`,
       password: "not-used-in-test",
+      memberships: {
+        create: { tenantId, role, isActive: true },
+      },
     },
   });
 }

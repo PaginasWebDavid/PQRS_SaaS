@@ -6,9 +6,7 @@ const { auth } = NextAuth(authConfig);
 
 export default auth(async (req) => {
   const secureCookie = req.nextUrl.protocol === "https:";
-  const sessionCookieName = secureCookie
-    ? "__Secure-authjs.session-token"
-    : "authjs.session-token";
+  const sessionCookieName = secureCookie ? "__Secure-authjs.session-token" : "authjs.session-token";
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -16,15 +14,11 @@ export default auth(async (req) => {
     cookieName: sessionCookieName,
     salt: sessionCookieName,
   });
-
   if (!token) {
     const signInUrl = new URL("/auth/login", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
     return Response.redirect(signInUrl);
   }
-
-  // Una cuenta desactivada no debe conservar acceso solo porque su cookie de
-  // sesion siga siendo valida — la fuerza a re-loguearse (fallara en authorize()).
   if (token.isActive === false) {
     const signInUrl = new URL("/auth/login", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
@@ -34,7 +28,13 @@ export default auth(async (req) => {
   const role = token.role;
   const pathname = req.nextUrl.pathname;
   const onboardingCompletedAt = token.onboardingCompletedAt;
-
+  const selectingTenant = pathname.startsWith("/seleccionar-conjunto");
+  if (!role && !selectingTenant) {
+    return Response.redirect(new URL("/seleccionar-conjunto", req.url));
+  }
+  if (role && selectingTenant) {
+    return Response.redirect(new URL("/dashboard", req.url));
+  }
   if (!onboardingCompletedAt && role === "ADMIN" && !pathname.startsWith("/onboarding/admin")) {
     return Response.redirect(new URL("/onboarding/admin", req.url));
   }
@@ -42,44 +42,23 @@ export default auth(async (req) => {
     return Response.redirect(new URL("/onboarding/residente", req.url));
   }
   if (onboardingCompletedAt && pathname.startsWith("/onboarding/")) {
-    return Response.redirect(new URL(role === "ADMIN" ? "/admin/dashboard" : "/residente", req.url));
+    return Response.redirect(new URL(role === "ADMIN" ? "/admin/dashboard" : role === "CONSEJO" ? "/consejo" : "/residente", req.url));
   }
-
   const deny = () => {
     const deniedUrl = new URL("/auth/error", req.url);
     deniedUrl.searchParams.set("error", "AccessDenied");
     return Response.redirect(deniedUrl);
   };
-
-  if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
-    return deny();
-  }
-
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
-    return deny();
-  }
-
-  if (pathname.startsWith("/consejo") && role !== "CONSEJO") {
-    return deny();
-  }
-
-  if (pathname.startsWith("/residente") && role !== "RESIDENTE") {
-    return deny();
-  }
+  if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") return deny();
+  if (pathname.startsWith("/admin") && role !== "ADMIN") return deny();
+  if (pathname.startsWith("/consejo") && role !== "CONSEJO") return deny();
+  if (pathname.startsWith("/residente") && role !== "RESIDENTE") return deny();
 });
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/onboarding/:path*",
-    "/admin/:path*",
-    "/consejo/:path*",
-    "/residente/:path*",
-    "/pqrs/:path*",
-    "/reportes/:path*",
-    "/usuarios/:path*",
-    "/super-admin/:path*",
-    "/cambiar-contrasena/:path*",
+    "/dashboard/:path*", "/onboarding/:path*", "/admin/:path*", "/consejo/:path*",
+    "/residente/:path*", "/pqrs/:path*", "/reportes/:path*", "/usuarios/:path*",
+    "/super-admin/:path*", "/cambiar-contrasena/:path*", "/seleccionar-conjunto/:path*",
   ],
 };
-

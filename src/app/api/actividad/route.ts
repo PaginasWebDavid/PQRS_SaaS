@@ -6,7 +6,7 @@ import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "CONSEJO"].includes(session.user.role)) {
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "CONSEJO")) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

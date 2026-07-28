@@ -7,394 +7,176 @@ import {
   createAuthorizationService,
   getAuthorizationFailure,
   tenantScopedWhere,
+  type AuthorizationMembershipRecord,
   type AuthorizationRepository,
   type AuthorizationSession,
-  type AuthorizationUserRecord,
 } from "../../src/lib/authorization-core";
+import { resolveSelectedMembership } from "../../src/lib/tenant-selection";
 
 const TENANT_A = "tenant-a";
 const TENANT_B = "tenant-b";
 
-function activeTenant(id: string) {
-  return { id, status: "ACTIVE" as const };
-}
-
-function user(
-  overrides: Partial<AuthorizationUserRecord> = {}
-): AuthorizationUserRecord {
-  const tenantId = overrides.tenantId === undefined ? TENANT_A : overrides.tenantId;
+type FakeUser = {
+  id: string;
+  globalRole: string;
+  isActive: boolean;
+  memberships: AuthorizationMembershipRecord[];
+};
+function membership(tenantId = TENANT_A, role = "ADMIN", overrides: Partial<AuthorizationMembershipRecord> = {}): AuthorizationMembershipRecord {
   return {
-    id: "user-1",
-    role: "ADMIN",
+    id: `membership-${tenantId}`,
     tenantId,
+    role,
     isActive: true,
-    tenant: tenantId
-      ? {
-          id: tenantId,
-          status: "ACTIVE",
-          subscriptionStatus: "ACTIVE",
-        }
-      : null,
+    tenant: { id: tenantId, status: "ACTIVE", subscriptionStatus: "ACTIVE" },
     ...overrides,
   };
 }
-
-function session(
-  overrides: Partial<NonNullable<AuthorizationSession["user"]>> = {}
-): AuthorizationSession {
-  return {
-    user: {
-      id: "user-1",
-      role: "ADMIN",
-      tenantId: TENANT_A,
-      ...overrides,
-    },
-  };
+function fakeUser(overrides: Partial<FakeUser> = {}): FakeUser {
+  return { id: "user-1", globalRole: "RESIDENTE", isActive: true, memberships: [membership()], ...overrides };
 }
-
-function setup(initialUsers: AuthorizationUserRecord[] = [user()]) {
+function session(overrides: Partial<NonNullable<AuthorizationSession["user"]>> = {}): AuthorizationSession {
+  return { user: { id: "user-1", role: "ADMIN", tenantId: TENANT_A, selectedTenantId: TENANT_A, selectedMembershipId: "membership-tenant-a", ...overrides } };
+}
+function setup(initialUsers: FakeUser[] = [fakeUser()]) {
   const users = new Map(initialUsers.map((entry) => [entry.id, entry]));
-  const tenants = new Map([
-    [TENANT_A, activeTenant(TENANT_A)],
-    [TENANT_B, activeTenant(TENANT_B)],
-  ]);
+  const tenantIds = new Set([TENANT_A, TENANT_B]);
   const repository: AuthorizationRepository = {
-    async findUserById(userId) {
-      return users.get(userId) ?? null;
+    async findUserById(userId, preferredTenantId) {
+      const user = users.get(userId);
+      if (!user) return null;
+      const active = user.memberships.filter((entry) => entry.isActive).map((entry) => ({
+        ...entry,
+        tenantName: entry.tenant.id,
+        role: entry.role as "ADMIN" | "CONSEJO" | "RESIDENTE",
+      }));
+      const selected = user.globalRole === "SUPER_ADMIN" ? null : resolveSelectedMembership(active, preferredTenantId);
+      return { id: user.id, globalRole: user.globalRole, isActive: user.isActive, membership: selected };
     },
     async findTenantById(tenantId) {
-      return tenants.get(tenantId) ?? null;
+      return tenantIds.has(tenantId) ? { id: tenantId, status: "ACTIVE" } : null;
     },
   };
-  return { service: createAuthorizationService(repository), users, tenants };
+  return { service: createAuthorizationService(repository), users };
 }
-
-async function rejectsCode(
-  operation: () => Promise<unknown>,
-  code: AuthorizationError["code"]
-) {
-  await assert.rejects(operation, (error: unknown) => {
-    assert.ok(error instanceof AuthorizationError);
-    assert.equal(error.code, code);
-    return true;
-  });
+async function rejectsCode(operation: () => Promise<unknown>, code: AuthorizationError["code"]) {
+  await assert.rejects(operation, (error: unknown) => error instanceof AuthorizationError && error.code === code);
 }
-
 function throwsCode(operation: () => unknown, code: AuthorizationError["code"]) {
-  assert.throws(operation, (error: unknown) => {
-    assert.ok(error instanceof AuthorizationError);
-    assert.equal(error.code, code);
-    return true;
-  });
+  assert.throws(operation, (error: unknown) => error instanceof AuthorizationError && error.code === code);
 }
 
-test("1. usuario sin sesion falla UNAUTHENTICATED", async () => {
-  const { service } = setup();
-  await rejectsCode(() => service.requireAuthenticatedUser(null), "UNAUTHENTICATED");
+test("1. sesion ausente falla cerrada", async () => {
+  await rejectsCode(() => setup().service.requireAuthenticatedUser(null), "UNAUTHENTICATED");
 });
-
-test("2. usuario eliminado con JWT antiguo falla cerrado", async () => {
-  const { service } = setup([]);
-  await rejectsCode(
-    () => service.requireAuthenticatedUser(session()),
-    "UNAUTHENTICATED"
-  );
+test("2. usuario eliminado invalida la sesion", async () => {
+  await rejectsCode(() => setup([]).service.requireAuthenticatedUser(session()), "UNAUTHENTICATED");
 });
-
-test("3. usuario inactivo con sesion valida pierde acceso", async () => {
-  const { service } = setup([user({ isActive: false })]);
-  await rejectsCode(
-    () => service.requireAuthenticatedUser(session()),
-    "USER_INACTIVE"
-  );
+test("3. cuenta global inactiva no accede", async () => {
+  await rejectsCode(() => setup([fakeUser({ isActive: false })]).service.requireAuthenticatedUser(session()), "USER_INACTIVE");
 });
-
-test("4. rol reducido despues del login no conserva ADMIN", async () => {
-  const { service } = setup([user({ role: "CONSEJO" })]);
-  await rejectsCode(
-    () => service.requireTenantRole(session({ role: "ADMIN" }), "ADMIN"),
-    "FORBIDDEN"
-  );
+test("4. una membresia activa se selecciona automaticamente", async () => {
+  const identity = await setup().service.requireTenantRole(session({ tenantId: null, selectedTenantId: null }), "ADMIN");
+  assert.equal(identity.membershipId, "membership-tenant-a");
 });
-
-test("5. cambio de tenant usa la base y rechaza el tenant antiguo", async () => {
-  const { service } = setup([
-    user({
-      tenantId: TENANT_B,
-      tenant: { id: TENANT_B, status: "ACTIVE", subscriptionStatus: "ACTIVE" },
-    }),
-  ]);
-  const identity = await service.requireActiveTenantUser(
-    session({ tenantId: TENANT_A })
-  );
+test("5. varias membresias sin seleccion exigen tenant", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A), membership(TENANT_B, "RESIDENTE")] });
+  await rejectsCode(() => setup([user]).service.requireAuthenticatedUser(session({ tenantId: null, selectedTenantId: null })), "TENANT_REQUIRED");
+});
+test("6. seleccion propia elige la membresia correcta", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A), membership(TENANT_B, "RESIDENTE")] });
+  const identity = await setup([user]).service.requireTenantRole(session({ tenantId: TENANT_B, selectedTenantId: TENANT_B }), "RESIDENTE");
   assert.equal(identity.tenantId, TENANT_B);
-  throwsCode(() => assertSameTenant(identity, TENANT_A), "RESOURCE_NOT_FOUND");
-  assert.doesNotThrow(() => assertSameTenant(identity, TENANT_B));
 });
-
-test("6. usuario tenant sin tenant falla TENANT_REQUIRED", async () => {
-  const { service } = setup([user({ tenantId: null, tenant: null })]);
-  await rejectsCode(
-    () => service.requireActiveTenantUser(session({ tenantId: null })),
-    "TENANT_REQUIRED"
-  );
+test("7. tenant ajeno no enumera y falla como seleccion ausente", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A), membership(TENANT_B, "RESIDENTE")] });
+  await rejectsCode(() => setup([user]).service.requireAuthenticatedUser(session({ tenantId: "tenant-foreign", selectedTenantId: "tenant-foreign" })), "TENANT_REQUIRED");
 });
-
-test("7. SUPER_ADMIN activo funciona sin tenant", async () => {
-  const { service } = setup([
-    user({ role: "SUPER_ADMIN", tenantId: null, tenant: null }),
-  ]);
-  const identity = await service.requireSuperAdmin(
-    session({ role: "SUPER_ADMIN", tenantId: null })
-  );
-  assert.equal(identity.role, "SUPER_ADMIN");
-  assert.equal(identity.tenantId, null);
+test("8. membresia inactiva no puede seleccionarse", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A, "ADMIN", { isActive: false }), membership(TENANT_B, "RESIDENTE")] });
+  const identity = await setup([user]).service.requireTenantRole(session({ tenantId: TENANT_A, selectedTenantId: TENANT_A }), "RESIDENTE");
+  assert.equal(identity.tenantId, TENANT_B);
 });
-
-test("8. ADMIN no puede actuar sobre otro tenant", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  throwsCode(() => assertSameTenant(identity, TENANT_B), "RESOURCE_NOT_FOUND");
+test("9. el mismo usuario tiene rol diferente por tenant", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A, "ADMIN"), membership(TENANT_B, "RESIDENTE")] });
+  const a = await setup([user]).service.requireTenantRole(session(), "ADMIN");
+  const b = await setup([user]).service.requireTenantRole(session({ tenantId: TENANT_B, selectedTenantId: TENANT_B }), "RESIDENTE");
+  assert.equal(a.role, "ADMIN"); assert.equal(b.role, "RESIDENTE");
 });
-
-test("9. CONSEJO no puede ejecutar una accion exclusiva de ADMIN", async () => {
-  const { service } = setup([user({ role: "CONSEJO" })]);
-  await rejectsCode(
-    () => service.requireTenantRole(session({ role: "CONSEJO" }), "ADMIN"),
-    "FORBIDDEN"
-  );
+test("10. desactivar membresia revoca acceso en el siguiente request", async () => {
+  const user = fakeUser(); const context = setup([user]);
+  await context.service.requireTenantRole(session(), "ADMIN");
+  user.memberships[0].isActive = false;
+  await rejectsCode(() => context.service.requireTenantRole(session(), "ADMIN"), "TENANT_REQUIRED");
 });
-
-test("10. RESIDENTE no puede ejecutar una accion administrativa", async () => {
-  const { service } = setup([user({ role: "RESIDENTE" })]);
-  await rejectsCode(
-    () => service.requireTenantRole(session({ role: "RESIDENTE" }), "ADMIN"),
-    "FORBIDDEN"
-  );
+test("11. cambio de rol en DB ignora claim ADMIN antiguo", async () => {
+  const user = fakeUser(); const context = setup([user]); user.memberships[0].role = "CONSEJO";
+  await rejectsCode(() => context.service.requireTenantRole(session({ role: "ADMIN" }), "ADMIN"), "FORBIDDEN");
 });
-
-test("11. un recurso propio produce un filtro tenant-scoped", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  assert.deepEqual(tenantScopedWhere(identity, "resource-a"), {
-    id: "resource-a",
-    tenantId: TENANT_A,
-  });
-});
-
-test("12. un ID de recurso de otro tenant se oculta como no encontrado", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  throwsCode(() => assertSameTenant(identity, TENANT_B), "RESOURCE_NOT_FOUND");
-});
-
-test("13. tenantId falsificado por cliente no cambia el filtro autorizado", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  const clientBody = { tenantId: TENANT_B, resourceId: "resource-a" };
-  assert.deepEqual(tenantScopedWhere(identity, clientBody.resourceId), {
-    id: "resource-a",
-    tenantId: TENANT_A,
-  });
-  throwsCode(
-    () => assertSameTenant(identity, clientBody.tenantId),
-    "RESOURCE_NOT_FOUND"
-  );
-});
-
-test("14. tenant suspendido falla TENANT_INACTIVE", async () => {
-  const { service } = setup([
-    user({
-      tenant: {
-        id: TENANT_A,
-        status: "SUSPENDED",
-        subscriptionStatus: "ACTIVE",
-      },
-    }),
-  ]);
-  await rejectsCode(
-    () => service.requireActiveTenantUser(session()),
-    "TENANT_INACTIVE"
-  );
-});
-
-test("15. tenant cancelado falla TENANT_INACTIVE", async () => {
-  const { service } = setup([
-    user({
-      tenant: {
-        id: TENANT_A,
-        status: "CANCELLED",
-        subscriptionStatus: "CANCELLED",
-      },
-    }),
-  ]);
-  await rejectsCode(
-    () => service.requireActiveTenantUser(session()),
-    "TENANT_INACTIVE"
-  );
-});
-
-test("16. rol invalido o no reconocido falla FORBIDDEN", async () => {
-  const { service } = setup([user({ role: "OWNER" })]);
-  await rejectsCode(
-    () => service.requireAuthenticatedUser(session({ role: "OWNER" })),
-    "FORBIDDEN"
-  );
-});
-
-test("17. error cross-tenant no filtra si el recurso existe", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  let crossTenantError: unknown;
-  let missingResourceError: unknown;
-  try {
-    assertSameTenant(identity, TENANT_B);
-  } catch (error) {
-    crossTenantError = error;
-  }
-  try {
-    assertSameTenant(identity, null);
-  } catch (error) {
-    missingResourceError = error;
-  }
-  assert.deepEqual(
-    getAuthorizationFailure(crossTenantError),
-    getAuthorizationFailure(missingResourceError)
-  );
-});
-
-test("18. dos tenants generan filtros de recursos diferentes", async () => {
-  const first = setup([user()]);
-  const second = setup([
-    user({
-      id: "user-2",
-      tenantId: TENANT_B,
-      tenant: { id: TENANT_B, status: "ACTIVE", subscriptionStatus: "ACTIVE" },
-    }),
-  ]);
-  const identityA = await first.service.requireTenantRole(session(), "ADMIN");
-  const identityB = await second.service.requireTenantRole(
-    session({ id: "user-2", tenantId: TENANT_B }),
-    "ADMIN"
-  );
-  assert.notDeepEqual(
-    tenantScopedWhere(identityA, "resource-a"),
-    tenantScopedWhere(identityB, "resource-b")
-  );
-});
-
-test("19. el helper no confia en un claim SUPER_ADMIN antiguo", async () => {
-  const { service } = setup([user({ role: "RESIDENTE" })]);
-  await rejectsCode(
-    () =>
-      service.requireSuperAdmin(
-        session({ role: "SUPER_ADMIN", tenantId: null })
-      ),
-    "FORBIDDEN"
-  );
-});
-
-test("20. el camino autorizado de ADMIN sigue funcionando", async () => {
-  const { service } = setup();
-  const identity = await service.requireTenantRole(session(), "ADMIN");
-  assert.deepEqual(identity, {
-    userId: "user-1",
-    role: "ADMIN",
-    tenantId: TENANT_A,
-    tenantStatus: "ACTIVE",
-    subscriptionStatus: "ACTIVE",
-  });
-  assert.doesNotThrow(() => assertSessionClaimsCurrent(session(), identity));
-});
-
-test("21. SUPER_ADMIN requiere un target explicito y existente", async () => {
-  const { service } = setup([
-    user({ role: "SUPER_ADMIN", tenantId: null, tenant: null }),
-  ]);
-  const superSession = session({ role: "SUPER_ADMIN", tenantId: null });
-  await rejectsCode(
-    () => service.requireSuperAdminTenantTarget(superSession, null),
-    "TENANT_REQUIRED"
-  );
-  const target = await service.requireSuperAdminTenantTarget(
-    superSession,
-    TENANT_B
-  );
-  assert.equal(target.targetTenantId, TENANT_B);
-});
-
-test("22. una suscripcion suspendida bloquea aunque el tenant este ACTIVE", async () => {
-  const { service } = setup([
-    user({
-      tenant: {
-        id: TENANT_A,
-        status: "ACTIVE",
-        subscriptionStatus: "SUSPENDED",
-      },
-    }),
-  ]);
-  await rejectsCode(
-    () => service.requireActiveTenantUser(session()),
-    "TENANT_INACTIVE"
-  );
-});
-
-test("23. SUPER_ADMIN con target inexistente falla RESOURCE_NOT_FOUND", async () => {
-  const { service } = setup([
-    user({ role: "SUPER_ADMIN", tenantId: null, tenant: null }),
-  ]);
-  await rejectsCode(
-    () =>
-      service.requireSuperAdminTenantTarget(
-        session({ role: "SUPER_ADMIN", tenantId: null }),
-        "tenant-inexistente"
-      ),
-    "RESOURCE_NOT_FOUND"
-  );
-});
-
-test("24. SUPER_ADMIN con tenantId accidental no se convierte en usuario de tenant", async () => {
-  const { service } = setup([
-    user({
-      role: "SUPER_ADMIN",
-      tenantId: TENANT_A,
-      tenant: { id: TENANT_A, status: "ACTIVE", subscriptionStatus: "ACTIVE" },
-    }),
-  ]);
-  // No puede pasar por el gate de usuario de tenant...
-  await rejectsCode(
-    () => service.requireActiveTenantUser(session({ role: "SUPER_ADMIN" })),
-    "FORBIDDEN"
-  );
-  // ...ni usar el filtro tenant-scoped como fallback ambiguo.
-  const identity = await service.requireSuperAdmin(
-    session({ role: "SUPER_ADMIN" })
-  );
-  throwsCode(() => tenantScopedWhere(identity, "resource-a"), "FORBIDDEN");
-});
-
-test("25. un claim de rol reducido en la sesion no bloquea al ADMIN real de la base", async () => {
-  const { service } = setup([user({ role: "ADMIN" })]);
-  // La sesion trae un claim viejo (CONSEJO) pero la base dice ADMIN: la base
-  // prevalece en ambos sentidos y la operacion ADMIN procede sin bloqueo espurio.
-  const identity = await service.requireTenantRole(
-    session({ role: "CONSEJO" }),
-    "ADMIN"
-  );
+test("12. rol promovido en DB no queda bloqueado por claim viejo", async () => {
+  const user = fakeUser({ memberships: [membership(TENANT_A, "ADMIN")] });
+  const identity = await setup([user]).service.requireTenantRole(session({ role: "CONSEJO" }), "ADMIN");
   assert.equal(identity.role, "ADMIN");
 });
-
-test("26. un fallo del repositorio es fail-closed y no concede acceso", async () => {
-  const failingRepository: AuthorizationRepository = {
-    async findUserById() {
-      throw new Error("db-unavailable");
-    },
-    async findTenantById() {
-      throw new Error("db-unavailable");
-    },
-  };
-  const service = createAuthorizationService(failingRepository);
-  // La excepcion se propaga (se traduce a 500 en la ruta): nunca se reutilizan
-  // claims antiguos del JWT para conceder acceso cuando la base falla.
-  await assert.rejects(() => service.requireTenantRole(session(), "ADMIN"));
+test("13. CONSEJO no ejecuta accion ADMIN", async () => {
+  await rejectsCode(() => setup([fakeUser({ memberships: [membership(TENANT_A, "CONSEJO")] })]).service.requireTenantRole(session(), "ADMIN"), "FORBIDDEN");
+});
+test("14. RESIDENTE no ejecuta accion ADMIN", async () => {
+  await rejectsCode(() => setup([fakeUser({ memberships: [membership(TENANT_A, "RESIDENTE")] })]).service.requireTenantRole(session(), "ADMIN"), "FORBIDDEN");
+});
+test("15. tenant suspendido bloquea membresia valida", async () => {
+  const m = membership(TENANT_A, "ADMIN", { tenant: { id: TENANT_A, status: "SUSPENDED", subscriptionStatus: "ACTIVE" } });
+  await rejectsCode(() => setup([fakeUser({ memberships: [m] })]).service.requireTenantRole(session(), "ADMIN"), "TENANT_INACTIVE");
+});
+test("16. suscripcion suspendida bloquea tenant activo", async () => {
+  const m = membership(TENANT_A, "ADMIN", { tenant: { id: TENANT_A, status: "ACTIVE", subscriptionStatus: "SUSPENDED" } });
+  await rejectsCode(() => setup([fakeUser({ memberships: [m] })]).service.requireTenantRole(session(), "ADMIN"), "TENANT_INACTIVE");
+});
+test("17. SUPER_ADMIN funciona sin membresia", async () => {
+  const identity = await setup([fakeUser({ globalRole: "SUPER_ADMIN", memberships: [] })]).service.requireSuperAdmin(session({ tenantId: null, selectedTenantId: null, role: "SUPER_ADMIN" }));
+  assert.equal(identity.membershipId, null);
+});
+test("18. SUPER_ADMIN ignora membresia accidental", async () => {
+  const service = setup([fakeUser({ globalRole: "SUPER_ADMIN", memberships: [membership()] })]).service;
+  await rejectsCode(() => service.requireActiveTenantUser(session({ role: "SUPER_ADMIN" })), "FORBIDDEN");
+});
+test("19. SUPER_ADMIN exige target explicito", async () => {
+  const service = setup([fakeUser({ globalRole: "SUPER_ADMIN", memberships: [] })]).service;
+  await rejectsCode(() => service.requireSuperAdminTenantTarget(session({ role: "SUPER_ADMIN", tenantId: null, selectedTenantId: null }), null), "TENANT_REQUIRED");
+});
+test("20. target global inexistente es opaco", async () => {
+  const service = setup([fakeUser({ globalRole: "SUPER_ADMIN", memberships: [] })]).service;
+  await rejectsCode(() => service.requireSuperAdminTenantTarget(session({ role: "SUPER_ADMIN", tenantId: null, selectedTenantId: null }), "missing"), "RESOURCE_NOT_FOUND");
+});
+test("21. assertSameTenant acepta recurso propio", async () => {
+  const identity = await setup().service.requireTenantRole(session(), "ADMIN"); assert.doesNotThrow(() => assertSameTenant(identity, TENANT_A));
+});
+test("22. recurso ajeno e inexistente son indistinguibles", async () => {
+  const identity = await setup().service.requireTenantRole(session(), "ADMIN"); let a; let b;
+  try { assertSameTenant(identity, TENANT_B); } catch (error) { a = error; }
+  try { assertSameTenant(identity, null); } catch (error) { b = error; }
+  assert.deepEqual(getAuthorizationFailure(a), getAuthorizationFailure(b));
+});
+test("23. tenantScopedWhere usa tenant autorizado y no body", async () => {
+  const identity = await setup().service.requireTenantRole(session(), "ADMIN");
+  assert.deepEqual(tenantScopedWhere(identity, "resource-1"), { id: "resource-1", tenantId: TENANT_A });
+});
+test("24. claim de tenant distinto no concede acceso cruzado", async () => {
+  const identity = await setup().service.requireTenantRole(session(), "ADMIN");
+  throwsCode(() => assertSameTenant(identity, TENANT_B), "RESOURCE_NOT_FOUND");
+});
+test("25. seleccion invalida se reemplaza automaticamente si solo queda una membresia", async () => {
+  const identity = await setup().service.requireTenantRole(session({ tenantId: TENANT_B, selectedTenantId: TENANT_B }), "ADMIN");
+  assert.equal(identity.tenantId, TENANT_A);
+});
+test("26. usuario sin membresias activas no obtiene contexto tenant", async () => {
+  await rejectsCode(() => setup([fakeUser({ memberships: [] })]).service.requireAuthenticatedUser(session({ tenantId: null, selectedTenantId: null })), "TENANT_REQUIRED");
+});
+test("27. fallo de repositorio no reutiliza claims", async () => {
+  const repository: AuthorizationRepository = { async findUserById() { throw new Error("db unavailable"); }, async findTenantById() { throw new Error("db unavailable"); } };
+  await assert.rejects(() => createAuthorizationService(repository).requireTenantRole(session(), "ADMIN"), /db unavailable/);
+});
+test("28. assert de claims solo compara la seleccion, no el rol obsoleto", async () => {
+  const identity = await setup().service.requireTenantRole(session({ role: "CONSEJO" }), "ADMIN");
+  assert.doesNotThrow(() => assertSessionClaimsCurrent(session({ role: "CONSEJO" }), identity));
 });

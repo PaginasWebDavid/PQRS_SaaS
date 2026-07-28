@@ -16,7 +16,24 @@ let counter = 0;
 const email = (prefix: string) => prefix + "-" + RUN + "-" + (++counter) + "@example.com";
 const password = bcrypt.hashSync("TestPass123", 4);
 async function tenant() { const n = ++counter; return prisma.tenant.create({ data: { name: "QA " + n, slug: RUN + "-" + n } }); }
-async function user(tenantId: string, role: "ADMIN" | "RESIDENTE" = "RESIDENTE") { return prisma.user.create({ data: { tenantId, email: email(role.toLowerCase()), name: "QA " + role, role, password, bloque: role === "RESIDENTE" ? 1 : null, apto: role === "RESIDENTE" ? 101 : null } }); }
+async function user(tenantId: string, role: "ADMIN" | "RESIDENTE" = "RESIDENTE") {
+  const bloque = role === "RESIDENTE" ? 1 : null;
+  const apto = role === "RESIDENTE" ? 101 : null;
+  return prisma.user.create({
+    data: {
+      tenantId,
+      email: email(role.toLowerCase()),
+      name: "QA " + role,
+      role,
+      password,
+      bloque,
+      apto,
+      memberships: {
+        create: { tenantId, role, isActive: true, bloque, apto },
+      },
+    },
+  });
+}
 let tenantIds: string[] = [];
 before(async () => { await prisma.$connect(); });
 after(async () => {

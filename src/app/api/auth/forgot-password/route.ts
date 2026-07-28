@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendEmail({
-        tenantId: user.tenantId,
+        tenantId: null,
         template: "password_reset",
         to: email,
         subject: "Restablecer contraseña - PQRS Services",

@@ -5,7 +5,7 @@ import { BrandLockup } from '@/components/shell/Logo';
 import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
-type Details = { email: string; role: string; expiresAt: string; tenant: { name: string } };
+type Details = { email: string; role: string; expiresAt: string; existingAccount: boolean; tenant: { name: string } };
 const roleLabel: Record<string, string> = { ADMIN: 'Administrador', CONSEJO: 'Consejo', RESIDENTE: 'Residente' };
 
 export default function InvitacionPage() {
@@ -41,7 +41,8 @@ export default function InvitacionPage() {
   }
 
   const resident = details?.role === 'RESIDENTE';
-  const canSubmit = fullName.trim().length >= 2 && password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password) && (!resident || (bloque && apto));
+  const accountFieldsValid = details?.existingAccount || (fullName.trim().length >= 2 && password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password));
+  const canSubmit = Boolean(accountFieldsValid && (!resident || (bloque && apto)));
 
   const inputStyle: React.CSSProperties = { width: '100%', height: 46, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 14, fontFamily: 'inherit', marginBottom: 14 };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 7 };
@@ -62,10 +63,14 @@ export default function InvitacionPage() {
               <div style={{ fontSize: 16, fontWeight: 800, margin: '4px 0 8px' }}>{details.tenant.name}</div>
               <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{roleLabel[details.role] || details.role}</span>
             </div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', textAlign: 'center' }}>Crea tu contraseña para continuar</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', textAlign: 'center' }}>{details.existingAccount ? 'Confirma el nuevo acceso' : 'Crea tu contraseña para continuar'}</h1>
 
-            <label style={labelStyle}>Nombre completo</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre" style={inputStyle} />
+            {!details.existingAccount && (
+              <>
+                <label style={labelStyle}>Nombre completo</label>
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre" style={inputStyle} />
+              </>
+            )}
 
             <label style={labelStyle}>Correo</label>
             <input value={details.email} disabled style={{ ...inputStyle, background: COLORS.bgCard, color: COLORS.textMuted }} />
@@ -83,8 +88,12 @@ export default function InvitacionPage() {
               </div>
             )}
 
-            <label style={labelStyle}>Crear contraseña</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caracteres, una letra y un número" style={{ ...inputStyle, marginBottom: 22 }} />
+            {!details.existingAccount && (
+              <>
+                <label style={labelStyle}>Crear contraseña</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caracteres, una letra y un número" style={{ ...inputStyle, marginBottom: 22 }} />
+              </>
+            )}
 
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.5, marginBottom: 18, cursor: 'pointer' }}>
               <input type="checkbox" checked={legalAccepted} onChange={(e) => setLegalAccepted(e.target.checked)} style={{ marginTop: 3, accentColor: COLORS.navy }} />
@@ -111,7 +120,7 @@ export default function InvitacionPage() {
                 cursor: canSubmit && legalAccepted ? 'pointer' : 'default',
               }}
             >
-              Confirmar cuenta
+              Confirmar acceso
             </button>
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
               La invitación queda asociada automáticamente a tu conjunto y rol.
@@ -122,7 +131,7 @@ export default function InvitacionPage() {
         {state === 'done' && (
           <div style={{ textAlign: 'center' }}>
             <div className="apl-up" style={{ width: 56, height: 56, borderRadius: 999, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 20px' }}>✓</div>
-            <h1 style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Cuenta creada</h1>
+            <h1 style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Acceso activado</h1>
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 26px' }}>Tu acceso está listo. Inicia sesión para completar la bienvenida.</p>
             <Link href={'/auth/login?email=' + encodeURIComponent(details?.email || '')} style={{ display: 'block', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill }}>
               Iniciar sesión
