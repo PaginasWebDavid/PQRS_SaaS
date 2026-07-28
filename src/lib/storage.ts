@@ -2,16 +2,18 @@ import crypto from "crypto";
 
 const DEFAULT_BUCKET = "pqrs-evidencias";
 
+type StorageFolder = "fotos" | "evidencias" | "avatares";
+
 type UploadInput = {
   tenantId: string;
-  folder: "fotos" | "evidencias" | "avatares";
+  folder: StorageFolder;
   fileName: string;
   contentType: string;
   buffer: Buffer;
 };
 
 export type StoredFile = {
-  url: string;
+  url: string | null;
   path: string;
   fileName: string;
   contentType: string;
@@ -27,8 +29,8 @@ export async function uploadToStorage({
 }: UploadInput): Promise<StoredFile> {
   const { supabaseUrl, serviceRoleKey, bucket } = getStorageConfig();
   const safeName = sanitizeFileName(fileName);
-  const path = `${tenantId}/${folder}/${crypto.randomUUID()}-${safeName}`;
-  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${path}`;
+  const path = buildStoragePath({ tenantId, folder, fileName: safeName });
+  const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${encodeStoragePath(path)}`;
 
   const response = await fetch(uploadUrl, {
     method: "PUT",
@@ -47,7 +49,7 @@ export async function uploadToStorage({
   }
 
   return {
-    url: getPublicStorageUrl(path),
+    url: folder === "avatares" ? getPublicStorageUrl(path) : null,
     path,
     fileName: safeName,
     contentType,
@@ -55,14 +57,21 @@ export async function uploadToStorage({
   };
 }
 
-export async function downloadFromStorage(path: string) {
+export async function downloadFromStorage(
+  path: string,
+  access: { tenantId: string; folders?: StorageFolder[] }
+) {
+  assertStoragePathForTenant(path, access.tenantId, access.folders);
   const { supabaseUrl, serviceRoleKey, bucket } = getStorageConfig();
-  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
-    headers: {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-    },
-  });
+  const response = await fetch(
+    `${supabaseUrl}/storage/v1/object/${bucket}/${encodeStoragePath(path)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+    }
+  );
 
   if (!response.ok) {
     const detail = await response.text();
@@ -72,9 +81,72 @@ export async function downloadFromStorage(path: string) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+export async function deleteFromStorage(
+  path: string,
+  access: { tenantId: string; folders?: StorageFolder[] }
+) {
+  assertStoragePathForTenant(path, access.tenantId, access.folders);
+  const { supabaseUrl, serviceRoleKey, bucket } = getStorageConfig();
+  const response = await fetch(
+    `${supabaseUrl}/storage/v1/object/${bucket}/${encodeStoragePath(path)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+    }
+  );
+
+  if (!response.ok && response.status !== 404) {
+    const detail = await response.text();
+    throw new Error(`No se pudo eliminar archivo de Supabase Storage: ${detail}`);
+  }
+}
+
 export function getPublicStorageUrl(path: string) {
   const { supabaseUrl, bucket } = getStorageConfig();
-  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeStoragePath(path)}`;
+}
+
+export function buildStoragePath({
+  tenantId,
+  folder,
+  fileName,
+  objectId = crypto.randomUUID(),
+}: {
+  tenantId: string;
+  folder: StorageFolder;
+  fileName: string;
+  objectId?: string;
+}) {
+  if (
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(tenantId) ||
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(objectId)
+  ) {
+    throw new Error("Identificador de Storage invalido");
+  }
+  return `${tenantId}/${folder}/${objectId}-${sanitizeFileName(fileName)}`;
+}
+
+export function assertStoragePathForTenant(
+  path: string,
+  tenantId: string,
+  folders: StorageFolder[] = ["fotos", "evidencias", "avatares"]
+) {
+  if (!path || path.includes("%") || path.includes("\\") || path.includes("\0")) {
+    throw new Error("Ruta de Storage invalida");
+  }
+  const segments = path.split("/");
+  if (
+    segments.length !== 3 ||
+    segments[0] !== tenantId ||
+    !folders.includes(segments[1] as StorageFolder) ||
+    !segments[2] ||
+    segments[2].includes("..")
+  ) {
+    throw new Error("Ruta de Storage no autorizada");
+  }
 }
 
 export function dataUrlToBuffer(dataUrl: string) {
@@ -104,21 +176,20 @@ function getStorageConfig() {
   return { supabaseUrl, serviceRoleKey, bucket };
 }
 
-/**
- * Verifica los primeros bytes del archivo contra el "magic number" real del
- * tipo declarado por el cliente. El tipo MIME de un multipart/data-URL lo
- * elige quien sube el archivo — sin esto, cualquiera puede etiquetar bytes
- * arbitrarios como "image/png" y quedan almacenados/servidos con ese content-type.
- */
 export function matchesDeclaredType(buffer: Buffer, declaredType: string): boolean {
   if (buffer.length < 12) return false;
   switch (declaredType) {
     case "image/png":
-      return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+      return buffer
+        .subarray(0, 8)
+        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
     case "image/jpeg":
       return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
     case "image/webp":
-      return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+      return (
+        buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+        buffer.subarray(8, 12).toString("ascii") === "WEBP"
+      );
     case "application/pdf":
       return buffer.subarray(0, 4).toString("ascii") === "%PDF";
     default:
@@ -126,12 +197,17 @@ export function matchesDeclaredType(buffer: Buffer, declaredType: string): boole
   }
 }
 
-function sanitizeFileName(fileName: string) {
+export function sanitizeFileName(fileName: string) {
   const normalized = fileName
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/\.{2,}/g, ".")
+    .replace(/^[.-]+|[.-]+$/g, "");
 
   return normalized || "archivo";
+}
+
+function encodeStoragePath(path: string) {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
