@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
@@ -29,13 +29,13 @@ const ESTADO_LABEL: Record<string, string> = {
 async function notifyOtherAdministrators({
   tenantId, actorUserId, pqrsId, numero,
 }: { tenantId: string; actorUserId: string; pqrsId: string; numero: number }) {
-  const recipients = await prisma.user.findMany({
-    where: { tenantId, role: "ADMIN", isActive: true, id: { not: actorUserId } },
-    select: { id: true },
+  const recipients = await prisma.tenantMembership.findMany({
+    where: { tenantId, role: "ADMIN", isActive: true, userId: { not: actorUserId } },
+    select: { userId: true },
   });
   await Promise.allSettled(recipients.map((recipient) => createNotification({
     tenantId,
-    userId: recipient.id,
+    userId: recipient.userId,
     type: NotificationTypes.PQRS_UPDATED,
     title: "PQRS actualizada",
     message: "La solicitud #" + numero + " fue actualizada por otro usuario autorizado.",
@@ -65,6 +65,10 @@ async function handleGet(
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  if (!session.user.role || session.user.role === "SUPER_ADMIN") {
+    return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
   const tenantAccessResponse = await getTenantAccessResponse(session);
@@ -106,7 +110,7 @@ async function handlePatch(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  if (!["ADMIN", "RESIDENTE"].includes(session.user.role)) {
+  if (session.user.role !== "ADMIN" && session.user.role !== "RESIDENTE") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
@@ -179,13 +183,13 @@ async function handlePatch(
       origin: req.headers.get("x-forwarded-for") || "api",
       metadata: { fields: ["descripcion"], beforeTaken: true },
     });
-    const admins = await prisma.user.findMany({
+    const admins = await prisma.tenantMembership.findMany({
       where: { tenantId, role: "ADMIN", isActive: true },
-      select: { id: true },
+      select: { userId: true },
     });
     await Promise.allSettled(admins.map((admin) => createNotification({
       tenantId,
-      userId: admin.id,
+      userId: admin.userId,
       type: NotificationTypes.PQRS_UPDATED,
       title: "PQRS actualizada por residente",
       message: "La solicitud #" + pqrs.numero + " fue editada antes de su gestion.",

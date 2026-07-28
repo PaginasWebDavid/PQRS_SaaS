@@ -21,6 +21,7 @@ model Tenant {
   updatedAt   DateTime     @updatedAt
 
   users         User[]
+  memberships   TenantMembership[]
   pqrs          Pqrs[]
   fotos         PqrsFoto[]
   historial     HistorialPqrs[]
@@ -81,10 +82,39 @@ model User {
   supportTicketsResponded SupportTicket[] @relation("SupportTicketRespondedBy")
   sessions              Session[]
   accounts              Account[]
+  memberships           TenantMembership[]
 
   @@index([tenantId])
   @@index([role])
   @@index([tenantId, role])
+  @@index([tenantId, isActive])
+  @@index([tenantId, bloque, apto])
+}
+
+// Fuente de verdad para acceso, rol y datos propios de cada conjunto.
+// User.role/User.tenantId y los campos residenciales en User se conservan
+// temporalmente para un despliegue aditivo y se eliminaran en una fase posterior.
+model TenantMembership {
+  id                    String   @id @default(cuid())
+  userId                String
+  tenantId              String
+  role                  Role
+  isActive              Boolean  @default(true)
+  bloque                Int?
+  apto                  Int?
+  haCorregidoUbicacion  Boolean  @default(false)
+  bloqueAptoEditado     Boolean  @default(false)
+  onboardingCompletedAt DateTime?
+  notifyNewPqrsEmail    Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+  @@index([userId, isActive])
   @@index([tenantId, isActive])
   @@index([tenantId, bloque, apto])
 }

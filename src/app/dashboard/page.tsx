@@ -7,5 +7,6 @@ export default async function DashboardAliasPage() {
   if (session?.user?.role === "CONSEJO") redirect("/consejo");
   if (session?.user?.role === "RESIDENTE") redirect("/residente");
   if (session?.user?.role === "SUPER_ADMIN") redirect("/super-admin");
+  if (session?.user) redirect("/seleccionar-conjunto");
   redirect("/auth/login");
 }

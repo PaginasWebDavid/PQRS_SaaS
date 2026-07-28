@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     select: { id: true, numero: true, titulo: true, asunto: true, nombreResidente: true, estado: true, fechaRecibido: true },
   });
 
-  const usersActiveCount = await prisma.user.count({ where: { tenantId, isActive: true } });
+  const usersActiveCount = await prisma.tenantMembership.count({ where: { tenantId, isActive: true } });
 
   const pqrs = await prisma.pqrs.findMany({
     where: {

@@ -96,6 +96,9 @@ async function createActiveAdmin(tenantId: string): Promise<string> {
       role: "ADMIN",
       tenantId,
       isActive: true,
+      memberships: {
+        create: { tenantId, role: "ADMIN", isActive: true },
+      },
     },
   });
   extraUserIds.push(user.id);

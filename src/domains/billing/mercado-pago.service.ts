@@ -321,9 +321,9 @@ export async function createMercadoPagoSubscriptionForTenant({
     where: { id: tenantId },
     include: {
       subscription: true,
-      users: {
-        where: { role: "ADMIN" },
-        select: { email: true, name: true },
+      memberships: {
+        where: { role: "ADMIN", isActive: true },
+        select: { user: { select: { email: true, name: true } } },
         take: 1,
       },
     },
@@ -333,7 +333,7 @@ export async function createMercadoPagoSubscriptionForTenant({
     throw new Error("El tenant no tiene suscripción local");
   }
 
-  const admin = tenant.users[0];
+  const admin = tenant.memberships[0]?.user;
   if (!admin?.email) {
     throw new Error("El tenant no tiene ADMIN con correo para Mercado Pago");
   }

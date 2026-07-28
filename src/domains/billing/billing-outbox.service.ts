@@ -81,10 +81,10 @@ export async function createBillingOutboxIntentsForTransition(
     graceDays?: number | null;
   }
 ): Promise<BillingOutboxCreationSummary> {
-  const recipients = await tx.user.findMany({
-    where: { tenantId: input.tenantId, role: "ADMIN", isActive: true },
-    select: { id: true },
-    orderBy: { id: "asc" },
+  const recipients = await tx.tenantMembership.findMany({
+    where: { tenantId: input.tenantId, role: "ADMIN", isActive: true, user: { isActive: true } },
+    select: { userId: true },
+    orderBy: { userId: "asc" },
   });
   if (recipients.length === 0) {
     return { activeRecipients: 0, planned: 0, created: 0, noActiveRecipients: true };
@@ -95,14 +95,14 @@ export async function createBillingOutboxIntentsForTransition(
     ([BillingOutboxChannel.IN_APP, BillingOutboxChannel.EMAIL] as const).map((channel) => ({
       tenantId: input.tenantId,
       subscriptionId: input.subscriptionId,
-      recipientUserId: recipient.id,
+      recipientUserId: recipient.userId,
       channel,
       eventType: input.eventType,
       dedupeKey: buildBillingOutboxDedupeKey({
         subscriptionId: input.subscriptionId,
         eventType: input.eventType,
         boundary: input.boundary,
-        recipientUserId: recipient.id,
+        recipientUserId: recipient.userId,
         channel,
       }),
       payload: payload as unknown as Prisma.InputJsonValue,
@@ -692,9 +692,9 @@ export async function dispatchBillingOutbox(options: {
       await runOutboxStep("AFTER_OUTBOX_CLAIMED", { outboxId: row.id, tenantId: row.tenantId });
 
       const recipient = row.recipientUserId
-        ? await prisma.user.findFirst({
-            where: { id: row.recipientUserId, tenantId: row.tenantId, isActive: true },
-            select: { email: true },
+        ? await prisma.tenantMembership.findFirst({
+            where: { userId: row.recipientUserId, tenantId: row.tenantId, isActive: true, user: { isActive: true } },
+            select: { user: { select: { email: true } } },
           })
         : null;
       if (!recipient) {
@@ -712,7 +712,7 @@ export async function dispatchBillingOutbox(options: {
       if (row.channel === BillingOutboxChannel.IN_APP) {
         await processInAppRow(row, summary, now);
       } else {
-        await processEmailRow(row, recipient.email, summary, now);
+        await processEmailRow(row, recipient.user.email, summary, now);
       }
     } catch (error) {
       if (row) {

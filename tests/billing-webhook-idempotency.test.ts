@@ -1973,6 +1973,9 @@ test("61. Creacion de preapproval acota status largo y normaliza tipos no-string
           password: "x",
           name: "QA Admin Checkout",
           role: "ADMIN",
+          memberships: {
+            create: { tenantId: tenant.id, role: "ADMIN", isActive: true },
+          },
         },
       });
       const preId = `${RUN}-checkout-pre-${index}-${++counter}`;

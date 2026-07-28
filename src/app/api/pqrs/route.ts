@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
@@ -34,7 +34,7 @@ async function handleGet(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  if (session.user.role === "SUPER_ADMIN") {
+  if (session.user.role === "SUPER_ADMIN" || !session.user.role) {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
@@ -350,10 +350,15 @@ async function handlePost(req: NextRequest) {
     metadata: { numero: pqrs.numero, asunto: pqrs.asunto, estado: pqrs.estado },
   });
 
-  const recipients = await prisma.user.findMany({
-    where: { tenantId, role: "ADMIN" },
-    select: { id: true, role: true, email: true, notifyNewPqrsEmail: true },
-  });
+  const recipients = (await prisma.tenantMembership.findMany({
+    where: { tenantId, role: "ADMIN", isActive: true },
+    select: { userId: true, role: true, notifyNewPqrsEmail: true, user: { select: { email: true } } },
+  })).map((membership) => ({
+    id: membership.userId,
+    role: membership.role,
+    email: membership.user.email,
+    notifyNewPqrsEmail: membership.notifyNewPqrsEmail,
+  }));
 
   await Promise.allSettled(
     recipients.map((recipient) =>

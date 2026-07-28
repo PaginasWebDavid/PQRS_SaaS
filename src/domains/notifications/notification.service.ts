@@ -22,7 +22,7 @@ export async function createNotification({
   tenantId: string; userId: string; type: NotificationType | string; title: string; message: string;
   resourceType?: string | null; resourceId?: string | null;
 }) {
-  const user = await prisma.user.findFirst({ where: { id: userId, tenantId, isActive: true }, select: { id: true } });
+  const user = await prisma.tenantMembership.findFirst({ where: { userId, tenantId, isActive: true, user: { isActive: true } }, select: { id: true } });
   if (!user) throw new Error("No se puede crear una notificacion para un usuario de otro conjunto");
 
   const notification = await prisma.notification.create({
@@ -68,8 +68,8 @@ export async function createNotificationIdempotent(
   },
   client: NotificationClient
 ) {
-  const user = await client.user.findFirst({
-    where: { id: userId, tenantId, isActive: true },
+  const user = await client.tenantMembership.findFirst({
+    where: { userId, tenantId, isActive: true, user: { isActive: true } },
     select: { id: true },
   });
   if (!user) throw new NotificationRecipientUnavailableError();
@@ -115,7 +115,7 @@ export async function markNotificationRead({ tenantId, userId, notificationId }:
 }
 
 export async function markAllNotificationsRead({ tenantId, userId }: { tenantId: string; userId: string }) {
-  const user = await prisma.user.findFirst({ where: { id: userId, tenantId }, select: { id: true } });
+  const user = await prisma.tenantMembership.findFirst({ where: { userId, tenantId, isActive: true, user: { isActive: true } }, select: { id: true } });
   if (!user) throw new Error("Usuario no encontrado en este conjunto");
   const readAt = new Date();
   const result = await prisma.notification.updateMany({ where: { tenantId, userId, readAt: null }, data: { readAt } });

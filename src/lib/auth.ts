@@ -1,9 +1,15 @@
 import { Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
+import { getUserMembershipContext } from "@/lib/membership-context";
+import {
+  SELECTED_TENANT_COOKIE,
+  verifyTenantSelection,
+} from "@/lib/tenant-selection";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -16,92 +22,108 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-
+        const email = String(credentials.email).trim().toLowerCase();
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.isActive) return null;
-
-        const passwordMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!passwordMatch) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          tenantId: user.tenantId,
-          bloque: user.bloque,
-          apto: user.apto,
-        };
+        if (!(await bcrypt.compare(String(credentials.password), user.password))) {
+          return null;
+        }
+        const hasAccess =
+          user.role === "SUPER_ADMIN" ||
+          (await prisma.tenantMembership.count({
+            where: { userId: user.id, isActive: true },
+          })) > 0;
+        if (!hasAccess) return null;
+        return { id: user.id, email: user.email, name: user.name };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
+      if (user) token.id = user.id;
+      if (!token.id) return token;
+
+      const userId = String(token.id);
+      const selectedTenantId =
+        readSelectedTenantCookie(userId) ??
+        ((token.selectedTenantId as string | null | undefined) ?? null);
+      const context = await getUserMembershipContext(userId, selectedTenantId);
+      if (!context) {
+        token.isActive = false;
+        token.role = null;
+        token.tenantId = null;
+        token.selectedTenantId = null;
+        token.selectedMembershipId = null;
+        return token;
       }
 
-      if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: {
-            role: true,
-            tenantId: true,
-            bloque: true,
-            apto: true,
-            isActive: true,
-            onboardingCompletedAt: true,
-            tenant: {
-              select: {
-                status: true,
-                subscription: { select: { status: true } },
-              },
-            },
-          },
-        });
-
-        token.role = dbUser?.role;
-        token.tenantId = dbUser?.tenantId;
-        token.tenantStatus = dbUser?.tenant?.status ?? null;
-        token.subscriptionStatus = dbUser?.tenant?.subscription?.status ?? null;
-        token.bloque = dbUser?.bloque ?? null;
-        token.apto = dbUser?.apto ?? null;
-        token.isActive = dbUser?.isActive ?? false;
-        token.onboardingCompletedAt = dbUser?.onboardingCompletedAt?.toISOString() ?? null;
+      token.isActive = context.isActive;
+      token.membershipCount = context.memberships.length;
+      if (context.isSuperAdmin) {
+        token.role = "SUPER_ADMIN";
+        token.tenantId = null;
+        token.selectedTenantId = null;
+        token.selectedMembershipId = null;
+        token.tenantStatus = null;
+        token.subscriptionStatus = null;
+        token.bloque = null;
+        token.apto = null;
+        token.onboardingCompletedAt = null;
+        return token;
       }
 
+      const membership = context.selectedMembership;
+      token.role = membership?.role ?? null;
+      token.tenantId = membership?.tenantId ?? null;
+      token.selectedTenantId = membership?.tenantId ?? null;
+      token.selectedMembershipId = membership?.id ?? null;
+      token.tenantStatus = (membership?.tenantStatus as TenantStatus | undefined) ?? null;
+      token.subscriptionStatus =
+        (membership?.subscriptionStatus as SubscriptionStatus | undefined) ?? null;
+      token.bloque = membership?.bloque ?? null;
+      token.apto = membership?.apto ?? null;
+      token.onboardingCompletedAt =
+        membership?.onboardingCompletedAt?.toISOString() ?? null;
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as Role;
-        session.user.tenantId = (token.tenantId as string | null | undefined) ?? null;
-        session.user.tenantStatus = (token.tenantStatus as TenantStatus | null | undefined) ?? null;
-        session.user.subscriptionStatus = (token.subscriptionStatus as SubscriptionStatus | null | undefined) ?? null;
+        session.user.id = String(token.id);
+        session.user.role = (token.role as Role | null | undefined) ?? null;
+        session.user.tenantId =
+          (token.selectedTenantId as string | null | undefined) ?? null;
+        session.user.selectedTenantId = session.user.tenantId;
+        session.user.selectedMembershipId =
+          (token.selectedMembershipId as string | null | undefined) ?? null;
+        session.user.membershipCount = Number(token.membershipCount ?? 0);
+        session.user.tenantStatus =
+          (token.tenantStatus as TenantStatus | null | undefined) ?? null;
+        session.user.subscriptionStatus =
+          (token.subscriptionStatus as SubscriptionStatus | null | undefined) ??
+          null;
         session.user.bloque = (token.bloque as number | null | undefined) ?? null;
         session.user.apto = (token.apto as number | null | undefined) ?? null;
         session.user.isActive = Boolean(token.isActive);
-        session.user.onboardingCompletedAt = (token.onboardingCompletedAt as string | null | undefined) ?? null;
+        session.user.onboardingCompletedAt =
+          (token.onboardingCompletedAt as string | null | undefined) ?? null;
       }
       return session;
     },
   },
   session: {
     strategy: "jwt",
-    // Acota la ventana de un rol/estado obsoleto en la cookie de sesion (el
-    // middleware, por correr en Edge sin Prisma, no puede refrescarla en cada
-    // request). En la practica cada llamada a la API ya refresca la cookie con
-    // datos frescos; esto solo cubre el caso de una sesion inactiva por mucho
-    // tiempo sin ninguna llamada a la API de por medio.
-    maxAge: 12 * 60 * 60, // 12 horas
-    updateAge: 60 * 60, // re-firma la cookie al menos cada hora de uso activo
+    maxAge: 12 * 60 * 60,
+    updateAge: 60 * 60,
   },
 });
+
+function readSelectedTenantCookie(userId: string) {
+  try {
+    return verifyTenantSelection(
+      cookies().get(SELECTED_TENANT_COOKIE)?.value,
+      userId
+    );
+  } catch {
+    return null;
+  }
+}

@@ -70,6 +70,10 @@ export default function LoginPage() {
 
     const me = await fetch('/api/me', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null));
     const role = me?.user?.role;
+    if (!me?.selectedTenantId && (me?.memberships?.length ?? 0) > 1) {
+      window.location.href = '/seleccionar-conjunto';
+      return;
+    }
     if (!me?.user?.onboardingCompletedAt && role === 'ADMIN') window.location.href = '/onboarding/admin';
     else if (!me?.user?.onboardingCompletedAt && role === 'RESIDENTE') window.location.href = '/onboarding/residente';
     else window.location.href = routeByRole(role);

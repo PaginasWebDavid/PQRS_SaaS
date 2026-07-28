@@ -1,4 +1,4 @@
-﻿import { PrismaClient, Role } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
   INITIAL_TENANT_ID,
@@ -52,6 +52,7 @@ async function main() {
       name: "Administración Calle 100",
       role: Role.ADMIN,
       tenantId: tenant.id,
+      memberships: { create: { tenantId: tenant.id, role: Role.ADMIN } },
     },
   });
 
@@ -62,6 +63,7 @@ async function main() {
       name: "Presidente del Consejo",
       role: Role.CONSEJO,
       tenantId: tenant.id,
+      memberships: { create: { tenantId: tenant.id, role: Role.CONSEJO } },
     },
   });
 

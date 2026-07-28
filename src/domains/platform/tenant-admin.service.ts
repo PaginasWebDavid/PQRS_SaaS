@@ -36,91 +36,89 @@ export type CreateTenantResult = {
 };
 
 export async function listTenantsForSuperAdmin() {
-  return prisma.tenant.findMany({
+  const tenants = await prisma.tenant.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       subscription: true,
-      users: {
+      memberships: {
         where: { role: "ADMIN" },
-        select: { id: true, name: true, email: true },
+        select: { user: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "asc" },
         take: 1,
       },
-      _count: {
-        select: {
-          users: true,
-          pqrs: true,
-        },
-      },
+      _count: { select: { memberships: true, pqrs: true } },
     },
   });
+  return tenants.map(({ memberships, _count, ...tenant }) => ({
+    ...tenant,
+    users: memberships.map((membership) => membership.user),
+    _count: { users: _count.memberships, pqrs: _count.pqrs },
+  }));
 }
 
 export async function getTenantDetailForSuperAdmin(tenantId?: string | null) {
   if (!tenantId) return null;
-
-  return prisma.tenant.findUnique({
+  const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
-      users: {
+      memberships: {
         select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          bloque: true,
-          apto: true,
-          createdAt: true,
+          role: true, bloque: true, apto: true, createdAt: true,
+          user: { select: { id: true, name: true, email: true } },
         },
-        orderBy: [{ role: "asc" }, { name: "asc" }],
+        orderBy: [{ role: "asc" }, { user: { name: "asc" } }],
       },
       invitations: {
         where: { status: "PENDING" },
         select: { id: true, email: true, role: true, expiresAt: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       },
-      subscription: {
-        include: {
-          payments: {
-            orderBy: { createdAt: "desc" },
-            take: 5,
-          },
-        },
-      },
+      subscription: { include: { payments: { orderBy: { createdAt: "desc" }, take: 5 } } },
       pqrs: {
-        select: {
-          id: true,
-          numero: true,
-          asunto: true,
-          estado: true,
-          nombreResidente: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 8,
+        select: { id: true, numero: true, asunto: true, estado: true, nombreResidente: true, createdAt: true },
+        orderBy: { createdAt: "desc" }, take: 8,
       },
-      _count: {
-        select: {
-          users: true,
-          pqrs: true,
-        },
-      },
+      _count: { select: { memberships: true, pqrs: true } },
     },
   });
+  if (!tenant) return null;
+  const { memberships, _count, ...rest } = tenant;
+  return {
+    ...rest,
+    users: memberships.map((membership) => ({ ...membership.user, role: membership.role, bloque: membership.bloque, apto: membership.apto, createdAt: membership.createdAt })),
+    _count: { users: _count.memberships, pqrs: _count.pqrs },
+  };
 }
 
 export async function getTenantUsersForSuperAdmin(tenantId: string) {
-  return prisma.tenant.findUnique({
+  const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       id: true,
       name: true,
-      users: {
-        select: { id: true, name: true, email: true, role: true, bloque: true, apto: true, isActive: true, createdAt: true },
-        orderBy: [{ role: "asc" }, { name: "asc" }],
+      memberships: {
+        select: {
+          id: true, role: true, bloque: true, apto: true, isActive: true, createdAt: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: [{ role: "asc" }, { user: { name: "asc" } }],
       },
     },
   });
+  if (!tenant) return null;
+  return {
+    id: tenant.id,
+    name: tenant.name,
+    users: tenant.memberships.map((membership) => ({
+      ...membership.user,
+      membershipId: membership.id,
+      role: membership.role,
+      bloque: membership.bloque,
+      apto: membership.apto,
+      isActive: membership.isActive,
+      createdAt: membership.createdAt,
+    })),
+  };
 }
 
 export async function createTenantWithAdmin(

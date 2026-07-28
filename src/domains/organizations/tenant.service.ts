@@ -1,6 +1,7 @@
 import { AuditAction, Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import { Session } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { getUserMembershipContext } from "@/lib/membership-context";
 import { assertTenantId } from "./tenant.validator";
 import { ensureInitialTenant } from "./tenant.repository";
 import { INITIAL_TENANT_ID } from "./tenant.constants";
@@ -9,8 +10,9 @@ import { registerAuditLog } from "@/domains/platform/audit.service";
 type TenantAccessUser = {
   id?: string;
   isActive?: boolean;
-  role: Role;
+  role: Role | null;
   tenantId: string | null;
+  selectedTenantId?: string | null;
   tenantStatus?: TenantStatus | null;
   subscriptionStatus?: SubscriptionStatus | null;
 };
@@ -37,31 +39,21 @@ export function getTenantAccessBlockedMessage(user: TenantAccessUser): string {
   return "La licencia de esta copropiedad se encuentra suspendida. Contacta al equipo administrador para reactivar el servicio.";
 }
 export async function refreshTenantAccessForUser(user: TenantAccessUser): Promise<TenantAccessUser> {
-  const dbUser = user.id ? await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      role: true,
-      tenantId: true,
-      isActive: true,
-      tenant: { select: { status: true, subscription: { select: { status: true } } } },
-    },
-  }) : null;
-  if (!dbUser) {
-    return {
-      ...user,
-      tenantId: null,
-      isActive: false,
-      tenantStatus: null,
-      subscriptionStatus: null,
-    };
+  const context = user.id ? await getUserMembershipContext(user.id, user.selectedTenantId ?? user.tenantId) : null;
+  if (!context || !context.isActive) {
+    return { ...user, tenantId: null, isActive: false, tenantStatus: null, subscriptionStatus: null };
   }
+  if (context.isSuperAdmin) {
+    return { ...user, role: "SUPER_ADMIN", tenantId: null, isActive: true, tenantStatus: null, subscriptionStatus: null };
+  }
+  const membership = context.selectedMembership;
   return {
     ...user,
-    role: dbUser.role,
-    tenantId: dbUser.tenantId,
-    isActive: dbUser.isActive,
-    tenantStatus: dbUser.tenant?.status ?? null,
-    subscriptionStatus: dbUser.tenant?.subscription?.status ?? null,
+    role: membership?.role ?? null,
+    tenantId: membership?.tenantId ?? null,
+    isActive: Boolean(membership),
+    tenantStatus: (membership?.tenantStatus as TenantStatus | undefined) ?? null,
+    subscriptionStatus: (membership?.subscriptionStatus as SubscriptionStatus | undefined) ?? null,
   };
 }
 export async function ensureDefaultTenant() { return ensureInitialTenant(prisma); }

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (!["ADMIN", "CONSEJO"].includes(session.user.role)) {
+  if (session.user.role !== "ADMIN" && session.user.role !== "CONSEJO") {
     return NextResponse.json({ error: "No tiene permisos" }, { status: 403 });
   }
 
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   });
 
   const [staff, tenant, bloquesRaw] = await Promise.all([
-    prisma.user.findMany({ where: { tenantId, role: { in: ["ADMIN", "CONSEJO"] }, isActive: true }, select: { id: true, name: true } }),
+    prisma.tenantMembership.findMany({ where: { tenantId, role: { in: ["ADMIN", "CONSEJO"] }, isActive: true }, select: { user: { select: { id: true, name: true } } } }).then((rows) => rows.map((row) => row.user)),
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
     prisma.pqrs.findMany({ where: { tenantId }, select: { bloque: true }, distinct: ["bloque"], orderBy: { bloque: "asc" } }),
   ]);

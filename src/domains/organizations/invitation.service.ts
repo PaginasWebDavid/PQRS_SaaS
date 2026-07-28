@@ -134,14 +134,17 @@ export async function createInvitation({
 
     const existingUser = await tx.user.findFirst({
       where: { email: { equals: normalizedEmail, mode: "insensitive" } },
-      select: { id: true, tenantId: true, role: true, isActive: true },
+      select: {
+        id: true,
+        role: true,
+        memberships: {
+          where: { tenantId },
+          select: { id: true },
+          take: 1,
+        },
+      },
     });
-    const reusableInactiveUser =
-      existingUser &&
-      existingUser.tenantId === tenantId &&
-      existingUser.role !== "SUPER_ADMIN" &&
-      !existingUser.isActive;
-    if (existingUser && !reusableInactiveUser) {
+    if (existingUser?.role === "SUPER_ADMIN" || existingUser?.memberships.length) {
       throw new InvitationDomainError("INVITATION_CONFLICT");
     }
 
@@ -472,209 +475,135 @@ export async function acceptInvitation({
   const tokenHash = hashInvitationToken(token);
   const initial = await prisma.invitation.findUnique({ where: { tokenHash } });
   if (!initial) throw new InvitationDomainError("INVALID_TOKEN");
-
-    const now = new Date();
+  const now = new Date();
 
   const outcome = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`
-      SELECT id FROM "Invitation"
-      WHERE id = ${initial.id}
-      FOR UPDATE
-    `;
+    await tx.$queryRaw`SELECT id FROM "Invitation" WHERE id = ${initial.id} FOR UPDATE`;
     const invitation = await tx.invitation.findUnique({ where: { tokenHash } });
-    if (!invitation || invitation.id !== initial.id) {
-      throw new InvitationDomainError("INVALID_TOKEN");
-    }
-    if (invitation.status === "ACCEPTED") {
-      throw new InvitationDomainError("INVITATION_USED");
-    }
-    if (invitation.status === "CANCELLED") {
-      throw new InvitationDomainError("INVITATION_CANCELLED");
-    }
+    if (!invitation || invitation.id !== initial.id) throw new InvitationDomainError("INVALID_TOKEN");
+    if (invitation.status === "ACCEPTED") throw new InvitationDomainError("INVITATION_USED");
+    if (invitation.status === "CANCELLED") throw new InvitationDomainError("INVITATION_CANCELLED");
     if (invitation.status === "EXPIRED" || invitation.expiresAt <= now) {
       if (invitation.status === "PENDING") {
         await tx.invitation.updateMany({
-          where: {
-            id: invitation.id,
-            tokenHash,
-            status: "PENDING",
-            expiresAt: { lte: now },
-          },
+          where: { id: invitation.id, tokenHash, status: "PENDING", expiresAt: { lte: now } },
           data: { status: "EXPIRED" },
         });
-        await registerAuditLog(
-          {
-            tenantId: invitation.tenantId,
-            action: AuditAction.INVITATION_EXPIRED,
-            targetType: "Invitation",
-            targetId: invitation.id,
-            origin,
-            metadata: { role: invitation.role },
-          },
-          tx
-        );
+        await registerAuditLog({
+          tenantId: invitation.tenantId, action: AuditAction.INVITATION_EXPIRED,
+          targetType: "Invitation", targetId: invitation.id, origin,
+          metadata: { role: invitation.role },
+        }, tx);
       }
       return { kind: "expired" as const };
     }
 
-const input = validateInvitationAcceptance({
+    const normalizedEmail = normalizeInvitationEmail(invitation.email);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`membership:${invitation.tenantId}:${normalizedEmail}`}, 0))`;
+
+    const existing = await tx.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+      select: { id: true, email: true, name: true, password: true, role: true, isActive: true },
+    });
+    if (existing?.role === "SUPER_ADMIN") throw new InvitationDomainError("INVITATION_CONFLICT");
+    const input = validateInvitationAcceptance({
       token,
-      password,
-      name,
+      password: existing ? "ExistingAccount1" : password,
+      name: existing ? existing.name : name,
       role: invitation.role,
       bloque,
       apto,
       acceptedLegal,
     });
-    const passwordHash = await bcrypt.hash(input.password, 10);
-    const normalizedEmail = normalizeInvitationEmail(invitation.email);
+    if (existing) {
+      const duplicateMembership = await tx.tenantMembership.findUnique({
+        where: { userId_tenantId: { userId: existing.id, tenantId: invitation.tenantId } },
+        select: { id: true },
+      });
+      if (duplicateMembership) throw new InvitationDomainError("INVITATION_CONFLICT");
+    }
+
     const claimed = await tx.invitation.updateMany({
-      where: {
-        id: invitation.id,
-        tokenHash,
-        status: "PENDING",
-        expiresAt: { gt: now },
-      },
+      where: { id: invitation.id, tokenHash, status: "PENDING", expiresAt: { gt: now } },
       data: { status: "ACCEPTED", acceptedAt: now },
     });
-    if (claimed.count !== 1) {
-      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
-    }
+    if (claimed.count !== 1) throw new InvitationDomainError("INVITATION_UNAVAILABLE");
 
-    const existing = await tx.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
-    });
-    if (
-      existing &&
-      (existing.tenantId !== invitation.tenantId ||
-        existing.role === "SUPER_ADMIN" ||
-        existing.isActive)
-    ) {
-      throw new InvitationDomainError("INVITATION_CONFLICT");
-    }
-
-    const legalAcceptedAt = now;
-    const user = existing
-      ? await tx.user.update({
-          where: { id: existing.id },
-          data: {
-            email: normalizedEmail,
-            name: input.name,
-            password: passwordHash,
-            role: invitation.role,
-            tenantId: invitation.tenantId,
-            bloque: input.bloque,
-            apto: input.apto,
-            isActive: true,
-            onboardingCompletedAt: null,
-            termsAcceptedAt: legalAcceptedAt,
-            privacyAcceptedAt: legalAcceptedAt,
-            termsVersion: LEGAL_DOCUMENT_VERSION,
-            privacyVersion: LEGAL_DOCUMENT_VERSION,
-          },
-        })
-      : await tx.user.create({
-          data: {
-            email: normalizedEmail,
-            name: input.name,
-            password: passwordHash,
-            role: invitation.role,
-            tenantId: invitation.tenantId,
-            bloque: input.bloque,
-            apto: input.apto,
-            isActive: true,
-            termsAcceptedAt: legalAcceptedAt,
-            privacyAcceptedAt: legalAcceptedAt,
-            termsVersion: LEGAL_DOCUMENT_VERSION,
-            privacyVersion: LEGAL_DOCUMENT_VERSION,
-          },
-        });
-
-    const accepted = await tx.invitation.findFirstOrThrow({
-      where: {
-        id: invitation.id,
-        tokenHash,
-        status: "ACCEPTED",
-        acceptedAt: now,
-      },
-    });
-
-    await registerAuditLog(
-      {
-        actorUserId: user.id,
+    const user = existing ?? await tx.user.create({
+      data: {
+        email: normalizedEmail,
+        name: input.name,
+        password: await bcrypt.hash(input.password, 10),
+        // Compatibilidad transitoria. La autorizacion nueva no consulta estos campos.
+        role: invitation.role,
         tenantId: invitation.tenantId,
-        action: AuditAction.INVITATION_ACCEPTED,
-        targetType: "Invitation",
-        targetId: invitation.id,
-        origin,
-        metadata: {
-          email: normalizedEmail,
-          role: invitation.role,
-          userId: user.id,
-        },
+        bloque: input.bloque,
+        apto: input.apto,
+        isActive: true,
+        termsAcceptedAt: now,
+        privacyAcceptedAt: now,
+        termsVersion: LEGAL_DOCUMENT_VERSION,
+        privacyVersion: LEGAL_DOCUMENT_VERSION,
       },
-      tx
-    );
-
-    return { kind: "accepted" as const, user, invitation: accepted };
+      select: { id: true, email: true, name: true, password: true, role: true, isActive: true },
+    });
+    const membership = await tx.tenantMembership.create({
+      data: {
+        userId: user.id,
+        tenantId: invitation.tenantId,
+        role: invitation.role,
+        bloque: input.bloque,
+        apto: input.apto,
+        isActive: true,
+      },
+    });
+    const accepted = await tx.invitation.findFirstOrThrow({
+      where: { id: invitation.id, tokenHash, status: "ACCEPTED", acceptedAt: now },
+    });
+    await registerAuditLog({
+      actorUserId: user.id, tenantId: invitation.tenantId,
+      action: AuditAction.INVITATION_ACCEPTED, targetType: "Invitation", targetId: invitation.id, origin,
+      metadata: { email: normalizedEmail, role: invitation.role, userId: user.id, membershipId: membership.id },
+    }, tx);
+    return {
+      kind: "accepted" as const,
+      user: { ...user, role: membership.role, tenantId: membership.tenantId, bloque: membership.bloque, apto: membership.apto },
+      membership,
+      invitation: accepted,
+    };
   });
 
-  if (outcome.kind === "expired") {
-    throw new InvitationDomainError("INVITATION_EXPIRED");
-  }
-
+  if (outcome.kind === "expired") throw new InvitationDomainError("INVITATION_EXPIRED");
   await createNotification({
-    tenantId: outcome.invitation.tenantId,
-    userId: outcome.user.id,
-    type: NotificationTypes.INVITATION_RECEIVED,
-    title: "Bienvenido a PQRS Services",
-    message: "Tu cuenta fue activada correctamente.",
-    resourceType: "Invitation",
-    resourceId: outcome.invitation.id,
+    tenantId: outcome.invitation.tenantId, userId: outcome.user.id,
+    type: NotificationTypes.INVITATION_RECEIVED, title: "Bienvenido a PQRS Services",
+    message: "Tu acceso al conjunto fue activado correctamente.", resourceType: "Invitation", resourceId: outcome.invitation.id,
   }).catch(() => null);
 
-  const admins = await prisma.user.findMany({
-    where: {
-      tenantId: outcome.invitation.tenantId,
-      role: "ADMIN",
-      isActive: true,
-    },
-    select: { id: true },
+  const admins = await prisma.tenantMembership.findMany({
+    where: { tenantId: outcome.invitation.tenantId, role: "ADMIN", isActive: true },
+    select: { userId: true },
   });
-  await Promise.allSettled(
-    admins.map((admin) =>
-      createNotification({
-        tenantId: outcome.invitation.tenantId,
-        userId: admin.id,
-        type: NotificationTypes.INVITATION_ACCEPTED,
-        title: "Invitacion aceptada",
-        message: outcome.user.name + " acepto la invitacion.",
-        resourceType: "User",
-        resourceId: outcome.user.id,
-      })
-    )
-  );
+  await Promise.allSettled(admins.map((admin) => createNotification({
+    tenantId: outcome.invitation.tenantId, userId: admin.userId,
+    type: NotificationTypes.INVITATION_ACCEPTED, title: "Invitacion aceptada",
+    message: outcome.user.name + " acepto la invitacion.", resourceType: "User", resourceId: outcome.user.id,
+  })));
 
-  const safeUserName = escapeInvitationHtml(outcome.user.name);
   await sendEmailSafe({
     tenantId: outcome.invitation.tenantId,
     to: outcome.user.email,
     template: "account_confirmation",
-    subject: "Tu cuenta de PQRS Services esta activa",
+    subject: "Tu acceso a PQRS Services esta activo",
     html: renderEmailLayout({
-      accent: "success",
-      eyebrow: "Cuenta activada",
-      heading: "Tu cuenta ya esta lista",
-      bodyHtml: `<p>Hola <strong>${safeUserName}</strong>,</p><p>Tu cuenta fue activada correctamente. Ya puedes iniciar sesion y empezar a usar la plataforma.</p>`,
-      cta: {
-        label: "Iniciar sesion",
-        url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/auth/login`,
-      },
+      accent: "success", eyebrow: "Acceso activado", heading: "Tu acceso ya esta listo",
+      bodyHtml: `<p>Hola <strong>${escapeInvitationHtml(outcome.user.name)}</strong>,</p><p>Ya puedes iniciar sesion y seleccionar el conjunto desde tu cuenta.</p>`,
+      cta: { label: "Iniciar sesion", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/auth/login` },
     }),
   });
-
-  return { user: outcome.user, invitation: outcome.invitation };
+  return { user: outcome.user, membership: outcome.membership, invitation: outcome.invitation };
 }
+
 export async function inspectInvitation(token: string) {
   if (typeof token !== "string" || token.length < 20 || token.length > 256) {
     throw new InvitationDomainError("INVALID_TOKEN");
@@ -721,8 +650,13 @@ export async function inspectInvitation(token: string) {
     }
     throw new InvitationDomainError("INVITATION_EXPIRED");
   }
+  const existingAccount = await prisma.user.findFirst({
+    where: { email: { equals: normalizeInvitationEmail(invitation.email), mode: "insensitive" } },
+    select: { id: true },
+  });
   return {
     email: invitation.email,
+    existingAccount: Boolean(existingAccount),
     role: invitation.role,
     expiresAt: invitation.expiresAt,
     tenant: invitation.tenant,

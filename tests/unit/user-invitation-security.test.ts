@@ -56,7 +56,7 @@ test("4. SUPER_ADMIN exige target explicito", () => {
         role: "SUPER_ADMIN",
         ownTenantId: null,
       }),
-    /conjunto activo asignado/
+    /seleccionar un conjunto activo/
   );
   assert.equal(
     managementTenantPolicy({

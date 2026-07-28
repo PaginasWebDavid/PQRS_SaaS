@@ -40,6 +40,7 @@ async function user(tenantId: string, role: Role = "ADMIN", userEmail?: string) 
       name: `QA ${role}`,
       password: "not-used-in-test",
       isActive: true,
+      ...(role !== "SUPER_ADMIN" ? { memberships: { create: { tenantId, role, isActive: true } } } : {}),
     },
   });
 }
