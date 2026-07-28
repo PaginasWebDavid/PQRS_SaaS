@@ -6,10 +6,18 @@ import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { LEGAL_DOCUMENT_VERSION } from "@/lib/legal";
+import {
+  ensureInvitableRole,
+  escapeInvitationHtml,
+  InvitationDomainError,
+  mapInvitationError,
+  MAX_BULK_INVITATIONS,
+  normalizeInvitationEmail,
+  validateInvitationAcceptance,
+} from "@/domains/organizations/invitation-security";
 
 const INVITATION_TOKEN_BYTES = 32;
 const DEFAULT_EXPIRES_HOURS = 72;
-const INVITABLE_ROLES: Role[] = ["ADMIN", "CONSEJO", "RESIDENTE"];
 
 export function createInvitationToken() {
   return crypto.randomBytes(INVITATION_TOKEN_BYTES).toString("base64url");
@@ -19,24 +27,9 @@ export function hashInvitationToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function normalizeEmail(email: string) {
-  if (typeof email !== "string") throw new Error("El correo es obligatorio");
-  const normalized = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw new Error("El correo no es valido");
-  }
-  return normalized;
-}
-
 function invitationUrl(token: string) {
   const baseUrl = process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
   return `${baseUrl}/invitacion?token=${encodeURIComponent(token)}`;
-}
-
-function ensureInvitableRole(role: Role) {
-  if (!INVITABLE_ROLES.includes(role)) {
-    throw new Error("Rol no permitido para invitacion");
-  }
 }
 
 const INVITATION_ROLE_LABEL: Record<Role, string> = {
@@ -60,17 +53,19 @@ async function sendInvitationEmail({
   token: string;
 }) {
   const url = invitationUrl(token);
+  const safeTenantName = escapeInvitationHtml(tenantName);
+  const subjectTenantName = tenantName.replace(/[\r\n]+/g, " ").slice(0, 160);
   return sendEmailSafe({
     tenantId,
     to: email,
     template: "invitation",
-    subject: `Te invitaron a ${tenantName} en PQRS Services`,
+    subject: `Te invitaron a ${subjectTenantName} en PQRS Services`,
     html: renderEmailLayout({
       accent: "navy",
       eyebrow: "Invitación",
       heading: "Te invitaron a PQRS Services",
       bodyHtml: `
-        <p>Has recibido una invitación para acceder a <strong>${tenantName}</strong> con el rol de <strong>${INVITATION_ROLE_LABEL[role] || role}</strong>.</p>
+        <p>Has recibido una invitación para acceder a <strong>${safeTenantName}</strong> con el rol de <strong>${escapeInvitationHtml(INVITATION_ROLE_LABEL[role] || role)}</strong>.</p>
         <p>Crea tu contraseña para activar tu cuenta y empezar a usar la plataforma.</p>
       `,
       cta: { label: "Aceptar invitación", url },
@@ -79,9 +74,16 @@ async function sendInvitationEmail({
   });
 }
 
-export async function expirePendingInvitations(now = new Date()) {
+export async function expirePendingInvitations(
+  now = new Date(),
+  tenantId?: string
+) {
   const expired = await prisma.invitation.updateMany({
-    where: { status: "PENDING", expiresAt: { lt: now } },
+    where: {
+      status: "PENDING",
+      expiresAt: { lt: now },
+      ...(tenantId ? { tenantId } : {}),
+    },
     data: { status: "EXPIRED" },
   });
 
@@ -103,74 +105,124 @@ export async function createInvitation({
   expiresInHours?: number;
   origin?: string | null;
 }) {
-  ensureInvitableRole(role);
-  const normalizedEmail = normalizeEmail(email);
+  const safeRole = ensureInvitableRole(role);
+  const normalizedEmail = normalizeInvitationEmail(email);
   const token = createInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+  const lockKey = `invitation:${tenantId}:${normalizedEmail}`;
+  const now = new Date();
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } });
-  if (!tenant) throw new Error("Conjunto no encontrado");
+  const created = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
-  await expirePendingInvitations();
+    const tenant = await tx.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true },
+    });
+    if (!tenant) throw new InvitationDomainError("TENANT_NOT_FOUND");
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: { id: true, tenantId: true, role: true, isActive: true },
+    await tx.invitation.updateMany({
+      where: {
+        tenantId,
+        email: { equals: normalizedEmail, mode: "insensitive" },
+        status: "PENDING",
+        expiresAt: { lte: now },
+      },
+      data: { status: "EXPIRED" },
+    });
+
+    const existingUser = await tx.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+      select: { id: true, tenantId: true, role: true, isActive: true },
+    });
+    const reusableInactiveUser =
+      existingUser &&
+      existingUser.tenantId === tenantId &&
+      existingUser.role !== "SUPER_ADMIN" &&
+      !existingUser.isActive;
+    if (existingUser && !reusableInactiveUser) {
+      throw new InvitationDomainError("INVITATION_CONFLICT");
+    }
+
+    const duplicate = await tx.invitation.findFirst({
+      where: {
+        tenantId,
+        email: { equals: normalizedEmail, mode: "insensitive" },
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new InvitationDomainError("INVITATION_CONFLICT");
+
+    const invitation = await tx.invitation.create({
+      data: {
+        tenantId,
+        email: normalizedEmail,
+        role: safeRole,
+        tokenHash,
+        status: "PENDING",
+        expiresAt,
+        invitedById: invitedById ?? null,
+      },
+    });
+
+    await registerAuditLog(
+      {
+        actorUserId: invitedById,
+        tenantId,
+        action: AuditAction.INVITATION_CREATED,
+        targetType: "Invitation",
+        targetId: invitation.id,
+        origin,
+        metadata: {
+          email: normalizedEmail,
+          role: safeRole,
+          expiresAt: expiresAt.toISOString(),
+        },
+      },
+      tx
+    );
+
+    return { invitation, tenant };
   });
-  if (existingUser?.role === "SUPER_ADMIN") throw new Error("No se puede invitar una cuenta de plataforma");
-  // Mensaje generico sin importar de que conjunto sea el usuario activo: distinguirlo
-  // le permitiria a un ADMIN de un conjunto averiguar si un correo pertenece a un
-  // usuario activo de OTRO conjunto (fuga de informacion cross-tenant).
-  if (existingUser?.isActive) {
-    throw new Error("Este correo ya pertenece a un usuario activo");
-  }
-  const duplicate = await prisma.invitation.findFirst({
-    where: { tenantId, email: normalizedEmail, status: "PENDING", expiresAt: { gt: new Date() } },
-    select: { id: true },
-  });
-  if (duplicate) throw new Error("Ya existe una invitacion pendiente para este correo");
 
-  const invitation = await prisma.invitation.create({
-    data: {
-      tenantId,
-      email: normalizedEmail,
-      role,
-      tokenHash,
-      status: "PENDING",
-      expiresAt,
-      invitedById: invitedById ?? null,
-    },
-  });
-
-  await registerAuditLog({
-    actorUserId: invitedById,
+  const emailResult = await sendInvitationEmail({
     tenantId,
-    action: AuditAction.INVITATION_CREATED,
-    targetType: "Invitation",
-    targetId: invitation.id,
-    origin,
-    metadata: { email: normalizedEmail, role, expiresAt: expiresAt.toISOString() },
+    email: normalizedEmail,
+    tenantName: created.tenant.name,
+    role: safeRole,
+    token,
   });
-
-  const emailResult = await sendInvitationEmail({ tenantId, email: normalizedEmail, tenantName: tenant.name, role, token });
 
   if (invitedById) {
     await createNotification({
       tenantId,
       userId: invitedById,
       type: NotificationTypes.INVITATION_RECEIVED,
-      title: "Invitacion enviada",
-      message: `Se envio una invitacion a ${normalizedEmail}.`,
+      title: emailResult.ok ? "Invitacion enviada" : "Invitacion creada",
+      message: emailResult.ok
+        ? `Se envio una invitacion a ${normalizedEmail}.`
+        : `La invitacion para ${normalizedEmail} quedo pendiente de envio.`,
       resourceType: "Invitation",
-      resourceId: invitation.id,
+      resourceId: created.invitation.id,
     }).catch(() => null);
   }
 
-  return { invitation, token, invitationUrl: invitationUrl(token), emailResult };
+  return {
+    invitation: created.invitation,
+    token,
+    invitationUrl: invitationUrl(token),
+    emailResult,
+  };
 }
-
-export type BulkInvitationResult = { email: string; ok: boolean; error?: string };
+export type BulkInvitationResult = {
+  email: string;
+  ok: boolean;
+  emailSent?: boolean;
+  error?: string;
+};
 
 export async function createBulkInvitations({
   tenantId,
@@ -185,22 +237,45 @@ export async function createBulkInvitations({
   invitedById?: string | null;
   origin?: string | null;
 }): Promise<BulkInvitationResult[]> {
-  ensureInvitableRole(role);
-  const uniqueEmails = Array.from(new Set(emails.map(normalizeEmail))).filter(Boolean);
+  const safeRole = ensureInvitableRole(role);
+  const uniqueEmails = Array.from(
+    new Set(emails.map(normalizeInvitationEmail))
+  );
+  if (uniqueEmails.length > MAX_BULK_INVITATIONS) {
+    throw new Error(
+      `El lote supera el maximo de ${MAX_BULK_INVITATIONS} correos`
+    );
+  }
 
+  // Atomicidad parcial deliberada: cada fila es una invitacion independiente.
+  // Un fallo no revierte las filas ya creadas y cada resultado se devuelve sin
+  // token, URL privada ni detalle de infraestructura.
   const results: BulkInvitationResult[] = [];
-  for (const email of uniqueEmails) {
+  for (const normalizedEmail of uniqueEmails) {
     try {
-      await createInvitation({ tenantId, email, role, invitedById, origin });
-      results.push({ email, ok: true });
+      const created = await createInvitation({
+        tenantId,
+        email: normalizedEmail,
+        role: safeRole,
+        invitedById,
+        origin,
+      });
+      results.push({
+        email: normalizedEmail,
+        ok: true,
+        emailSent: created.emailResult.ok,
+      });
     } catch (error) {
-      results.push({ email, ok: false, error: error instanceof Error ? error.message : "No se pudo invitar" });
+      results.push({
+        email: normalizedEmail,
+        ok: false,
+        error: mapInvitationError(error).message,
+      });
     }
   }
 
   return results;
 }
-
 export async function resendInvitation({
   tenantId,
   invitationId,
@@ -212,39 +287,109 @@ export async function resendInvitation({
   actorUserId?: string | null;
   origin?: string | null;
 }) {
-  const invitation = await prisma.invitation.findFirst({
-    where: { id: invitationId, tenantId },
-    include: { tenant: { select: { name: true } } },
-  });
-
-  if (!invitation) throw new Error("Invitacion no encontrada");
-  if (invitation.status !== "PENDING") throw new Error("Solo se pueden reenviar invitaciones pendientes");
-  if (invitation.expiresAt < new Date()) {
-    await prisma.invitation.update({ where: { id: invitation.id }, data: { status: "EXPIRED" } });
-    throw new Error("La invitacion esta vencida");
-  }
-
   const token = createInvitationToken();
   const tokenHash = hashInvitationToken(token);
-  const updated = await prisma.invitation.update({
-    where: { id: invitation.id },
-    data: { tokenHash, expiresAt: new Date(Date.now() + DEFAULT_EXPIRES_HOURS * 60 * 60 * 1000) },
+  const now = new Date();
+  const expiresAt = new Date(
+    now.getTime() + DEFAULT_EXPIRES_HOURS * 60 * 60 * 1000
+  );
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "Invitation"
+      WHERE id = ${invitationId} AND "tenantId" = ${tenantId}
+      FOR UPDATE
+    `;
+    const invitation = await tx.invitation.findFirst({
+      where: { id: invitationId, tenantId },
+      include: { tenant: { select: { name: true } } },
+    });
+    if (!invitation) {
+      throw new InvitationDomainError("INVITATION_NOT_FOUND");
+    }
+    if (invitation.status !== "PENDING") {
+      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
+    }
+    if (invitation.expiresAt <= now) {
+      await tx.invitation.updateMany({
+        where: {
+          id: invitation.id,
+          tenantId,
+          status: "PENDING",
+          expiresAt: { lte: now },
+        },
+        data: { status: "EXPIRED" },
+      });
+      await registerAuditLog(
+        {
+          actorUserId,
+          tenantId,
+          action: AuditAction.INVITATION_EXPIRED,
+          targetType: "Invitation",
+          targetId: invitation.id,
+          origin,
+          metadata: { role: invitation.role },
+        },
+        tx
+      );
+      return { kind: "expired" as const };
+    }
+
+    const rotated = await tx.invitation.updateMany({
+      where: {
+        id: invitation.id,
+        tenantId,
+        tokenHash: invitation.tokenHash,
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      data: { tokenHash, expiresAt },
+    });
+    if (rotated.count !== 1) {
+      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
+    }
+    const updated = await tx.invitation.findFirstOrThrow({
+      where: { id: invitation.id, tenantId, tokenHash },
+    });
+
+    await registerAuditLog(
+      {
+        actorUserId,
+        tenantId,
+        action: AuditAction.INVITATION_RESENT,
+        targetType: "Invitation",
+        targetId: invitation.id,
+        origin,
+        metadata: { email: invitation.email, role: invitation.role },
+      },
+      tx
+    );
+
+    return {
+      kind: "ready" as const,
+      invitation: updated,
+      tenantName: invitation.tenant.name,
+    };
   });
 
-  await registerAuditLog({
-    actorUserId,
+  if (outcome.kind === "expired") {
+    throw new InvitationDomainError("INVITATION_EXPIRED");
+  }
+
+  const emailResult = await sendInvitationEmail({
     tenantId,
-    action: AuditAction.INVITATION_RESENT,
-    targetType: "Invitation",
-    targetId: invitation.id,
-    origin,
-    metadata: { email: invitation.email, role: invitation.role },
+    email: outcome.invitation.email,
+    tenantName: outcome.tenantName,
+    role: outcome.invitation.role,
+    token,
   });
-
-  const emailResult = await sendInvitationEmail({ tenantId, email: invitation.email, tenantName: invitation.tenant.name, role: invitation.role, token });
-  return { invitation: updated, token, invitationUrl: invitationUrl(token), emailResult };
+  return {
+    invitation: outcome.invitation,
+    token,
+    invitationUrl: invitationUrl(token),
+    emailResult,
+  };
 }
-
 export async function cancelInvitation({
   tenantId,
   invitationId,
@@ -256,25 +401,54 @@ export async function cancelInvitation({
   actorUserId?: string | null;
   origin?: string | null;
 }) {
-  const invitation = await prisma.invitation.findFirst({ where: { id: invitationId, tenantId } });
-  if (!invitation) throw new Error("Invitacion no encontrada");
-  if (invitation.status !== "PENDING") throw new Error("Solo se pueden cancelar invitaciones pendientes");
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "Invitation"
+      WHERE id = ${invitationId} AND "tenantId" = ${tenantId}
+      FOR UPDATE
+    `;
+    const invitation = await tx.invitation.findFirst({
+      where: { id: invitationId, tenantId },
+    });
+    if (!invitation) {
+      throw new InvitationDomainError("INVITATION_NOT_FOUND");
+    }
+    if (invitation.status !== "PENDING") {
+      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
+    }
 
-  const updated = await prisma.invitation.update({ where: { id: invitation.id }, data: { status: "CANCELLED" } });
+    const cancelled = await tx.invitation.updateMany({
+      where: {
+        id: invitation.id,
+        tenantId,
+        tokenHash: invitation.tokenHash,
+        status: "PENDING",
+      },
+      data: { status: "CANCELLED" },
+    });
+    if (cancelled.count !== 1) {
+      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
+    }
+    const updated = await tx.invitation.findFirstOrThrow({
+      where: { id: invitation.id, tenantId, status: "CANCELLED" },
+    });
 
-  await registerAuditLog({
-    actorUserId,
-    tenantId,
-    action: AuditAction.INVITATION_CANCELLED,
-    targetType: "Invitation",
-    targetId: invitation.id,
-    origin,
-    metadata: { email: invitation.email, role: invitation.role },
+    await registerAuditLog(
+      {
+        actorUserId,
+        tenantId,
+        action: AuditAction.INVITATION_CANCELLED,
+        targetType: "Invitation",
+        targetId: invitation.id,
+        origin,
+        metadata: { email: invitation.email, role: invitation.role },
+      },
+      tx
+    );
+
+    return updated;
   });
-
-  return updated;
 }
-
 export async function acceptInvitation({
   token,
   password,
@@ -292,57 +466,109 @@ export async function acceptInvitation({
   acceptedLegal: boolean;
   origin?: string | null;
 }) {
-  if (!token || token.length < 20) throw new Error("Token de invitacion invalido");
-  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-    throw new Error("La contrasena debe tener al menos 8 caracteres, una letra y un numero");
+  if (typeof token !== "string" || token.length < 20 || token.length > 256) {
+    throw new InvitationDomainError("INVALID_TOKEN");
   }
   const tokenHash = hashInvitationToken(token);
-  const invitation = await prisma.invitation.findUnique({ where: { tokenHash } });
+  const initial = await prisma.invitation.findUnique({ where: { tokenHash } });
+  if (!initial) throw new InvitationDomainError("INVALID_TOKEN");
 
-  if (!invitation) throw new Error("Invitacion no encontrada");
-  if (invitation.status === "ACCEPTED") throw new Error("Esta invitacion ya fue utilizada");
-  if (invitation.status === "CANCELLED") throw new Error("Esta invitacion fue cancelada");
-  if (invitation.status === "EXPIRED" || invitation.expiresAt < new Date()) {
-    await prisma.invitation.update({ where: { id: invitation.id }, data: { status: "EXPIRED" } });
-    await registerAuditLog({
-      tenantId: invitation.tenantId,
-      action: AuditAction.INVITATION_EXPIRED,
-      targetType: "Invitation",
-      targetId: invitation.id,
-      origin,
-      metadata: { email: invitation.email, role: invitation.role },
+    const now = new Date();
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "Invitation"
+      WHERE id = ${initial.id}
+      FOR UPDATE
+    `;
+    const invitation = await tx.invitation.findUnique({ where: { tokenHash } });
+    if (!invitation || invitation.id !== initial.id) {
+      throw new InvitationDomainError("INVALID_TOKEN");
+    }
+    if (invitation.status === "ACCEPTED") {
+      throw new InvitationDomainError("INVITATION_USED");
+    }
+    if (invitation.status === "CANCELLED") {
+      throw new InvitationDomainError("INVITATION_CANCELLED");
+    }
+    if (invitation.status === "EXPIRED" || invitation.expiresAt <= now) {
+      if (invitation.status === "PENDING") {
+        await tx.invitation.updateMany({
+          where: {
+            id: invitation.id,
+            tokenHash,
+            status: "PENDING",
+            expiresAt: { lte: now },
+          },
+          data: { status: "EXPIRED" },
+        });
+        await registerAuditLog(
+          {
+            tenantId: invitation.tenantId,
+            action: AuditAction.INVITATION_EXPIRED,
+            targetType: "Invitation",
+            targetId: invitation.id,
+            origin,
+            metadata: { role: invitation.role },
+          },
+          tx
+        );
+      }
+      return { kind: "expired" as const };
+    }
+
+const input = validateInvitationAcceptance({
+      token,
+      password,
+      name,
+      role: invitation.role,
+      bloque,
+      apto,
+      acceptedLegal,
     });
-    throw new Error("Esta invitacion esta vencida");
-  }
-
-  if (!acceptedLegal) throw new Error("Debes aceptar los terminos y la politica de tratamiento de datos");
-  const passwordHash = await bcrypt.hash(password, 10);
-  const normalizedEmail = normalizeEmail(invitation.email);
-
-  const result = await prisma.$transaction(async (tx) => {
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const normalizedEmail = normalizeInvitationEmail(invitation.email);
     const claimed = await tx.invitation.updateMany({
-      where: { id: invitation.id, status: "PENDING", expiresAt: { gt: new Date() } },
-      data: { status: "ACCEPTED", acceptedAt: new Date() },
+      where: {
+        id: invitation.id,
+        tokenHash,
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      data: { status: "ACCEPTED", acceptedAt: now },
     });
-    if (claimed.count !== 1) throw new Error("Esta invitacion ya fue utilizada o no esta disponible");
-    const existing = await tx.user.findUnique({ where: { email: normalizedEmail } });
-    if (existing?.tenantId && existing.tenantId !== invitation.tenantId) throw new Error("El correo ya pertenece a otro conjunto");
-    if (existing?.role === "SUPER_ADMIN") throw new Error("No se puede reutilizar una cuenta de plataforma");
-    if (existing?.isActive) throw new Error("El usuario ya esta activo; no se puede reutilizar la invitacion");
+    if (claimed.count !== 1) {
+      throw new InvitationDomainError("INVITATION_UNAVAILABLE");
+    }
+
+    const existing = await tx.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+    });
+    if (
+      existing &&
+      (existing.tenantId !== invitation.tenantId ||
+        existing.role === "SUPER_ADMIN" ||
+        existing.isActive)
+    ) {
+      throw new InvitationDomainError("INVITATION_CONFLICT");
+    }
+
+    const legalAcceptedAt = now;
     const user = existing
       ? await tx.user.update({
           where: { id: existing.id },
           data: {
-            name: name.trim() || existing.name,
+            email: normalizedEmail,
+            name: input.name,
             password: passwordHash,
             role: invitation.role,
             tenantId: invitation.tenantId,
-            bloque: invitation.role === "RESIDENTE" ? bloque ?? existing.bloque : null,
-            apto: invitation.role === "RESIDENTE" ? apto ?? existing.apto : null,
+            bloque: input.bloque,
+            apto: input.apto,
             isActive: true,
             onboardingCompletedAt: null,
-            termsAcceptedAt: new Date(),
-            privacyAcceptedAt: new Date(),
+            termsAcceptedAt: legalAcceptedAt,
+            privacyAcceptedAt: legalAcceptedAt,
             termsVersion: LEGAL_DOCUMENT_VERSION,
             privacyVersion: LEGAL_DOCUMENT_VERSION,
           },
@@ -350,94 +576,158 @@ export async function acceptInvitation({
       : await tx.user.create({
           data: {
             email: normalizedEmail,
-            name: name.trim() || normalizedEmail.split("@")[0],
+            name: input.name,
             password: passwordHash,
             role: invitation.role,
             tenantId: invitation.tenantId,
-            bloque: invitation.role === "RESIDENTE" ? bloque ?? null : null,
-            apto: invitation.role === "RESIDENTE" ? apto ?? null : null,
+            bloque: input.bloque,
+            apto: input.apto,
             isActive: true,
-            termsAcceptedAt: new Date(),
-            privacyAcceptedAt: new Date(),
+            termsAcceptedAt: legalAcceptedAt,
+            privacyAcceptedAt: legalAcceptedAt,
             termsVersion: LEGAL_DOCUMENT_VERSION,
             privacyVersion: LEGAL_DOCUMENT_VERSION,
           },
         });
 
-    const accepted = await tx.invitation.findUnique({ where: { id: invitation.id } });
-    if (!accepted) throw new Error("No se pudo confirmar la invitacion");
+    const accepted = await tx.invitation.findFirstOrThrow({
+      where: {
+        id: invitation.id,
+        tokenHash,
+        status: "ACCEPTED",
+        acceptedAt: now,
+      },
+    });
 
-    return { user, invitation: accepted };
+    await registerAuditLog(
+      {
+        actorUserId: user.id,
+        tenantId: invitation.tenantId,
+        action: AuditAction.INVITATION_ACCEPTED,
+        targetType: "Invitation",
+        targetId: invitation.id,
+        origin,
+        metadata: {
+          email: normalizedEmail,
+          role: invitation.role,
+          userId: user.id,
+        },
+      },
+      tx
+    );
+
+    return { kind: "accepted" as const, user, invitation: accepted };
   });
 
-  await registerAuditLog({
-    actorUserId: result.user.id,
-    tenantId: invitation.tenantId,
-    action: AuditAction.INVITATION_ACCEPTED,
-    targetType: "Invitation",
-    targetId: invitation.id,
-    origin,
-    metadata: { email: normalizedEmail, role: invitation.role, userId: result.user.id },
-  });
+  if (outcome.kind === "expired") {
+    throw new InvitationDomainError("INVITATION_EXPIRED");
+  }
 
   await createNotification({
-    tenantId: invitation.tenantId,
-    userId: result.user.id,
+    tenantId: outcome.invitation.tenantId,
+    userId: outcome.user.id,
     type: NotificationTypes.INVITATION_RECEIVED,
     title: "Bienvenido a PQRS Services",
     message: "Tu cuenta fue activada correctamente.",
     resourceType: "Invitation",
-    resourceId: invitation.id,
+    resourceId: outcome.invitation.id,
   }).catch(() => null);
 
   const admins = await prisma.user.findMany({
-    where: { tenantId: invitation.tenantId, role: "ADMIN", isActive: true },
+    where: {
+      tenantId: outcome.invitation.tenantId,
+      role: "ADMIN",
+      isActive: true,
+    },
     select: { id: true },
   });
-  await Promise.allSettled(admins.map((admin) => createNotification({
-    tenantId: invitation.tenantId,
-    userId: admin.id,
-    type: NotificationTypes.INVITATION_ACCEPTED,
-    title: "Invitacion aceptada",
-    message: result.user.name + " acepto la invitacion.",
-    resourceType: "User",
-    resourceId: result.user.id,
-  })));
+  await Promise.allSettled(
+    admins.map((admin) =>
+      createNotification({
+        tenantId: outcome.invitation.tenantId,
+        userId: admin.id,
+        type: NotificationTypes.INVITATION_ACCEPTED,
+        title: "Invitacion aceptada",
+        message: outcome.user.name + " acepto la invitacion.",
+        resourceType: "User",
+        resourceId: outcome.user.id,
+      })
+    )
+  );
+
+  const safeUserName = escapeInvitationHtml(outcome.user.name);
   await sendEmailSafe({
-    tenantId: invitation.tenantId,
-    to: result.user.email,
+    tenantId: outcome.invitation.tenantId,
+    to: outcome.user.email,
     template: "account_confirmation",
-    subject: "Tu cuenta de PQRS Services está activa",
+    subject: "Tu cuenta de PQRS Services esta activa",
     html: renderEmailLayout({
       accent: "success",
       eyebrow: "Cuenta activada",
-      heading: "Tu cuenta ya está lista",
-      bodyHtml: `<p>Hola <strong>${result.user.name}</strong>,</p><p>Tu cuenta fue activada correctamente. Ya puedes iniciar sesión y empezar a usar la plataforma.</p>`,
-      cta: { label: "Iniciar sesión", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/auth/login` },
+      heading: "Tu cuenta ya esta lista",
+      bodyHtml: `<p>Hola <strong>${safeUserName}</strong>,</p><p>Tu cuenta fue activada correctamente. Ya puedes iniciar sesion y empezar a usar la plataforma.</p>`,
+      cta: {
+        label: "Iniciar sesion",
+        url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/auth/login`,
+      },
     }),
   });
 
-  return result;
+  return { user: outcome.user, invitation: outcome.invitation };
 }
-
 export async function inspectInvitation(token: string) {
-  if (!token || token.length < 20) throw new Error("Token de invitacion invalido");
+  if (typeof token !== "string" || token.length < 20 || token.length > 256) {
+    throw new InvitationDomainError("INVALID_TOKEN");
+  }
+  const tokenHash = hashInvitationToken(token);
   const invitation = await prisma.invitation.findUnique({
-    where: { tokenHash: hashInvitationToken(token) },
+    where: { tokenHash },
     include: { tenant: { select: { id: true, name: true } } },
   });
-  if (!invitation) throw new Error("Invitacion no encontrada");
-  if (invitation.status === "ACCEPTED") throw new Error("Esta invitacion ya fue utilizada");
-  if (invitation.status === "CANCELLED") throw new Error("Esta invitacion fue cancelada");
-  if (invitation.status === "EXPIRED" || invitation.expiresAt < new Date()) {
-    if (invitation.status !== "EXPIRED") {
-      await prisma.invitation.update({ where: { id: invitation.id }, data: { status: "EXPIRED" } });
-    }
-    throw new Error("Esta invitacion esta vencida");
+  if (!invitation) throw new InvitationDomainError("INVALID_TOKEN");
+  if (invitation.status === "ACCEPTED") {
+    throw new InvitationDomainError("INVITATION_USED");
   }
-  return { email: invitation.email, role: invitation.role, expiresAt: invitation.expiresAt, tenant: invitation.tenant };
+  if (invitation.status === "CANCELLED") {
+    throw new InvitationDomainError("INVITATION_CANCELLED");
+  }
+  const now = new Date();
+  if (invitation.status === "EXPIRED" || invitation.expiresAt <= now) {
+    if (invitation.status === "PENDING") {
+      await prisma.$transaction(async (tx) => {
+        const expired = await tx.invitation.updateMany({
+          where: {
+            id: invitation.id,
+            tokenHash,
+            status: "PENDING",
+            expiresAt: { lte: now },
+          },
+          data: { status: "EXPIRED" },
+        });
+        if (expired.count === 1) {
+          await registerAuditLog(
+            {
+              tenantId: invitation.tenantId,
+              action: AuditAction.INVITATION_EXPIRED,
+              targetType: "Invitation",
+              targetId: invitation.id,
+              origin: "invitation-inspection",
+              metadata: { role: invitation.role },
+            },
+            tx
+          );
+        }
+      });
+    }
+    throw new InvitationDomainError("INVITATION_EXPIRED");
+  }
+  return {
+    email: invitation.email,
+    role: invitation.role,
+    expiresAt: invitation.expiresAt,
+    tenant: invitation.tenant,
+  };
 }
-
 export async function listInvitationsForTenant({
   tenantId,
   status,
@@ -451,7 +741,7 @@ export async function listInvitationsForTenant({
   page?: number;
   pageSize?: number;
 }) {
-  await expirePendingInvitations();
+  await expirePendingInvitations(new Date(), tenantId);
   const where = {
     tenantId,
     ...(status ? { status } : {}),

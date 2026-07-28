@@ -1,27 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
-import { getTenantAccessResponse } from "@/lib/tenant-access-response";
 import { cancelInvitation } from "@/domains/organizations/invitation.service";
+import { mapInvitationError } from "@/domains/organizations/invitation-security";
+import { resolveUserManagementAccess } from "@/domains/organizations/user-management-access";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let access;
+  try {
+    access = await resolveUserManagementAccess(
+      session,
+      req.nextUrl.searchParams.get("tenantId")
+    );
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
-
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
 
   try {
     const invitation = await cancelInvitation({
-      tenantId: getTenantIdFromSession(session),
+      tenantId: access.tenantId,
       invitationId: params.id,
-      actorUserId: session.user.id,
-      origin: req.headers.get("x-forwarded-for") || req.headers.get("user-agent") || "api",
+      actorUserId: access.actorUserId,
+      origin:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("user-agent") ||
+        "api",
     });
-    return NextResponse.json(invitation);
+    return NextResponse.json({
+      invitation: {
+        id: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        status: invitation.status,
+        expiresAt: invitation.expiresAt,
+      },
+    });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo cancelar" }, { status: 400 });
+    const mapped = mapInvitationError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }

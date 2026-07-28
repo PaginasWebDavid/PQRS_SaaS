@@ -1,77 +1,166 @@
-import { AuditAction, Role } from "@prisma/client";
+import { AuditAction } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { createInvitation } from "@/domains/organizations/invitation.service";
+import {
+  ensureInvitableRole,
+  mapInvitationError,
+} from "@/domains/organizations/invitation-security";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import {
+  AuthorizationError,
+  requireAuthenticatedUser,
+} from "@/lib/authorization";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "RESIDENTE"].includes(session.user.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let identity;
+  try {
+    identity = await requireAuthenticatedUser(session);
+    if (!identity.tenantId) throw new AuthorizationError("TENANT_REQUIRED");
+    if (identity.role !== "ADMIN" && identity.role !== "RESIDENTE") {
+      throw new AuthorizationError("FORBIDDEN");
+    }
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
-  // No se aplica el bloqueo de acceso por licencia aqui: completar el onboarding
-  // (paso previo al pago) debe ser posible incluso con la suscripcion en PENDING_PAYMENT.
-  const tenantId = getTenantIdFromSession(session);
-  const current = await prisma.user.findFirst({ where: { id: session.user.id, tenantId } });
-  if (!current) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-  if (current.onboardingCompletedAt) return NextResponse.json({ user: current, alreadyCompleted: true });
 
-  const body = await req.json();
-  const name = String(body.name || current.name).trim();
-  const phone = body.phone == null || body.phone === "" ? current.phone : String(body.phone).trim();
-  if (name.length < 2 || name.length > 120) return NextResponse.json({ error: "Nombre invalido" }, { status: 400 });
-  if (phone && !/^[+0-9 ()-]{7,25}$/.test(phone)) return NextResponse.json({ error: "Telefono invalido" }, { status: 400 });
+  const tenantId = identity.tenantId;
+  const current = await prisma.user.findFirst({
+    where: { id: identity.userId, tenantId },
+  });
+  if (!current) {
+    return NextResponse.json(
+      { error: "Usuario no encontrado" },
+      { status: 404 }
+    );
+  }
+  if (current.onboardingCompletedAt) {
+    return NextResponse.json({ user: current, alreadyCompleted: true });
+  }
 
-  if (session.user.role === "ADMIN") {
-    const tenantName = String(body.tenantName || "").trim();
-    const city = String(body.city || "").trim();
-    if (tenantName.length < 2) return NextResponse.json({ error: "Nombre del conjunto invalido" }, { status: 400 });
-    await prisma.tenant.update({ where: { id: tenantId }, data: { name: tenantName, city: city || null } });
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Datos invalidos" }, { status: 400 });
+  }
+  const record = body as Record<string, unknown>;
+  const name = String(record.name || current.name).trim();
+  const phone =
+    record.phone == null || record.phone === ""
+      ? current.phone
+      : String(record.phone).trim();
+  if (name.length < 2 || name.length > 120) {
+    return NextResponse.json({ error: "Nombre invalido" }, { status: 400 });
+  }
+  if (phone && !/^[+0-9 ()-]{7,25}$/.test(phone)) {
+    return NextResponse.json({ error: "Telefono invalido" }, { status: 400 });
+  }
+
+  let tenantName: string | undefined;
+  let city: string | null | undefined;
+  if (identity.role === "ADMIN") {
+    tenantName = String(record.tenantName || "").trim();
+    city = String(record.city || "").trim() || null;
+    if (tenantName.length < 2 || tenantName.length > 160) {
+      return NextResponse.json(
+        { error: "Nombre del conjunto invalido" },
+        { status: 400 }
+      );
+    }
+    if (city && city.length > 120) {
+      return NextResponse.json({ error: "Ciudad invalida" }, { status: 400 });
+    }
   }
 
   let bloque: number | undefined;
   let apto: number | undefined;
-  if (session.user.role === "RESIDENTE") {
-    bloque = Number(body.bloque ?? current.bloque);
-    apto = Number(body.apto ?? current.apto);
+  if (identity.role === "RESIDENTE") {
+    bloque = Number(record.bloque ?? current.bloque);
+    apto = Number(record.apto ?? current.apto);
     if (!Number.isInteger(bloque) || bloque < 1 || bloque > 999) {
       return NextResponse.json({ error: "Bloque invalido" }, { status: 400 });
     }
     if (!Number.isInteger(apto) || apto < 1 || apto > 9999) {
-      return NextResponse.json({ error: "Apartamento invalido" }, { status: 400 });
-    }
-  }
-
-  // La invitacion del paso 2 es opcional y de cortesia: si falla (correo duplicado,
-  // invitacion pendiente repetida, envio fallido, etc.) el onboarding debe completarse
-  // igual. Bloquear el paso final por esto dejaba al admin sin poder entrar nunca.
-  let invitationResult: { emailSent: boolean; error?: string | null } | null = null;
-  if (session.user.role === "ADMIN" && body.inviteEmail) {
-    try {
-      const invitation = await createInvitation({
-        tenantId, email: String(body.inviteEmail), role: String(body.inviteRole || "RESIDENTE").toUpperCase() as Role,
-        invitedById: session.user.id, origin: "onboarding",
-      });
-      invitationResult = { emailSent: invitation.emailResult.ok, error: invitation.emailResult.ok ? undefined : invitation.emailResult.errorMessage };
-    } catch (error) {
-      invitationResult = { emailSent: false, error: error instanceof Error ? error.message : "No se pudo crear la invitacion" };
+      return NextResponse.json(
+        { error: "Apartamento invalido" },
+        { status: 400 }
+      );
     }
   }
 
   const completedAt = new Date();
-  const user = await prisma.user.update({
-    where: { id: session.user.id },
-    data: {
-      name, phone, onboardingCompletedAt: completedAt,
-      ...(session.user.role === "RESIDENTE" ? { bloque, apto } : {}),
-    },
-    select: { id: true, name: true, role: true, tenantId: true, bloque: true, apto: true, onboardingCompletedAt: true },
+  const user = await prisma.$transaction(async (tx) => {
+    if (identity.role === "ADMIN") {
+      const updatedTenant = await tx.tenant.updateMany({
+        where: { id: tenantId },
+        data: { name: tenantName, city },
+      });
+      if (updatedTenant.count !== 1) {
+        throw new AuthorizationError("RESOURCE_NOT_FOUND");
+      }
+    }
+
+    const updatedUser = await tx.user.updateMany({
+      where: { id: identity.userId, tenantId, isActive: true },
+      data: {
+        name,
+        phone,
+        onboardingCompletedAt: completedAt,
+        ...(identity.role === "RESIDENTE" ? { bloque, apto } : {}),
+      },
+    });
+    if (updatedUser.count !== 1) {
+      throw new AuthorizationError("RESOURCE_NOT_FOUND");
+    }
+    const stored = await tx.user.findFirstOrThrow({
+      where: { id: identity.userId, tenantId },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        tenantId: true,
+        bloque: true,
+        apto: true,
+        onboardingCompletedAt: true,
+      },
+    });
+    await registerAuditLog(
+      {
+        actorUserId: identity.userId,
+        tenantId,
+        action: AuditAction.ONBOARDING_COMPLETED,
+        targetType: "User",
+        targetId: identity.userId,
+        origin: "onboarding",
+        metadata: { role: identity.role },
+      },
+      tx
+    );
+    return stored;
   });
-  await registerAuditLog({
-    actorUserId: session.user.id, tenantId, action: AuditAction.ONBOARDING_COMPLETED,
-    targetType: "User", targetId: session.user.id, origin: "onboarding", metadata: { role: session.user.role },
-  });
+
+  let invitationResult: { emailSent: boolean; error?: string } | null = null;
+  if (identity.role === "ADMIN" && record.inviteEmail) {
+    try {
+      const invitation = await createInvitation({
+        tenantId,
+        email: String(record.inviteEmail),
+        role: ensureInvitableRole(record.inviteRole ?? "RESIDENTE"),
+        invitedById: identity.userId,
+        origin: "onboarding",
+      });
+      invitationResult = { emailSent: invitation.emailResult.ok };
+    } catch (error) {
+      invitationResult = {
+        emailSent: false,
+        error: mapInvitationError(error).message,
+      };
+    }
+  }
+
   return NextResponse.json({ user, invitationResult });
 }

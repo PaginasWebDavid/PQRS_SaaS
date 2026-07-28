@@ -19,6 +19,7 @@ const KNOWN_USER_MANAGEMENT_ERRORS = new Map<string, number>([
   ["Rol invalido", 400],
   ["Bloque invalido", 400],
   ["Apartamento invalido", 400],
+  ["La ubicacion solo aplica a residentes", 400],
   ["No puedes cambiar tu propio rol ni desactivar tu cuenta", 400],
   ["El conjunto debe conservar al menos un administrador activo", 400],
 ]);

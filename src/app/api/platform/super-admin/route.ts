@@ -14,6 +14,9 @@ import {
   updatePricingRuleCaps,
 } from "@/domains/billing/billing.service";
 import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
+import { requireSuperAdmin, requireSuperAdminTenantTarget } from "@/lib/authorization";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
+import { mapInvitationError, publicInvitationEmailResult } from "@/domains/organizations/invitation-security";
 
 const identifierSchema = z.string().trim().min(1).max(128);
 const positiveIntegerSchema = z.coerce.number().int().positive();
@@ -110,14 +113,15 @@ const resendInvitationSchema = z.object({
   invitationId: identifierSchema,
 });
 
-function requireSuperAdmin(role?: string) {
-  return role === "SUPER_ADMIN";
-}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || !requireSuperAdmin(session.user.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  try {
+    await requireSuperAdmin(session);
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
   const tenantId = req.nextUrl.searchParams.get("tenantId");
   const data = await getSuperAdminOverview(tenantId);
@@ -126,8 +130,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || !requireSuperAdmin(session.user.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let superAdmin;
+  try {
+    superAdmin = await requireSuperAdmin(session);
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {
@@ -136,26 +145,33 @@ export async function POST(req: NextRequest) {
 
     if (action === "createTenant") {
       const input = createTenantSchema.parse(body);
-      const result = await createTenantWithAdmin(session.user.id, {
-        ...input,
-        slug: input.slug || input.name,
-      });
-      return NextResponse.json(result, { status: 201 });
+      try {
+        const result = await createTenantWithAdmin(superAdmin.userId, {
+          ...input,
+          slug: input.slug || input.name,
+        });
+        return NextResponse.json(result, { status: 201 });
+      } catch {
+        return NextResponse.json(
+          { error: "No se pudo crear el conjunto" },
+          { status: 400 }
+        );
+      }
     }
     if (action === "updateTenantStatus") {
       const input = tenantStatusSchema.parse(body);
-      const result = await updateTenantStatusForSuperAdmin(session.user.id, input.tenantId, input.status);
+      const result = await updateTenantStatusForSuperAdmin(superAdmin.userId, input.tenantId, input.status);
       return NextResponse.json(result);
     }
     if (action === "renewSubscription") {
       const input = tenantIdSchema.parse(body);
-      const result = await renewSubscriptionWithSimulatedPayment({ actorUserId: session.user.id, tenantId: input.tenantId });
+      const result = await renewSubscriptionWithSimulatedPayment({ actorUserId: superAdmin.userId, tenantId: input.tenantId });
       return NextResponse.json(result);
     }
     if (action === "grantCourtesyExtension") {
       const input = courtesyExtensionSchema.parse(body);
       const result = await grantCourtesyExtension({
-        actorUserId: session.user.id,
+        actorUserId: superAdmin.userId,
         tenantId: input.tenantId,
         days: input.days,
         reason: input.reason,
@@ -164,7 +180,7 @@ export async function POST(req: NextRequest) {
     }
     if (action === "updateTenant") {
       const input = updateTenantSchema.parse(body);
-      const result = await updateTenantDetails(session.user.id, input.tenantId, {
+      const result = await updateTenantDetails(superAdmin.userId, input.tenantId, {
         name: input.name,
         city: input.city,
         units: input.units,
@@ -172,12 +188,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
     if (action === "applyOverdueRules") {
-      const result = await applyOverdueLicenseRules(session.user.id);
+      const result = await applyOverdueLicenseRules(superAdmin.userId);
       return NextResponse.json(result);
     }
     if (action === "createPricingRule") {
       const input = createPricingRuleSchema.parse(body);
-      const result = await createPricingRule(session.user.id, {
+      const result = await createPricingRule(superAdmin.userId, {
         ...input,
         currency: input.currency?.toUpperCase(),
       });
@@ -185,7 +201,7 @@ export async function POST(req: NextRequest) {
     }
     if (action === "updatePricingRule") {
       const input = updatePricingRuleSchema.parse(body);
-      const result = await updatePricingRule(session.user.id, input.ruleId, {
+      const result = await updatePricingRule(superAdmin.userId, input.ruleId, {
         minUnits: input.minUnits,
         maxUnits: input.maxUnits,
         priceCents: input.priceCents,
@@ -195,12 +211,12 @@ export async function POST(req: NextRequest) {
     }
     if (action === "deletePricingRule") {
       const input = pricingRuleIdSchema.parse(body);
-      const result = await deletePricingRule(session.user.id, input.ruleId);
+      const result = await deletePricingRule(superAdmin.userId, input.ruleId);
       return NextResponse.json(result);
     }
     if (action === "updatePricingCaps") {
       const input = pricingCapsSchema.parse(body);
-      const result = await updatePricingRuleCaps(session.user.id, {
+      const result = await updatePricingRuleCaps(superAdmin.userId, {
         minCents: input.minCop * 100,
         maxCents: input.maxCop * 100,
       });
@@ -208,20 +224,33 @@ export async function POST(req: NextRequest) {
     }
     if (action === "resendTenantInvitation") {
       const input = resendInvitationSchema.parse(body);
-      const result = await resendInvitation({
-        tenantId: input.tenantId,
-        invitationId: input.invitationId,
-        actorUserId: session.user.id,
-        origin: req.headers.get("x-forwarded-for") || "super-admin",
-      });
-      return NextResponse.json({ email: result.emailResult });
+      try {
+        const target = await requireSuperAdminTenantTarget(session, input.tenantId);
+        const result = await resendInvitation({
+          tenantId: target.targetTenantId,
+          invitationId: input.invitationId,
+          actorUserId: target.identity.userId,
+          origin: req.headers.get("x-forwarded-for") || "super-admin",
+        });
+        return NextResponse.json({
+          email: publicInvitationEmailResult(result.emailResult),
+        });
+      } catch (error) {
+        const authorizationResponse = getAuthorizationErrorResponse(error);
+        if (authorizationResponse) return authorizationResponse;
+        const mapped = mapInvitationError(error);
+        return NextResponse.json(
+          { error: mapped.message },
+          { status: mapped.status }
+        );
+      }
     }
     if (action === "updateGraceDays") {
       const input = graceDaysSchema.parse(body);
       const result = await upsertPlatformSetting({
         key: "gracePeriodDays",
         value: input.graceDays,
-        updatedById: session.user.id,
+        updatedById: superAdmin.userId,
       });
       return NextResponse.json(result);
     }
