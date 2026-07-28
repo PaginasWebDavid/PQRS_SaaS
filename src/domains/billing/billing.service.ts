@@ -1,11 +1,16 @@
 import { timingSafeEqual } from "node:crypto";
-import { AuditAction, PaymentStatus, Prisma, SubscriptionStatus } from "@prisma/client";
+import { AuditAction, BillingOutboxEventType, PaymentStatus, Prisma, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
 import { SUBSCRIPTION_STATUS_LABEL } from "@/lib/design/licenseStatus";
-import { createNotification, NotificationTypes, type NotificationType } from "@/domains/notifications/notification.service";
-import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
+import {
+  createBillingOutboxIntentsForTransition,
+  dispatchBillingOutbox,
+  emptyBillingOutboxDispatchSummary,
+  type BillingOutboxCreationSummary,
+  type BillingOutboxDispatchSummary,
+} from "./billing-outbox.service";
 import { addDays, BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
 import { decideCronTransition, type CronTransitionKind } from "./cron-decision";
 
@@ -402,6 +407,9 @@ const CRON_ACTIONABLE_BUCKETS = 4;
 const CRON_INCONSISTENCY_DETAIL_LIMIT = 50;
 const CRON_EXTERNAL_ERROR_DETAIL_LIMIT = 50;
 const CRON_TENANT_SCOPE_LIMIT = 1_000;
+// El outbox agrega consultas atomicas a cada candidato; el timeout por defecto
+// de Prisma (5 s) es insuficiente con latencia real de PostgreSQL remoto.
+const CRON_CANDIDATE_TRANSACTION_TIMEOUT_MS = 30_000;
 
 export function isCronAuthorizationValid(secret: string | undefined, authHeader: string | null) {
   if (!secret || !authHeader) return false;
@@ -450,7 +458,7 @@ async function runCronStep(step: CronTransactionStep, context: CronStepContext =
 type CronCandidate = { id: string; tenantId: string };
 
 type CronCandidateOutcome =
-  | { outcome: "APPLIED"; transition: CronTransitionKind; nextStatus: SubscriptionStatus; tenantId: string; subscriptionId: string }
+  | { outcome: "APPLIED"; transition: CronTransitionKind; nextStatus: SubscriptionStatus; tenantId: string; subscriptionId: string; outbox: BillingOutboxCreationSummary }
   | { outcome: "PRESERVED"; reason: string }
   | { outcome: "INCONSISTENT"; reason: string; subscriptionId: string; tenantId: string }
   | { outcome: "SKIPPED_CONCURRENT_CHANGE" }
@@ -553,13 +561,35 @@ async function processCronCandidate(
       tx
     );
 
+    const eventType = decision.nextStatus === "GRACE_PERIOD"
+      ? BillingOutboxEventType.BILLING_GRACE_STARTED
+      : BillingOutboxEventType.BILLING_SUSPENDED;
+    const boundary = decision.transition === "GRACE_EXPIRED"
+      ? sub.graceEndsAt
+      : decision.transition === "TRIAL_EXPIRED"
+        ? (sub.trialEndsAt ?? sub.currentPeriodEnd)
+        : sub.currentPeriodEnd;
+    if (!(boundary instanceof Date) || Number.isNaN(boundary.getTime())) {
+      throw new Error("CRON_TRANSITION_BOUNDARY_INVALID");
+    }
+    const outbox = await createBillingOutboxIntentsForTransition(tx, {
+      tenantId: sub.tenantId,
+      subscriptionId: sub.id,
+      eventType,
+      boundary,
+      graceDays: eventType === BillingOutboxEventType.BILLING_GRACE_STARTED ? graceDays : null,
+    });
+
     return {
       outcome: "APPLIED",
       transition: decision.transition,
       nextStatus: decision.nextStatus,
       tenantId: sub.tenantId,
       subscriptionId: sub.id,
+      outbox,
     };
+  }, {
+    timeout: CRON_CANDIDATE_TRANSACTION_TIMEOUT_MS,
   });
 }
 
@@ -613,35 +643,25 @@ function emptyExternalEffectsSummary(): CronExternalEffectsSummary {
   };
 }
 
-function recordExternalEffectError(
-  summary: CronExternalEffectsSummary,
-  error: CronExternalEffectError
-) {
-  summary.errorCount += 1;
-  if (summary.errors.length < CRON_EXTERNAL_ERROR_DETAIL_LIMIT) {
-    summary.errors.push(error);
-  } else {
-    summary.errorsTruncated = true;
-  }
+function externalEffectsFromOutbox(dispatch: BillingOutboxDispatchSummary): CronExternalEffectsSummary {
+  const errors = dispatch.errorDetails.slice(0, CRON_EXTERNAL_ERROR_DETAIL_LIMIT).map((detail) => ({
+    stage: detail.channel === "IN_APP" ? "NOTIFICATION" as const : "EMAIL" as const,
+    errorCode: detail.errorCode,
+  }));
+  const errorCount = dispatch.errors;
+  return {
+    notificationTenantsAttempted: dispatch.notificationTenantsAttempted,
+    notificationAttempts: dispatch.inAppAttempts,
+    notificationSucceeded: dispatch.completedInApp,
+    notificationFailed: Math.max(0, dispatch.inAppAttempts - dispatch.completedInApp),
+    emailAttempts: dispatch.emailAttempts,
+    emailSucceeded: dispatch.completedEmail,
+    emailFailed: Math.max(0, dispatch.emailAttempts - dispatch.completedEmail),
+    errorCount,
+    errorsTruncated: dispatch.errorDetailsTruncated || errorCount > errors.length,
+    errors,
+  };
 }
-function mergeExternalEffects(
-  target: CronExternalEffectsSummary,
-  source: CronExternalEffectsSummary
-) {
-  target.notificationTenantsAttempted += source.notificationTenantsAttempted;
-  target.notificationAttempts += source.notificationAttempts;
-  target.notificationSucceeded += source.notificationSucceeded;
-  target.notificationFailed += source.notificationFailed;
-  target.emailAttempts += source.emailAttempts;
-  target.emailSucceeded += source.emailSucceeded;
-  target.emailFailed += source.emailFailed;
-  target.errorCount += source.errorCount;
-  target.errorsTruncated = target.errorsTruncated || source.errorsTruncated;
-  const remaining = CRON_EXTERNAL_ERROR_DETAIL_LIMIT - target.errors.length;
-  if (remaining > 0) target.errors.push(...source.errors.slice(0, remaining));
-  if (source.errors.length > remaining) target.errorsTruncated = true;
-}
-
 function normalizeCronTenantIds(tenantIds: string[] | undefined): string[] | undefined {
   if (tenantIds === undefined) return undefined;
   if (!Array.isArray(tenantIds)) throw new TypeError("tenantIds debe ser una lista");
@@ -779,6 +799,12 @@ async function selectCronWork({
   );
 }
 
+export interface CronOutboxCreationSummary {
+  activeRecipients: number;
+  planned: number;
+  created: number;
+  transitionsWithoutRecipients: number;
+}
 export interface CronRunSummary {
   // Compatibilidad hacia atras: la UI del super-admin y el toast leen estas dos.
   movedToGracePeriod: number;
@@ -797,6 +823,8 @@ export interface CronRunSummary {
   errorDetails: { subscriptionId: string; tenantId: string; errorCode: string }[];
   inconsistentDetails: { subscriptionId: string; tenantId: string; reason: string }[];
   externalEffects: CronExternalEffectsSummary;
+  outboxCreation: CronOutboxCreationSummary;
+  outboxDispatch: BillingOutboxDispatchSummary;
 }
 
 // `options.tenantIds` acota la corrida a un subconjunto de tenants. Produccion lo
@@ -854,9 +882,9 @@ export async function applyOverdueLicenseRules(
       reason: "GRACE_PERIOD_WITHOUT_BOUNDARY",
     })),
     externalEffects: emptyExternalEffectsSummary(),
+    outboxCreation: { activeRecipients: 0, planned: 0, created: 0, transitionsWithoutRecipients: 0 },
+    outboxDispatch: emptyBillingOutboxDispatchSummary(),
   };
-  const appliedGraceTenantIds: string[] = [];
-  const appliedSuspendedTenantIds: string[] = [];
 
   // Cada candidato se procesa de forma independiente: un error en uno NO revierte
   // las transiciones ya confirmadas de otros ni aborta el lote.
@@ -875,13 +903,12 @@ export async function applyOverdueLicenseRules(
 
     switch (result.outcome) {
       case "APPLIED":
-        if (result.nextStatus === "GRACE_PERIOD") {
-          summary.movedToGracePeriod += 1;
-          appliedGraceTenantIds.push(result.tenantId);
-        } else {
-          summary.movedToSuspended += 1;
-          appliedSuspendedTenantIds.push(result.tenantId);
-        }
+        if (result.nextStatus === "GRACE_PERIOD") summary.movedToGracePeriod += 1;
+        else summary.movedToSuspended += 1;
+        summary.outboxCreation.activeRecipients += result.outbox.activeRecipients;
+        summary.outboxCreation.planned += result.outbox.planned;
+        summary.outboxCreation.created += result.outbox.created;
+        if (result.outbox.noActiveRecipients) summary.outboxCreation.transitionsWithoutRecipients += 1;
         break;
       case "PRESERVED":
         summary.preserved += 1;
@@ -916,153 +943,21 @@ export async function applyOverdueLicenseRules(
     }
   }
 
-  // Efectos externos SOLO despues del commit y SOLO para transiciones aplicadas
-  // (nunca para PRESERVE, INCONSISTENT, CAS perdido ni rollback). No se envia
-  // ningun email dentro de una transaccion. La deduplicacion definitiva de
-  // notificaciones/emails es la SIGUIENTE subfase; aqui se conserva el
-  // comportamiento externo existente, acotado a los tenants realmente movidos.
-  if (appliedGraceTenantIds.length > 0) {
-    const graceEffects = await notifyTenantAdminsOfLicenseChange({
-      tenantIds: appliedGraceTenantIds,
-      type: NotificationTypes.LICENSE_EXPIRING,
-      title: "Tu licencia entró en período de gracia",
-      message: `Tu conjunto tiene ${graceDays} día(s) para regularizar el pago antes de que el servicio se suspenda.`,
-      emailHeading: "Tu licencia entró en período de gracia",
-      emailBodyHtml: `Detectamos que el pago de tu conjunto no se procesó a tiempo. Tienes <strong>${graceDays} día(s)</strong> para ponerte al día desde Licencias y pagos antes de que el servicio se suspenda.`,
-      accent: "warning",
-    });
-    mergeExternalEffects(summary.externalEffects, graceEffects);
-  }
-  if (appliedSuspendedTenantIds.length > 0) {
-    const suspendedEffects = await notifyTenantAdminsOfLicenseChange({
-      tenantIds: appliedSuspendedTenantIds,
-      type: NotificationTypes.LICENSE_SUSPENDED,
-      title: "Tu licencia fue suspendida",
-      message: "El período de gracia terminó sin pago y el servicio quedó suspendido. Paga desde Licencias y pagos para reactivarlo.",
-      emailHeading: "Tu licencia fue suspendida",
-      emailBodyHtml: "El período de gracia terminó sin que se registrara el pago, así que el servicio de tu conjunto quedó suspendido. Puedes reactivarlo pagando desde Licencias y pagos en cualquier momento.",
-      accent: "danger",
-    });
-    mergeExternalEffects(summary.externalEffects, suspendedEffects);
-  }
-
-  return summary;
-}
-
-// Avisa a los ADMIN activos de cada conjunto cuando su licencia entra en gracia o se
-// suspende. Antes esto pasaba en silencio: el ADMIN solo se enteraba si entraba por su
-// cuenta a revisar Licencias y pagos, lo que puede costar clientes por un pago fallido
-// que nadie notó a tiempo.
-async function notifyTenantAdminsOfLicenseChange({
-  tenantIds,
-  type,
-  title,
-  message,
-  emailHeading,
-  emailBodyHtml,
-  accent,
-}: {
-  tenantIds: string[];
-  type: NotificationType;
-  title: string;
-  message: string;
-  emailHeading: string;
-  emailBodyHtml: string;
-  accent: "warning" | "danger";
-}): Promise<CronExternalEffectsSummary> {
-  const summary = emptyExternalEffectsSummary();
-  let adminRows: { id: string; email: string; tenantId: string | null }[];
-
+// El outbox se drena despues de confirmar todas las transiciones. Tambien se
+  // procesan intenciones antiguas aunque esta corrida no haya movido licencias.
   try {
-    adminRows = await prisma.user.findMany({
-      where: { tenantId: { in: tenantIds }, role: "ADMIN", isActive: true },
-      select: { id: true, email: true, tenantId: true },
-    });
-  } catch (error) {
-    recordExternalEffectError(summary, {
-      stage: "RECIPIENT_LOOKUP",
-      errorCode: classifyCronError(error),
-    });
-    return summary;
+    summary.outboxDispatch = await dispatchBillingOutbox(
+      tenantIds === undefined ? {} : { tenantIds }
+    );
+  } catch {
+    summary.outboxDispatch = emptyBillingOutboxDispatchSummary();
+    summary.outboxDispatch.errors = 1;
+    summary.outboxDispatch.errorDetailsTruncated = true;
   }
-
-  const admins = adminRows.filter(
-    (admin): admin is typeof admin & { tenantId: string } => admin.tenantId !== null
-  );
-  summary.notificationTenantsAttempted = new Set(admins.map((admin) => admin.tenantId)).size;
-
-  await runCronStep("AFTER_CRON_EFFECT_RECIPIENTS_READ", {
-    tenantIds: Array.from(new Set(admins.map((admin) => admin.tenantId))),
-  });
-
-  summary.notificationAttempts = admins.length;
-  const notificationResults = await Promise.allSettled(
-    admins.map(async (admin) => {
-      await runCronStep("BEFORE_CRON_NOTIFICATION", { tenantId: admin.tenantId });
-      return createNotification({
-        tenantId: admin.tenantId,
-        userId: admin.id,
-        type,
-        title,
-        message,
-      });
-    })
-  );
-  notificationResults.forEach((result, index) => {
-    const admin = admins[index];
-    if (result.status === "fulfilled") {
-      summary.notificationSucceeded += 1;
-      return;
-    }
-    summary.notificationFailed += 1;
-    recordExternalEffectError(summary, {
-      stage: "NOTIFICATION",
-      tenantId: admin?.tenantId,
-      errorCode: classifyCronError(result.reason),
-    });
-  });
-
-  const appUrl = getAppUrl();
-  summary.emailAttempts = admins.length;
-  const emailResults = await Promise.allSettled(
-    admins.map(async (admin) => {
-      await runCronStep("BEFORE_CRON_EMAIL", { tenantId: admin.tenantId });
-      return sendEmailSafe({
-        to: admin.email,
-        subject: title,
-        tenantId: admin.tenantId,
-        template: "license-status-change",
-        html: renderEmailLayout({
-          accent,
-          eyebrow: "Licencia",
-          heading: emailHeading,
-          bodyHtml: emailBodyHtml,
-          cta: appUrl ? { label: "Ir a Licencias y pagos", url: `${appUrl}/admin/licencias` } : undefined,
-        }),
-      });
-    })
-  );
-  emailResults.forEach((result, index) => {
-    const admin = admins[index];
-    if (result.status === "fulfilled" && result.value.ok) {
-      summary.emailSucceeded += 1;
-      return;
-    }
-    summary.emailFailed += 1;
-    recordExternalEffectError(summary, {
-      stage: "EMAIL",
-      tenantId: admin?.tenantId,
-      errorCode: result.status === "rejected" ? classifyCronError(result.reason) : "EMAIL_NOT_SENT",
-    });
-  });
+  summary.externalEffects = externalEffectsFromOutbox(summary.outboxDispatch);
 
   return summary;
 }
-function getAppUrl() {
-  const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL;
-  return appUrl ? appUrl.replace(/\/$/, "") : null;
-}
-
 export async function getTenantLicenseSummary(tenantId: string) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },

@@ -29,6 +29,7 @@ model Tenant {
   invitations   Invitation[]
   notifications Notification[]
   emailLogs     EmailLog[]
+  billingNotificationOutbox BillingNotificationOutbox[]
   auditLogs     AuditLog[]
   supportTickets SupportTicket[]
 
@@ -74,6 +75,7 @@ model User {
   auditLogs             AuditLog[]        @relation("AuditActor")
   invitedInvitations    Invitation[]      @relation("InvitationInvitedBy")
   notifications         Notification[]
+  billingOutboxRecipients BillingNotificationOutbox[] @relation("BillingOutboxRecipient")
   updatedSettings       PlatformSetting[] @relation("PlatformSettingUpdatedBy")
   supportTicketsCreated   SupportTicket[] @relation("SupportTicketCreatedBy")
   supportTicketsResponded SupportTicket[] @relation("SupportTicketRespondedBy")
@@ -231,6 +233,7 @@ model Subscription {
   createdAt                   DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   payments           Payment[]
+  billingNotificationOutbox BillingNotificationOutbox[]
 
   @@index([tenantId, status])
   @@index([currentPeriodEnd])
@@ -506,6 +509,7 @@ model Notification {
   message      String    @db.Text
   resourceType String?
   resourceId   String?
+  dedupeKey    String?   @unique @db.VarChar(255)
   readAt       DateTime?
   createdAt    DateTime  @default(now())
 
@@ -524,10 +528,17 @@ model EmailLog {
   template          String
   provider          String         @default("RESEND")
   providerMessageId String?
+  dedupeKey         String?        @unique @db.VarChar(255)
+  outboxId          String?        @unique
+  billingOutbox     BillingNotificationOutbox? @relation(fields: [outboxId], references: [id], onDelete: SetNull, map: "EmailLog_outboxId_fkey")
   status            EmailLogStatus
   errorMessage      String?        @db.Text
+  attemptCount      Int            @default(0)
+  lastAttemptAt     DateTime?
+  lastErrorCode     String?        @db.VarChar(255)
   sentAt            DateTime?
   createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([tenantId])
   @@index([recipient])
@@ -537,9 +548,87 @@ model EmailLog {
 }
 
 enum EmailLogStatus {
+  PENDING
+  PROCESSING
   SENT
   FAILED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+  DELIVERY_UNKNOWN
   SKIPPED
+}
+
+model BillingNotificationOutbox {
+  id                       String                  @id @default(cuid())
+  tenantId                 String
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "BillingOutbox_tenant_fkey")
+  subscriptionId           String
+  subscription             Subscription            @relation(fields: [subscriptionId], references: [id], onDelete: Cascade, map: "BillingOutbox_subscription_fkey")
+  recipientUserId          String?
+  recipientUser            User?                   @relation("BillingOutboxRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull, map: "BillingOutbox_recipient_fkey")
+  channel                  BillingOutboxChannel
+  eventType                BillingOutboxEventType
+  dedupeKey                String                  @unique @db.VarChar(255)
+  status                   BillingOutboxStatus     @default(PENDING)
+  attemptCount             Int                     @default(0)
+  nextAttemptAt            DateTime                @default(now())
+  lockedAt                 DateTime?
+  processingStartedAt      DateTime?
+  providerAttemptStartedAt DateTime?
+  processedAt              DateTime?
+  lastErrorCode            String?                 @db.VarChar(255)
+  payload                  Json
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  attempts                 BillingOutboxAttempt[]
+  emailLog                 EmailLog?
+
+  @@index([status, nextAttemptAt, createdAt, id], map: "BillingOutbox_dispatch_idx")
+  @@index([tenantId], map: "BillingOutbox_tenant_idx")
+  @@index([subscriptionId], map: "BillingOutbox_subscription_idx")
+  @@index([recipientUserId], map: "BillingOutbox_recipient_idx")
+}
+
+model BillingOutboxAttempt {
+  id                String                    @id @default(cuid())
+  outboxId          String
+  outbox            BillingNotificationOutbox @relation(fields: [outboxId], references: [id], onDelete: Cascade, map: "BillingOutboxAttempt_outbox_fkey")
+  attemptNumber     Int
+  status            BillingOutboxAttemptStatus
+  providerMessageId String?
+  errorCode         String?                   @db.VarChar(255)
+  startedAt         DateTime                  @default(now())
+  finishedAt        DateTime?
+
+  @@unique([outboxId, attemptNumber], map: "BillingOutboxAttempt_outbox_attempt_key")
+  @@index([outboxId], map: "BillingOutboxAttempt_outbox_idx")
+}
+
+enum BillingOutboxChannel {
+  IN_APP
+  EMAIL
+}
+
+enum BillingOutboxEventType {
+  BILLING_GRACE_STARTED
+  BILLING_SUSPENDED
+}
+
+enum BillingOutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+  DELIVERY_UNKNOWN
+}
+
+enum BillingOutboxAttemptStatus {
+  STARTED
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+  DELIVERY_UNKNOWN
 }
 
 model PlatformSetting {
