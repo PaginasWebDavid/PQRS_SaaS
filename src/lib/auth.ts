@@ -1,6 +1,7 @@
 import { Role, SubscriptionStatus, TenantStatus } from "@prisma/client";
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import type { JWT } from "next-auth/jwt";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -10,6 +11,7 @@ import {
   SELECTED_TENANT_COOKIE,
   verifyTenantSelection,
 } from "@/lib/tenant-selection";
+import { isSessionVersionCurrent, normalizeAccountEmail } from "@/domains/account/account-security";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -18,29 +20,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "credentials",
       credentials: {
         email: { label: "Correo", type: "email" },
-        password: { label: "Contraseña", type: "password" },
+        password: { label: "Contrasena", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const email = String(credentials.email).trim().toLowerCase();
+        const email = normalizeAccountEmail(credentials?.email);
+        const password = typeof credentials?.password === "string" ? credentials.password : null;
+        if (!email || !password || password.length > 128) return null;
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.isActive) return null;
-        if (!(await bcrypt.compare(String(credentials.password), user.password))) {
-          return null;
-        }
+        if (!user?.isActive) return null;
+        if (!(await bcrypt.compare(password, user.password))) return null;
         const hasAccess =
           user.role === "SUPER_ADMIN" ||
-          (await prisma.tenantMembership.count({
-            where: { userId: user.id, isActive: true },
-          })) > 0;
+          (await prisma.tenantMembership.count({ where: { userId: user.id, isActive: true } })) > 0;
         if (!hasAccess) return null;
-        return { id: user.id, email: user.email, name: user.name };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          sessionVersion: user.sessionVersion,
+        } as typeof user & { id: string };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion;
+      }
       if (!token.id) return token;
 
       const userId = String(token.id);
@@ -48,16 +55,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         readSelectedTenantCookie(userId) ??
         ((token.selectedTenantId as string | null | undefined) ?? null);
       const context = await getUserMembershipContext(userId, selectedTenantId);
-      if (!context) {
-        token.isActive = false;
-        token.role = null;
-        token.tenantId = null;
-        token.selectedTenantId = null;
-        token.selectedMembershipId = null;
-        return token;
+      if (
+        !context?.isActive ||
+        !isSessionVersionCurrent(token.sessionVersion, context.sessionVersion)
+      ) {
+        return invalidateToken(token);
       }
 
-      token.isActive = context.isActive;
+      token.isActive = true;
+      token.sessionVersion = context.sessionVersion;
       token.membershipCount = context.memberships.length;
       if (context.isSuperAdmin) {
         token.role = "SUPER_ADMIN";
@@ -82,16 +88,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (membership?.subscriptionStatus as SubscriptionStatus | undefined) ?? null;
       token.bloque = membership?.bloque ?? null;
       token.apto = membership?.apto ?? null;
-      token.onboardingCompletedAt =
-        membership?.onboardingCompletedAt?.toISOString() ?? null;
+      token.onboardingCompletedAt = membership?.onboardingCompletedAt?.toISOString() ?? null;
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = String(token.id);
         session.user.role = (token.role as Role | null | undefined) ?? null;
-        session.user.tenantId =
-          (token.selectedTenantId as string | null | undefined) ?? null;
+        session.user.tenantId = (token.selectedTenantId as string | null | undefined) ?? null;
         session.user.selectedTenantId = session.user.tenantId;
         session.user.selectedMembershipId =
           (token.selectedMembershipId as string | null | undefined) ?? null;
@@ -99,11 +103,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.tenantStatus =
           (token.tenantStatus as TenantStatus | null | undefined) ?? null;
         session.user.subscriptionStatus =
-          (token.subscriptionStatus as SubscriptionStatus | null | undefined) ??
-          null;
+          (token.subscriptionStatus as SubscriptionStatus | null | undefined) ?? null;
         session.user.bloque = (token.bloque as number | null | undefined) ?? null;
         session.user.apto = (token.apto as number | null | undefined) ?? null;
-        session.user.isActive = Boolean(token.isActive);
+        session.user.isActive = token.isActive === true;
+        session.user.sessionVersion =
+          typeof token.sessionVersion === "number" ? token.sessionVersion : null;
         session.user.onboardingCompletedAt =
           (token.onboardingCompletedAt as string | null | undefined) ?? null;
       }
@@ -117,12 +122,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 });
 
+function invalidateToken(token: JWT): JWT {
+  token.isActive = false;
+  token.role = null;
+  token.tenantId = null;
+  token.selectedTenantId = null;
+  token.selectedMembershipId = null;
+  token.membershipCount = 0;
+  token.tenantStatus = null;
+  token.subscriptionStatus = null;
+  token.bloque = null;
+  token.apto = null;
+  token.onboardingCompletedAt = null;
+  return token;
+}
+
 function readSelectedTenantCookie(userId: string) {
   try {
-    return verifyTenantSelection(
-      cookies().get(SELECTED_TENANT_COOKIE)?.value,
-      userId
-    );
+    return verifyTenantSelection(cookies().get(SELECTED_TENANT_COOKIE)?.value, userId);
   } catch {
     return null;
   }

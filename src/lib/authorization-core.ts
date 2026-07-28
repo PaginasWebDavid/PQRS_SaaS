@@ -18,6 +18,7 @@ export interface AuthorizationSession {
     tenantId?: string | null;
     selectedTenantId?: string | null;
     selectedMembershipId?: string | null;
+    isActive?: boolean | null;
   } | null;
 }
 export interface AuthorizationMembershipRecord {
@@ -85,6 +86,14 @@ export function createAuthorizationService(repository: AuthorizationRepository) 
   async function requireAuthenticatedUser(session: AuthorizationSession | null | undefined): Promise<AuthorizedIdentity> {
     const userId = session?.user?.id;
     if (!userId) throw new AuthorizationError("UNAUTHENTICATED");
+    // Revocacion durable de sesiones: el callback JWT compara `sessionVersion`
+    // contra la base en cada request y marca la sesion como inactiva cuando el
+    // token quedo obsoleto (cambio o reset de contrasena) o la cuenta global se
+    // desactivo. Ese callback conserva el `id` al invalidar, de modo que sin este
+    // control un JWT revocado seguiria resolviendo su identidad desde la base:
+    // un SUPER_ADMIN recuperaria el contexto global y un usuario con una sola
+    // membresia activa la autoseleccionaria, conservando acceso a las APIs.
+    if (session?.user?.isActive !== true) throw new AuthorizationError("UNAUTHENTICATED");
     const preferredTenantId = session?.user?.selectedTenantId ?? session?.user?.tenantId ?? null;
     const user = await repository.findUserById(userId, preferredTenantId);
     if (!user) throw new AuthorizationError("UNAUTHENTICATED");

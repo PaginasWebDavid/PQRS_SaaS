@@ -10,6 +10,8 @@ export type ActiveMembership = MembershipOption & {
   bloque: number | null;
   apto: number | null;
   onboardingCompletedAt: Date | null;
+  bloqueAptoEditado: boolean;
+  notifyNewPqrsEmail: boolean;
   tenantStatus: string;
   subscriptionStatus: string | null;
 };
@@ -18,6 +20,7 @@ export type UserMembershipContext = {
   userId: string;
   isActive: boolean;
   isSuperAdmin: boolean;
+  sessionVersion: number;
   memberships: ActiveMembership[];
   selectedMembership: ActiveMembership | null;
 };
@@ -32,6 +35,7 @@ export async function getUserMembershipContext(
       id: true,
       role: true,
       isActive: true,
+      sessionVersion: true,
       memberships: {
         where: { isActive: true },
         orderBy: [{ tenant: { name: "asc" } }, { createdAt: "asc" }],
@@ -43,6 +47,8 @@ export async function getUserMembershipContext(
           bloque: true,
           apto: true,
           onboardingCompletedAt: true,
+          bloqueAptoEditado: true,
+          notifyNewPqrsEmail: true,
           tenant: {
             select: {
               name: true,
@@ -76,6 +82,8 @@ export async function getUserMembershipContext(
           bloque: membership.bloque,
           apto: membership.apto,
           onboardingCompletedAt: membership.onboardingCompletedAt,
+          bloqueAptoEditado: membership.bloqueAptoEditado,
+          notifyNewPqrsEmail: membership.notifyNewPqrsEmail,
           tenantStatus: membership.tenant.status,
           subscriptionStatus: membership.tenant.subscription?.status ?? null,
         }));
@@ -84,6 +92,7 @@ export async function getUserMembershipContext(
     userId: user.id,
     isActive: user.isActive,
     isSuperAdmin,
+    sessionVersion: user.sessionVersion,
     memberships,
     selectedMembership: isSuperAdmin
       ? null

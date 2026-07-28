@@ -55,6 +55,7 @@ export default function OlvidarContrasenaPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              maxLength={320}
               onFocus={() => setEmailFocused(true)}
               onBlur={() => setEmailFocused(false)}
               placeholder="tucorreo@ejemplo.com"
@@ -101,8 +102,8 @@ export default function OlvidarContrasenaPage() {
               ✉
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Revisa tu correo</h1>
-            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 6px' }}>Enviamos un enlace para restablecer tu contraseña a</p>
-            <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 26px' }}>{email}</p>
+            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 6px' }}>Si corresponde a una cuenta activa, recibiras un enlace en los proximos minutos.</p>
+            <div style={{ marginBottom: 26 }} />
             <Link href="/auth/login" style={{ display: 'block', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginBottom: 14 }}>
               Volver al login
             </Link>

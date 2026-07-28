@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { signOut } from 'next-auth/react';
 import { BrandLockup } from '@/components/shell/Logo';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
 
@@ -21,8 +22,8 @@ export default function CambiarContrasenaPage() {
     if (!canSubmit || loading) return;
     setError('');
 
-    if (newPassword.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres');
+    if (newPassword.length < 8) {
+      setError('La nueva contraseña debe tener al menos 8 caracteres');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -35,7 +36,7 @@ export default function CambiarContrasenaPage() {
       const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -122,6 +123,7 @@ export default function CambiarContrasenaPage() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
+              maxLength={128}
               onFocus={() => setFocused('current')}
               onBlur={() => setFocused(null)}
               placeholder="••••••••"
@@ -133,9 +135,10 @@ export default function CambiarContrasenaPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              maxLength={128}
               onFocus={() => setFocused('new')}
               onBlur={() => setFocused(null)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               style={inputStyle('new')}
             />
 
@@ -144,6 +147,7 @@ export default function CambiarContrasenaPage() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              maxLength={128}
               onFocus={() => setFocused('confirm')}
               onBlur={() => setFocused(null)}
               placeholder="Repite la nueva contraseña"
@@ -215,7 +219,7 @@ export default function CambiarContrasenaPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => signOut({ callbackUrl: '/auth/login' })}
               style={{
                 display: 'block',
                 width: '100%',
