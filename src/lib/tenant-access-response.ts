@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import {
-  getTenantAccessBlockedMessage,
-  isTenantAccessBlocked,
-  refreshTenantAccessForUser,
-} from "@/domains/organizations/tenant.service";
+  assertSessionClaimsCurrent,
+  requireActiveTenantUser,
+} from "@/lib/authorization";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import type { Session } from "next-auth";
 
 export async function getTenantAccessResponse(session: Session): Promise<NextResponse | null> {
-  const user = await refreshTenantAccessForUser(session.user);
-
-  if (!isTenantAccessBlocked(user)) return null;
-
-  return NextResponse.json(
-    { error: getTenantAccessBlockedMessage(user) },
-    { status: 403 }
-  );
+  try {
+    const identity = await requireActiveTenantUser(session);
+    assertSessionClaimsCurrent(session, identity);
+    return null;
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
 }

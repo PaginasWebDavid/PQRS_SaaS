@@ -1,12 +1,11 @@
 ﻿import { Role } from "@prisma/client";
 import { Session } from "next-auth";
+import { isSuperAdminRole, requireSuperAdmin } from "@/lib/authorization";
 
 export function isSuperAdmin(role?: Role | string | null): boolean {
-  return role === "SUPER_ADMIN";
+  return isSuperAdminRole(role);
 }
 
-export function assertSuperAdmin(session: Session | null): asserts session is Session {
-  if (!session?.user || !isSuperAdmin(session.user.role)) {
-    throw new Error("Se requiere rol SUPER_ADMIN");
-  }
+export async function assertSuperAdmin(session: Session | null) {
+  return requireSuperAdmin(session);
 }

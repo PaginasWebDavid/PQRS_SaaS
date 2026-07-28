@@ -2,16 +2,22 @@ import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
-import { getTenantAccessResponse } from "@/lib/tenant-access-response";
+import { requireTenantRole } from "@/lib/authorization";
+import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { updateManagedUser } from "@/domains/organizations/user-management.service";
+import { mapUserManagementError } from "@/domains/organizations/user-management-error";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
-  const tenantId = getTenantIdFromSession(session);
+  let identity;
+  try {
+    identity = await requireTenantRole(session, "ADMIN");
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+  const tenantId = identity.tenantId;
 
   const user = await prisma.user.findFirst({
     where: { id: params.id, tenantId },
@@ -29,13 +35,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
+  let identity;
+  try {
+    identity = await requireTenantRole(session, "ADMIN");
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const body = await req.json();
   try {
     const user = await updateManagedUser({
-      tenantId: getTenantIdFromSession(session), actorUserId: session.user.id, targetUserId: params.id,
+      tenantId: identity.tenantId, actorUserId: identity.userId, targetUserId: params.id,
       role: body.role ? String(body.role).toUpperCase() as Role : undefined,
       isActive: typeof body.isActive === "boolean" ? body.isActive : undefined,
       bloque: body.bloque === undefined ? undefined : body.bloque ? Number(body.bloque) : null,
@@ -44,19 +55,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
     return NextResponse.json(user);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo actualizar";
-    return NextResponse.json({ error: message }, { status: message === "Usuario no encontrado" ? 404 : 400 });
+    const { status, message } = mapUserManagementError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }
 export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  const tenantAccessResponse = await getTenantAccessResponse(session);
-  if (tenantAccessResponse) return tenantAccessResponse;
+  let identity;
   try {
-    const user = await updateManagedUser({ tenantId: getTenantIdFromSession(session), actorUserId: session.user.id, targetUserId: context.params.id, isActive: false, origin: "api" });
+    identity = await requireTenantRole(session, "ADMIN");
+  } catch (error) {
+    const response = getAuthorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+  try {
+    const user = await updateManagedUser({ tenantId: identity.tenantId, actorUserId: identity.userId, targetUserId: context.params.id, isActive: false, origin: "api" });
     return NextResponse.json(user);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo desactivar" }, { status: 400 });
+    const { status, message } = mapUserManagementError(error);
+    return NextResponse.json({ error: message }, { status });
   }
 }
