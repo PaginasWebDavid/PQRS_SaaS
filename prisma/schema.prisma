@@ -33,6 +33,9 @@ model Tenant {
   billingNotificationOutbox BillingNotificationOutbox[]
   auditLogs     AuditLog[]
   supportTickets SupportTicket[]
+  commonAreas      CommonArea[]
+  reservations     Reservation[]
+  commonAreaBlocks CommonAreaBlock[]
 
   @@index([slug])
   @@index([status])
@@ -85,6 +88,10 @@ model User {
   sessions              Session[]
   accounts              Account[]
   memberships           TenantMembership[]
+  reservationsCreated     Reservation[]     @relation("ReservationCreatedBy")
+  reservationsReviewed    Reservation[]     @relation("ReservationReviewedBy")
+  reservationsCancelled   Reservation[]     @relation("ReservationCancelledBy")
+  commonAreaBlocksCreated CommonAreaBlock[] @relation("CommonAreaBlockCreatedBy")
 
   @@index([tenantId])
   @@index([role])
@@ -113,6 +120,7 @@ model TenantMembership {
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
 
   @@unique([userId, tenantId])
   @@index([tenantId, role])
@@ -195,6 +203,13 @@ enum AuditAction {
   SUBSCRIPTION_AUTO_RENEW_ENABLED
   SUBSCRIPTION_PAYMENT_FAILED
   PAYMENT_RECONCILED
+  RESERVATION_CREATED
+  RESERVATION_APPROVED
+  RESERVATION_REJECTED
+  RESERVATION_CANCELLED
+  COMMON_AREA_CREATED
+  COMMON_AREA_UPDATED
+  COMMON_AREA_BLOCK_CREATED
 }
 
 enum SupportTicketStatus {
@@ -230,6 +245,93 @@ model SupportTicket {
   @@index([tenantId])
   @@index([status])
   @@index([createdByUserId])
+}
+
+// Reservas y zonas comunes. La instancia opera en una sola zona horaria de
+// producto (America/Bogota, ver src/domains/reservations/reservation-time.ts);
+// no existe columna de timezone por tenant a proposito, para no ampliar el
+// alcance de esta fase. openingTime/closingTime son "HH:mm" interpretadas en
+// esa zona horaria. blockedWeekdays usa la convencion de JS Date.getDay():
+// 0=domingo .. 6=sabado, evaluado tambien en esa zona horaria.
+model CommonArea {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                   String
+  description            String?  @db.Text
+  isActive               Boolean  @default(true)
+  requiresApproval       Boolean  @default(true)
+  minDurationMinutes     Int      @default(30)
+  maxDurationMinutes     Int      @default(120)
+  maxReservationsPerWeek Int      @default(2)
+  openingTime            String
+  closingTime            String
+  blockedWeekdays        Int[]    @default([])
+  rules                  String?  @db.Text
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  reservations Reservation[]
+  blocks       CommonAreaBlock[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// La no-superposicion de PENDING/APPROVED para una misma zona la garantiza,
+// ademas de la logica de aplicacion, un EXCLUDE constraint de PostgreSQL creado
+// a mano en la migracion (btree_gist sobre commonAreaId + tsrange(startAt,
+// endAt, '[)'), filtrado por status). Ver migration.sql de esta fase.
+model Reservation {
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  commonAreaId      String
+  commonArea        CommonArea        @relation(fields: [commonAreaId], references: [id], onDelete: Cascade)
+  membershipId      String
+  membership        TenantMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  createdByUserId   String
+  createdBy         User              @relation("ReservationCreatedBy", fields: [createdByUserId], references: [id])
+  startAt           DateTime
+  endAt             DateTime
+  status            ReservationStatus @default(PENDING)
+  notes             String?           @db.Text
+  reviewedByUserId  String?
+  reviewedBy        User?             @relation("ReservationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  rejectionReason   String?           @db.Text
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  cancelledBy       User?             @relation("ReservationCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([tenantId, commonAreaId, status, startAt])
+  @@index([tenantId, membershipId, status])
+  @@index([commonAreaId, status, startAt, endAt])
+}
+
+model CommonAreaBlock {
+  id              String     @id @default(cuid())
+  tenantId        String
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  commonAreaId    String
+  commonArea      CommonArea @relation(fields: [commonAreaId], references: [id], onDelete: Cascade)
+  startAt         DateTime
+  endAt           DateTime
+  reason          String
+  createdByUserId String
+  createdBy       User       @relation("CommonAreaBlockCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime   @default(now())
+
+  @@index([tenantId, commonAreaId, startAt, endAt])
 }
 
 model PricingRule {
