@@ -1,6 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -38,6 +36,86 @@
     --chart-3: 39 100% 27%;
     --chart-4: 220 33% 75%;
     --chart-5: 240 2% 43%;
+
+    /* ---- tokens.ts parity (Fase 0 foundation) ---- */
+    --surface-sidebar: #FAFAFA;
+    --surface-card-soft: #F5F5F7;
+    --border-soft: rgba(0, 0, 0, 0.06);
+    --input-border: #E8E8ED;
+    --input-border-strong: #C7C7CC;
+    --text-primary: #1D1D1F;
+    --text-secondary: #6E6E73;
+    --text-secondary-alt: #424245;
+    --text-muted: #8E8E93;
+    --navy: #122545;
+    --navy-hover: #0B1A33;
+    --navy-soft: #EAEEF6;
+    --navy-text: #9FB1CE;
+    --navy-muted: #B7C1D6;
+    --navy-muted-2: #8FA1BF;
+    --status-success: #1A6B3A;
+    --status-success-soft: #ECF6EF;
+    --status-warning: #8A5A00;
+    --status-warning-soft: #FBF3DF;
+    --status-danger: #B3261E;
+    --status-danger-soft: #FBEAEA;
+    --neutral-soft: #E8E8ED;
+    --overlay: rgba(0, 0, 0, 0.35);
+    --toast-bg: #1D1D1F;
+  }
+
+  .dark {
+    --background: 240 6% 6%;
+    --foreground: 240 5% 96%;
+    --card: 240 5% 11%;
+    --card-foreground: 240 5% 96%;
+    --popover: 240 6% 9%;
+    --popover-foreground: 240 5% 96%;
+    --primary: 213 55% 68%;
+    --primary-foreground: 217 58% 12%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 240 5% 96%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 3% 65%;
+    --accent: 217 30% 20%;
+    --accent-foreground: 213 55% 82%;
+    --success: 145 55% 45%;
+    --success-foreground: 145 60% 8%;
+    --success-muted: 145 30% 12%;
+    --warning: 39 85% 55%;
+    --warning-foreground: 39 60% 8%;
+    --warning-muted: 39 40% 12%;
+    --destructive: 4 70% 58%;
+    --destructive-foreground: 4 60% 8%;
+    --destructive-muted: 4 40% 12%;
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 213 55% 68%;
+
+    --surface-sidebar: #111114;
+    --surface-card-soft: #1C1C1F;
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --input-border: #2E2E33;
+    --input-border-strong: #48484D;
+    --text-primary: #F5F5F7;
+    --text-secondary: #A1A1A6;
+    --text-secondary-alt: #C7C7CC;
+    --text-muted: #8E8E93;
+    --navy: #6C8FC7;
+    --navy-hover: #85A3D6;
+    --navy-soft: #16233A;
+    --navy-text: #9FB1CE;
+    --navy-muted: #7D93B8;
+    --navy-muted-2: #64789C;
+    --status-success: #34C77B;
+    --status-success-soft: #0F2A1B;
+    --status-warning: #E0A63A;
+    --status-warning-soft: #2E2308;
+    --status-danger: #E5564A;
+    --status-danger-soft: #2E1210;
+    --neutral-soft: #2A2A2E;
+    --overlay: rgba(0, 0, 0, 0.55);
+    --toast-bg: #1D1D1F;
   }
 
   * {
