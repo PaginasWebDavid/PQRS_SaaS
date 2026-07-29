@@ -33,9 +33,6 @@ type TimelineItem = {
   key: string;
 };
 
-const FONT_LINK =
-  'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap';
-
 function Logo({ size = 23 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" style={{ display: 'block' }} aria-hidden="true">
@@ -377,8 +374,6 @@ export default function PqrsLandingPage() {
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link href={FONT_LINK} rel="stylesheet" />
       <style>{`
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -400,7 +395,6 @@ export default function PqrsLandingPage() {
         style={{
           background: '#FFFFFF',
           color: '#1D1D1F',
-          fontFamily: "'Manrope', sans-serif",
           minHeight: '100vh',
           overflowX: 'hidden',
         }}
