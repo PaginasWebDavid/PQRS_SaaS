@@ -1156,26 +1156,38 @@ export default function DashboardSuperAdminPage() {
             {filteredTenants.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>
             ) : (
-              <div style={{ minWidth: 720 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 22px', background: '#FAFAFA', borderBottom: `1px solid ${COLORS.borderSoft}`, fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.02em' }}>
-                  <span style={{ flex: 1, minWidth: 150 }}>NOMBRE</span><span style={{ width: 90 }}>CIUDAD</span><span style={{ width: 120 }}>ADMINISTRADOR</span><span style={{ width: 56 }}>UNID.</span><span style={{ width: 90 }}>LICENCIA</span><span style={{ width: 90 }}>ESTADO</span><span style={{ width: 190, textAlign: 'right' }}>ACCIONES</span>
-                </div>
-                {filteredTenants.slice(0, conjuntosVisible).map((t) => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                    <span style={{ flex: 1, minWidth: 150, fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-                    <span style={{ width: 90, fontSize: 12, color: COLORS.textSecondary }}>{t.city}</span>
-                    <span style={{ width: 120, fontSize: 12, color: COLORS.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.adminName}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 56 }}>{t.units}</span>
-                    <span style={{ width: 90, fontSize: 12, color: COLORS.textSecondary }}>{t.plan}</span>
-                    <span style={{ width: 90 }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></span>
-                    <span style={{ width: 190, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-                      <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
-                      <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: COLORS.bgSidebar, borderBottom: `1px solid ${COLORS.borderSoft}`, fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.02em' }}>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px 11px 22px', minWidth: 150 }}>NOMBRE</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>CIUDAD</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 120 }}>ADMINISTRADOR</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 56 }}>UNID.</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>LICENCIA</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>ESTADO</th>
+                    <th scope="col" style={{ textAlign: 'right', padding: '11px 22px 11px 8px', width: 190 }}>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTenants.slice(0, conjuntosVisible).map((t) => (
+                    <tr key={t.id} style={{ borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                      <td style={{ padding: '13px 8px 13px 22px', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 0 }}>{t.name}</td>
+                      <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary }}>{t.city}</td>
+                      <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 0 }}>{t.adminName}</td>
+                      <td style={{ padding: '13px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted }}>{t.units}</td>
+                      <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary }}>{t.plan}</td>
+                      <td style={{ padding: '13px 8px' }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></td>
+                      <td style={{ padding: '13px 22px 13px 8px' }}>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+                          <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
+                          <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                          <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
           {filteredTenants.length > conjuntosVisible && (
