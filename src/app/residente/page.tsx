@@ -236,6 +236,7 @@ export default function VistaResidentePage() {
   const bottomNav = [
     { key: 'inicio', label: 'Inicio', icon: '⌂', onClick: () => setTab('inicio') },
     { key: 'reservas', label: 'Reservas', icon: '▤', onClick: () => router.push('/residente/reservas') },
+    { key: 'pagos', label: 'Pagos', icon: '$', onClick: () => router.push('/residente/pagos') },
     { key: 'notif', label: 'Alertas', icon: '◔', onClick: () => setTab('notif') },
     { key: 'perfil', label: 'Perfil', icon: '◐', onClick: () => setTab('perfil') },
     { key: 'ayuda', label: 'Ayuda', icon: '?', onClick: () => setTab('ayuda') },

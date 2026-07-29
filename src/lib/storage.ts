@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 const DEFAULT_BUCKET = "pqrs-evidencias";
 
-type StorageFolder = "fotos" | "evidencias" | "avatares";
+type StorageFolder = "fotos" | "evidencias" | "avatares" | "comprobantes";
 
 type UploadInput = {
   tenantId: string;

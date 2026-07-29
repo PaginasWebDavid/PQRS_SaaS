@@ -36,6 +36,11 @@ model Tenant {
   commonAreas      CommonArea[]
   reservations     Reservation[]
   commonAreaBlocks CommonAreaBlock[]
+  residentUnits        ResidentUnit[]
+  residentCharges      ResidentCharge[]
+  residentPayments     ResidentPayment[]
+  paymentReceipts      PaymentReceipt[]
+  paymentImportBatches PaymentImportBatch[]
 
   @@index([slug])
   @@index([status])
@@ -92,6 +97,12 @@ model User {
   reservationsReviewed    Reservation[]     @relation("ReservationReviewedBy")
   reservationsCancelled   Reservation[]     @relation("ReservationCancelledBy")
   commonAreaBlocksCreated CommonAreaBlock[] @relation("CommonAreaBlockCreatedBy")
+  residentChargesCreated       ResidentCharge[]      @relation("ResidentChargeCreatedBy")
+  residentPaymentsRecorded     ResidentPayment[]     @relation("ResidentPaymentRecordedBy")
+  residentPaymentsReversed     ResidentPayment[]     @relation("ResidentPaymentReversedBy")
+  paymentReceiptsUploaded      PaymentReceipt[]      @relation("PaymentReceiptUploadedBy")
+  paymentReceiptsReviewed      PaymentReceipt[]      @relation("PaymentReceiptReviewedBy")
+  paymentImportBatchesUploaded PaymentImportBatch[]  @relation("PaymentImportBatchUploadedBy")
 
   @@index([tenantId])
   @@index([role])
@@ -121,6 +132,7 @@ model TenantMembership {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reservations Reservation[]
+  paymentReceipts PaymentReceipt[]
 
   @@unique([userId, tenantId])
   @@index([tenantId, role])
@@ -210,6 +222,15 @@ enum AuditAction {
   COMMON_AREA_CREATED
   COMMON_AREA_UPDATED
   COMMON_AREA_BLOCK_CREATED
+  PAYMENT_IMPORT_BATCH_COMPLETED
+  RESIDENT_CHARGE_CREATED
+  RESIDENT_CHARGE_CANCELLED
+  PAYMENT_RECEIPT_UPLOADED
+  PAYMENT_RECEIPT_APPROVED
+  PAYMENT_RECEIPT_REJECTED
+  PAYMENT_RECEIPT_WITHDRAWN
+  RESIDENT_PAYMENT_RECORDED
+  RESIDENT_PAYMENT_REVERSED
 }
 
 enum SupportTicketStatus {
@@ -332,6 +353,202 @@ model CommonAreaBlock {
   createdAt       DateTime   @default(now())
 
   @@index([tenantId, commonAreaId, startAt, endAt])
+}
+
+enum ChargeStatus {
+  PENDING
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum ChargeSource {
+  MANUAL
+  IMPORT
+}
+
+enum ReceiptStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ResidentPaymentStatus {
+  CONFIRMED
+  REVERSED
+}
+
+enum PaymentSource {
+  MANUAL
+  RECEIPT_APPROVAL
+}
+
+enum ImportBatchStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Pagos de residentes (cuotas de administracion), independientes del billing
+// del SaaS (Payment/Subscription = pago del TENANT a la plataforma, mas
+// arriba en este archivo). El sistema no tiene un modelo estable de
+// apartamento/unidad: bloque/apto viven como Int? sueltos en
+// TenantMembership. ResidentUnit normaliza esa dimension (tenantId+bloque+
+// apto) para que obligaciones y pagos sobrevivan a cambios de membresia
+// (mudanzas, nuevo residente en el mismo apto), sin duplicar esos enteros en
+// cada fila financiera.
+model ResidentUnit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bloque    Int
+  apto      Int
+  createdAt DateTime @default(now())
+
+  charges  ResidentCharge[]
+  payments ResidentPayment[]
+
+  @@unique([tenantId, bloque, apto])
+  @@index([tenantId])
+}
+
+// Obligacion o cuota (estado de cuenta). amountCents/paidCents en centavos de
+// COP (Int), consistente con Payment.amountCents/Subscription.priceCents mas
+// arriba en este archivo (evita introducir Decimal como un tipo de dato
+// nuevo y aislado; Int en centavos ya esta libre de error de coma flotante).
+// paidCents es la unica fuente de verdad del saldo abonado: solo se
+// actualiza dentro de la misma transaccion que crea/revierte un
+// ResidentPayment, bajo el advisory lock de la obligacion (ver
+// resident-payment.service.ts). status se deriva de amountCents/paidCents en
+// ese mismo punto, nunca de forma independiente.
+model ResidentCharge {
+  id              String              @id @default(cuid())
+  tenantId        String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            ResidentUnit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  period          String
+  concept         String
+  amountCents     Int
+  paidCents       Int                 @default(0)
+  dueDate         DateTime
+  status          ChargeStatus        @default(PENDING)
+  source          ChargeSource        @default(MANUAL)
+  importBatchId   String?
+  importBatch     PaymentImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  createdByUserId String?
+  createdBy       User?               @relation("ResidentChargeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  payments ResidentPayment[]
+  receipts PaymentReceipt[]
+
+  // Clave idempotente de importacion: reintentar el mismo archivo, o dos
+  // importaciones concurrentes con una fila equivalente, no duplica la
+  // obligacion (se cuenta como fila duplicada, ver PaymentImportBatch).
+  @@unique([tenantId, unitId, period, concept])
+  @@index([tenantId, period])
+  @@index([tenantId, unitId])
+  @@index([tenantId, status])
+  @@index([importBatchId])
+}
+
+// Pago/movimiento confirmado contra una obligacion. Se crea EXCLUSIVAMENTE
+// por aprobacion de un comprobante o por registro administrativo manual --
+// nunca directamente desde la importacion Excel (que solo crea/actualiza
+// obligaciones), para mantener una unica via auditable de dinero entrando al
+// sistema. reversedAt!=null marca una reversion/correccion; la fila nunca se
+// borra (historial financiero completo).
+model ResidentPayment {
+  id               String                @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chargeId         String
+  charge           ResidentCharge        @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  unitId           String
+  unit             ResidentUnit          @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  amountCents      Int
+  paidAt           DateTime
+  reference        String?
+  status           ResidentPaymentStatus @default(CONFIRMED)
+  source           PaymentSource
+  recordedByUserId String
+  recordedBy       User                  @relation("ResidentPaymentRecordedBy", fields: [recordedByUserId], references: [id])
+  reversedAt       DateTime?
+  reversedByUserId String?
+  reversedBy       User?                 @relation("ResidentPaymentReversedBy", fields: [reversedByUserId], references: [id], onDelete: SetNull)
+  reversalReason   String?               @db.Text
+  receiptId        String?               @unique
+  receipt          PaymentReceipt?       @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([tenantId, unitId])
+  @@index([tenantId, chargeId])
+  @@index([tenantId, status])
+}
+
+// Comprobante de pago cargado por el residente. Privado: el archivo vive en
+// Supabase Storage bajo el path derivado en servidor (folder "comprobantes",
+// ver src/lib/storage.ts), nunca en una URL publica. declaredAmountCents es
+// meramente informativo (lo que el residente dice haber pagado); el monto
+// que realmente se aplica al saldo lo fija el ADMIN al aprobar.
+model PaymentReceipt {
+  id                  String           @id @default(cuid())
+  tenantId            String
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chargeId            String
+  charge              ResidentCharge   @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  membershipId        String
+  membership          TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  uploadedByUserId    String
+  uploadedBy          User             @relation("PaymentReceiptUploadedBy", fields: [uploadedByUserId], references: [id])
+  storagePath         String
+  originalFileName    String
+  mimeType             String
+  sizeBytes            Int
+  declaredAmountCents  Int?
+  status               ReceiptStatus   @default(PENDING)
+  reviewedByUserId     String?
+  reviewedBy           User?           @relation("PaymentReceiptReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt           DateTime?
+  rejectionReason      String?         @db.Text
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  payment ResidentPayment?
+
+  @@index([tenantId, status])
+  @@index([tenantId, membershipId])
+  @@index([chargeId])
+}
+
+// Lote de importacion Excel de obligaciones. errorSummary guarda una lista
+// acotada de errores por fila ya saneados (numero de fila + mensaje
+// publico), nunca SQL/stack/contenido crudo del archivo.
+model PaymentImportBatch {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedByUserId String
+  uploadedBy       User              @relation("PaymentImportBatchUploadedBy", fields: [uploadedByUserId], references: [id])
+  fileName         String
+  status           ImportBatchStatus @default(PROCESSING)
+  totalRows        Int               @default(0)
+  validRows        Int               @default(0)
+  invalidRows      Int               @default(0)
+  createdRows      Int               @default(0)
+  duplicateRows    Int               @default(0)
+  errorSummary     Json?
+  createdAt        DateTime          @default(now())
+  completedAt      DateTime?
+
+  charges ResidentCharge[]
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
 }
 
 model PricingRule {

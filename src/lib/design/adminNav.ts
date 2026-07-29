@@ -5,6 +5,7 @@ export const ADMIN_NAV: NavItem[] = [
   { key: 'pqrs', href: '/admin/pqrs', label: 'PQRS' },
   { key: 'usuarios', href: '/admin/usuarios', label: 'Usuarios' },
   { key: 'reservas', href: '/admin/reservas', label: 'Reservas' },
+  { key: 'pagos', href: '/admin/pagos', label: 'Pagos' },
   { key: 'reportes', href: '/admin/reportes', label: 'Reportes' },
   { key: 'licencias', href: '/admin/licencias', label: 'Licencias y pagos' },
   { key: 'invitaciones', href: '/admin/invitaciones', label: 'Invitaciones' },
