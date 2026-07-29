@@ -45,6 +45,8 @@ export const FONTS = {
 export const RADIUS = {
   card: 18,
   cardSm: 16,
+  stat: 14,
+  control: 10,
   input: 12,
   pill: 999,
   sheetDesktop: 22,
