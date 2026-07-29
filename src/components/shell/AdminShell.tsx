@@ -23,7 +23,7 @@ export function AdminShell({
 }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [profile, setProfile] = useState<{ user?: { name?: string | null; role?: string | null }; tenant?: { name?: string | null; status?: string | null }; licenseSummary?: { status?: string | null } | null } | null>(null);
+  const [profile, setProfile] = useState<{ user?: { name?: string | null; role?: string | null }; tenant?: { name?: string | null; status?: string | null }; licenseSummary?: { status?: string | null } | null; entitlements?: { reservations?: boolean; residentPayments?: boolean } | null } | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
@@ -45,6 +45,11 @@ export function AdminShell({
   const currentLicenseStatus = profile?.tenant?.status || profile?.licenseSummary?.status || null;
   const displayLicenseActive = currentLicenseStatus ? !BLOCKING_STATUSES.includes(currentLicenseStatus) : !profileError;
   const blockedStatus = currentLicenseStatus && BLOCKING_STATUSES.includes(currentLicenseStatus) ? currentLicenseStatus : null;
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.key === 'reservas') return profile?.entitlements?.reservations === true;
+    if (item.key === 'pagos') return profile?.entitlements?.residentPayments === true;
+    return true;
+  });
 
   async function payNow() {
     setPayLoading(true);
@@ -66,11 +71,12 @@ export function AdminShell({
 
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0, overflowY: 'auto' }}>
-      {navItems.map((n) => (
+      {visibleNavItems.map((n) => (
         <Link
           key={n.key}
           href={n.href}
           onClick={onNavigate}
+          aria-current={n.key === activeKey ? 'page' : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10,
             fontSize: 13.5, fontWeight: n.key === activeKey ? 700 : 600,
@@ -116,7 +122,7 @@ export function AdminShell({
           <div className="apl-sheet" style={{ position: 'fixed', top: 0, left: 0, height: '100vh', width: 290, maxWidth: '84vw', background: '#FFFFFF', zIndex: 195, padding: '24px 18px', display: 'flex', flexDirection: 'column', boxShadow: '8px 0 40px rgba(0,0,0,0.12)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <BrandLockup size={21} />
-              <div onClick={() => setDrawerOpen(false)} style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textMuted, cursor: 'pointer', fontSize: 13 }}>✕</div>
+              <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textMuted, cursor: 'pointer', fontSize: 13, border: 'none', font: 'inherit' }}>✕</button>
             </div>
             <div style={{ marginBottom: 14 }}><TenantSwitcher /></div>
             <NavLinks onNavigate={() => setDrawerOpen(false)} />
@@ -133,7 +139,7 @@ export function AdminShell({
         {isMobile && (
           <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px) saturate(1.8)', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
             <div style={{ padding: '0 20px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div onClick={() => setDrawerOpen(true)} style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>☰</div>
+              <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Abrir menú" style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.bgCard, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer', border: 'none', font: 'inherit' }}>☰</button>
               <span style={{ fontWeight: 800, fontSize: 14.5 }}>{mobileTitle}</span>
               <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{displayInitials}</div>
             </div>
