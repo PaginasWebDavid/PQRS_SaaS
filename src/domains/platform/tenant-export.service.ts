@@ -62,6 +62,7 @@ export async function exportTenantData({
         numero: true,
         titulo: true,
         asunto: true,
+        categorySnapshot: true,
         estado: true,
         bloque: true,
         apto: true,
@@ -116,7 +117,7 @@ export async function exportTenantData({
     pqrsSheet.addRow({
       numero: pqrs.numero,
       titulo: sanitizeSpreadsheetCell(pqrs.titulo),
-      categoria: sanitizeSpreadsheetCell(pqrs.asunto),
+      categoria: sanitizeSpreadsheetCell(pqrs.categorySnapshot || pqrs.asunto),
       estado: pqrs.estado,
       bloque: pqrs.bloque,
       apto: pqrs.apto,

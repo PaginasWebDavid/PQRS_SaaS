@@ -6,6 +6,7 @@ import { updateMercadoPagoPreapprovalAmount, __billingTestSeam } from "@/domains
 import { hasCurrentAppliedAccessEvidence } from "@/domains/billing/precedence";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 import { mapInvitationError, normalizeInvitationEmail } from "@/domains/organizations/invitation-security";
+import { INITIAL_PQRS_CATEGORIES } from "@/domains/pqrs/pqrs-category-policy";
 
 // Error de negocio controlado ante un conflicto de serializacion (F2F-04). No es
 // un bucle de reintentos: el operador reintenta manualmente la accion.
@@ -161,6 +162,16 @@ export async function createTenantWithAdmin(
       },
     });
 
+    await tx.pqrsCategory.createMany({
+      data: INITIAL_PQRS_CATEGORIES.map((category) => ({
+        tenantId: tenant.id,
+        ...category,
+        isActive: true,
+        isCustom: false,
+        createdByUserId: actorUserId,
+      })),
+      skipDuplicates: true,
+    });
     await tx.auditLog.create({
       data: {
         actorUserId,
@@ -178,6 +189,16 @@ export async function createTenantWithAdmin(
       },
     });
 
+    await tx.pqrsCategory.createMany({
+      data: INITIAL_PQRS_CATEGORIES.map((category) => ({
+        tenantId: tenant.id,
+        ...category,
+        isActive: true,
+        isCustom: false,
+        createdByUserId: actorUserId,
+      })),
+      skipDuplicates: true,
+    });
     await tx.auditLog.create({
       data: {
         actorUserId,

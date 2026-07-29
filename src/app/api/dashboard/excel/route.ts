@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
@@ -51,6 +51,13 @@ export async function GET(req: NextRequest) {
         lt: new Date(`${year + 1}-01-01`),
       },
     },
+    select: {
+      asunto: true,
+      categorySnapshot: true,
+      estado: true,
+      fechaRecibido: true,
+      subAsunto: true,
+    },
   });
 
   const total = pqrs.length;
@@ -76,7 +83,7 @@ export async function GET(req: NextRequest) {
 
   const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
   for (const p of pqrs) {
-    const key = p.asunto || "Sin asunto";
+    const key = p.categorySnapshot || p.asunto || "Sin categoria";
     if (!asuntoMap[key]) asuntoMap[key] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
     asuntoMap[key].total++;
     if (p.estado === "TERMINADO") asuntoMap[key].terminado++;

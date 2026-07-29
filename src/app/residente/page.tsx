@@ -28,6 +28,7 @@ const PQRS_PAGE_SIZE = 20;
 const ticketStatusBadge = (status: string) => status === 'ABIERTA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'RESPONDIDA' ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt);
 type Me = { user?: { name?: string | null; email?: string | null; phone?: string | null; bloque?: number | null; apto?: number | null; bloqueAptoEditado?: boolean }; tenant?: { name?: string | null }; pqrsCloseSlaDays?: number };
 type Photo = { data: string; nombre: string; tipo: string; preview: string };
+type PqrsCategory = { id: string; displayName: string; workflowType: 'SIMPLE' | 'MAINTENANCE'; sortOrder: number };
 type Step = { label: string; done: boolean; date?: string; hint?: string };
 
 const badgeOf = (s: State) => s === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : s === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success);
@@ -72,6 +73,7 @@ export default function VistaResidentePage() {
   const [pqrsPage, setPqrsPage] = useState(1); const [pqrsTotal, setPqrsTotal] = useState(0);
   const [selected, setSelected] = useState<Pqrs | null>(null); const [createOpen, setCreateOpen] = useState(false);
   const [titulo, setTitulo] = useState(''); const [description, setDescription] = useState(''); const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<PqrsCategory[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]); const [creating, setCreating] = useState(false);
   const [profileName, setProfileName] = useState(''); const [profilePhone, setProfilePhone] = useState('');
   const [profileBloque, setProfileBloque] = useState(''); const [profileApto, setProfileApto] = useState('');
@@ -121,6 +123,15 @@ export default function VistaResidentePage() {
       setLoading(false);
     }
   }
+  useEffect(() => {
+    fetch('/api/pqrs/categories', { cache: 'no-store' })
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(body)) throw new Error('categories_load_failed');
+        setCategories(body);
+      })
+      .catch(() => showToast('No pudimos cargar las categorias disponibles.'));
+  }, [showToast]);
   // load intentionally runs once on mount; filter/search changes use the debounced paginated loader below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, []);
@@ -180,7 +191,7 @@ export default function VistaResidentePage() {
     if (creating || !titulo.trim() || !category || !description.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: titulo.trim(), asunto: category, descripcion: description.trim(), fotos: photos.map(({ data, nombre, tipo }) => ({ data, nombre, tipo })) }) });
+      const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: titulo.trim(), categoryId: category, descripcion: description.trim(), fotos: photos.map(({ data, nombre, tipo }) => ({ data, nombre, tipo })) }) });
       const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo enviar');
       setCreateOpen(false); setTitulo(''); setCategory(''); setDescription(''); setPhotos([]); await load(); showToast('Tu solicitud fue enviada');
     } catch {
@@ -349,7 +360,7 @@ export default function VistaResidentePage() {
       <Label>Categoria</Label>
       <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
         <option value="">Selecciona una categoria</option>
-        {Object.entries(CATEGORY_LABEL).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+        {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
       </select>
       <Label>Descripción</Label>
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe la situación, incluyendo la ubicación exacta si ayuda" rows={5} style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />

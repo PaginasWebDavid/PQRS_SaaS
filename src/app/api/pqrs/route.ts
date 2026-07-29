@@ -10,6 +10,8 @@ import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { pqrsScopeForUser } from "@/domains/pqrs/pqrs-permissions";
 import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
+import { mapPqrsCategoryError, resolvePqrsCategoryForCreation } from "@/domains/pqrs/pqrs-category.service";
+import { pqrsCategoryVisibleLabel } from "@/domains/pqrs/pqrs-category-policy";
 import {
   escapePqrsHtml,
   isRecord,
@@ -26,7 +28,6 @@ const MESES = [
 ];
 
 const ESTADOS_VALIDOS = new Set(["EN_ESPERA", "EN_PROGRESO", "TERMINADO"]);
-const ASUNTOS_VALIDOS = new Set(["AREA COMUN", "AREA PRIVADA", "CONTABILIDAD", "CONVIVENCIA", "HUMEDAD/CUBIERTA", "HUMEDAD/DEPOSITO", "HUMEDAD/VENTANAS", "HUMEDAD/FACHADA", "HUMEDAD/GARAJE"]);
 
 async function handleGet(req: NextRequest) {
   const session = await auth();
@@ -45,6 +46,7 @@ async function handleGet(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const estado = searchParams.get("estado");
   const asunto = searchParams.get("asunto");
+  const categoryId = searchParams.get("categoryId");
   const year = searchParams.get("year");
   const mes = searchParams.get("mes");
   const scope = searchParams.get("scope"); // "active" | "historial" | null
@@ -77,12 +79,8 @@ async function handleGet(req: NextRequest) {
     where.estado = estado as Prisma.EnumEstadoFilter["equals"];
   }
 
-  if (asunto && !ASUNTOS_VALIDOS.has(asunto)) {
-    return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
-  }
-  if (asunto) {
-    where.asunto = asunto;
-  }
+  if (categoryId) where.categoryId = categoryId;
+  if (asunto) where.asunto = asunto;
 
   if (mes) {
     where.mes = mes;
@@ -118,6 +116,7 @@ async function handleGet(req: NextRequest) {
       OR: [
         { titulo: { contains: freeText, mode: "insensitive" } },
         { asunto: { contains: freeText, mode: "insensitive" } },
+        { categorySnapshot: { contains: freeText, mode: "insensitive" } },
         { nombreResidente: { contains: freeText, mode: "insensitive" } },
         { descripcion: { contains: freeText, mode: "insensitive" } },
         ...(numericSearch !== null ? [{ numero: numericSearch }, { bloque: numericSearch }, { apto: numericSearch }] : []),
@@ -169,7 +168,10 @@ async function handlePost(req: NextRequest) {
   if (!isRecord(body)) {
     return NextResponse.json({ error: "Cuerpo invalido" }, { status: 400 });
   }
-  const { titulo, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
+  if (["tenantId", "workflowType", "categorySnapshot"].some((key) => key in body)) {
+    return NextResponse.json({ error: "Campos no permitidos" }, { status: 400 });
+  }
+  const { titulo, categoryId, asunto, descripcion, nombreResidente, bloque, apto, fotos } = body;
   if (typeof descripcion !== "string" || !descripcion.trim()) {
     return NextResponse.json({ error: "La descripcion es obligatoria" }, { status: 400 });
   }
@@ -195,12 +197,6 @@ async function handlePost(req: NextRequest) {
   const finalNombre = isAdmin
     ? typeof nombreResidente === "string" ? nombreResidente.trim() : ""
     : session.user.name?.trim() || "";
-  if (asunto !== undefined && asunto !== null && (typeof asunto !== "string" || !ASUNTOS_VALIDOS.has(asunto))) {
-    return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
-  }
-  if (!isAdmin && (typeof asunto !== "string" || !ASUNTOS_VALIDOS.has(asunto))) {
-    return NextResponse.json({ error: "Debes seleccionar una categoria" }, { status: 400 });
-  }
   const parsePositiveInteger = (value: unknown, max: number) => {
     const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
     if (!/^\d+$/.test(raw)) return null;
@@ -214,6 +210,13 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: "Nombre, bloque y apartamento son obligatorios y validos" }, { status: 400 });
   }
 
+  let category;
+  try {
+    category = await resolvePqrsCategoryForCreation({ tenantId, categoryId, legacyAsunto: asunto });
+  } catch (error) {
+    const mapped = mapPqrsCategoryError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
+  }
   const fotosArray: { buffer: Buffer; nombre: string; tipo: string; orden: number }[] = [];
   if (fotos !== undefined && !Array.isArray(fotos)) {
     return NextResponse.json({ error: "Formato de fotos invalido" }, { status: 400 });
@@ -289,14 +292,6 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: "No se pudieron subir las fotos" }, { status: 500 });
   }
 
-  // Snapshot inmutable: la PQRS nace con la plantilla vigente del tenant en
-  // este instante y la conserva para siempre, sin importar cambios futuros de
-  // Tenant.pqrsWorkflowType (ver pqrs-workflow.service.ts).
-  const tenantForWorkflow = await prisma.tenant.findUniqueOrThrow({
-    where: { id: tenantId },
-    select: { pqrsWorkflowType: true },
-  });
-
   let pqrs;
   try {
     pqrs = await prisma.$transaction(async (tx) => {
@@ -310,10 +305,12 @@ async function handlePost(req: NextRequest) {
         apto: finalApto,
         nombreResidente: finalNombre,
         titulo: finalTitulo || null,
-        asunto: typeof asunto === "string" ? asunto : null,
+        asunto: category.slug,
+        categoryId: category.id,
+        categorySnapshot: category.displayName,
         descripcion: finalDescripcion,
         creadoPorId: session.user.id,
-        workflowType: tenantForWorkflow.pqrsWorkflowType,
+        workflowType: category.workflowType,
       },
     });
 
@@ -356,8 +353,10 @@ async function handlePost(req: NextRequest) {
     action: AuditAction.PQRS_CREATED,
     targetType: "Pqrs",
     targetId: pqrs.id,
-    metadata: { numero: pqrs.numero, asunto: pqrs.asunto, estado: pqrs.estado },
+    metadata: { numero: pqrs.numero, categoryId: pqrs.categoryId, categorySnapshot: pqrs.categorySnapshot, estado: pqrs.estado },
   });
+
+  const categoryLabel = pqrsCategoryVisibleLabel(pqrs);
 
   const recipients = (await prisma.tenantMembership.findMany({
     where: { tenantId, role: "ADMIN", isActive: true },
@@ -397,7 +396,7 @@ async function handlePost(req: NextRequest) {
             eyebrow: "Nueva PQRS",
             heading: escapePqrsHtml(pqrs.titulo || `Solicitud #${pqrs.numero}`),
             bodyHtml: `
-              <p>Se registró la solicitud <strong>#${pqrs.numero}</strong>${pqrs.asunto ? ` — ${pqrs.asunto}` : ""}, radicada por <strong>${escapePqrsHtml(finalNombre)}</strong> (Bloque ${finalBloque}, apto ${finalApto}).</p>
+              <p>Se registro la solicitud <strong>#${pqrs.numero}</strong> - ${escapePqrsHtml(categoryLabel)}, radicada por <strong>${escapePqrsHtml(finalNombre)}</strong> (Bloque ${finalBloque}, apto ${finalApto}).</p>
               <p>Ingresa al panel de administración para revisarla y dar el primer contacto.</p>
             `,
             cta: { label: "Ver en el panel", url: `${process.env.APP_URL || process.env.NEXTAUTH_URL || ""}/admin/pqrs?id=${pqrs.id}` },

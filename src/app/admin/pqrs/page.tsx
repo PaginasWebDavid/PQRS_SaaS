@@ -11,7 +11,7 @@ import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
 type Pqrs = {
-  id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
+  id: string; numero: number; titulo?: string | null; asunto?: string | null; categoryId?: string | null; categorySnapshot?: string | null; descripcion: string; nombreResidente: string;
   bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
   notaPrimerContacto?: string | null;
   workflowType?: 'SIMPLE' | 'MAINTENANCE';
@@ -19,11 +19,13 @@ type Pqrs = {
   fase1Nota?: string | null; fase2Nota?: string | null; fase3Nota?: string | null; fase4Nota?: string | null;
   fase1Inicio?: string | null; fase2Inicio?: string | null; fase3Inicio?: string | null; fase4Inicio?: string | null; fase5Inicio?: string | null;
   accionTomada?: string | null; evidenciaCierre?: string | null; queSeHizoParaCerrar?: string | null;
-  evidenciaArchivoNombre?: string | null; evidenciaArchivoPath?: string | null; evidenciaArchivoUrl?: string | null;
+  evidenciaArchivoNombre?: string | null; evidenciaArchivoRetiradaAt?: string | null;
+  fotos?: { id: string; nombre: string; tipo: string; size?: number | null; orden: number }[];
   editadoPorResidente?: boolean;
   creadoPor?: { name?: string | null } | null;
 };
 type PqrsPagination = { page: number; pageSize: number; total: number; totalPages: number };
+type PqrsCategory = { id: string; displayName: string; workflowType: 'SIMPLE' | 'MAINTENANCE'; sortOrder: number };
 
 const FILTERS = [
   { key: 'all', label: 'Todas' },
@@ -54,6 +56,7 @@ function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLO
 function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
 function code(n: number) { return `PQ-${String(n).padStart(4, '0')}`; }
 function date(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
+function categoryLabel(p: Pqrs) { return p.categorySnapshot || (p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoria'); }
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -92,6 +95,7 @@ function ModuloPqrsPageContent() {
   const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const [data, setData] = useState<Pqrs[]>([]);
+  const [categories, setCategories] = useState<PqrsCategory[]>([]);
   const [pagination, setPagination] = useState<PqrsPagination>({ page: 1, pageSize: 25, total: 0, totalPages: 0 });
   const initialEstado = searchParams.get('estado');
   const [filter, setFilter] = useState(FILTERS.some((f) => f.key === initialEstado) ? initialEstado! : 'all');
@@ -112,7 +116,6 @@ function ModuloPqrsPageContent() {
   const [newApto, setNewApto] = useState('');
 
   const [contactOpen, setContactOpen] = useState(false);
-  const [contactAsunto, setContactAsunto] = useState('');
   const [contactNota, setContactNota] = useState('');
   const [contactPrioridad, setContactPrioridad] = useState<'ALTA' | 'MEDIA' | 'BAJA'>('MEDIA');
   const [contactSubmitting, setContactSubmitting] = useState(false);
@@ -128,6 +131,16 @@ function ModuloPqrsPageContent() {
   const [closeFile, setCloseFile] = useState<File | null>(null);
   const [closeFileError, setCloseFileError] = useState('');
   const [closeSubmitting, setCloseSubmitting] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionCategoryId, setCorrectionCategoryId] = useState('');
+  const [correctionBloque, setCorrectionBloque] = useState('');
+  const [correctionApto, setCorrectionApto] = useState('');
+  const [correctionWorkflow, setCorrectionWorkflow] = useState<'SIMPLE' | 'MAINTENANCE'>('SIMPLE');
+  const [correctionPhase, setCorrectionPhase] = useState('');
+  const [correctionRoute, setCorrectionRoute] = useState('');
+  const [correctionReopen, setCorrectionReopen] = useState(false);
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,37 +174,42 @@ function ModuloPqrsPageContent() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    if (!selectedId || data.some((p) => p.id === selectedId) || detail?.id === selectedId) return;
+    fetch('/api/pqrs/categories', { cache: 'no-store' })
+      .then(async (res) => { const body = await res.json().catch(() => null); if (!res.ok || !Array.isArray(body)) throw new Error(); setCategories(body); })
+      .catch(() => showToast('No se pudieron cargar las categorias disponibles'));
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!selectedId || detail?.id === selectedId) return;
     fetch('/api/pqrs/' + selectedId, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => { if (body) setDetail(body); })
       .catch(() => showToast('No se pudo cargar el detalle de la PQRS'));
-  }, [data, detail?.id, selectedId, showToast]);
+  }, [detail?.id, selectedId, showToast]);
 
-  const selected = data.find((p) => p.id === selectedId) ?? detail ?? data[0];
+  const selected = detail?.id === selectedId ? detail : data.find((p) => p.id === selectedId) ?? data[0];
 
   async function submitCreate() {
-    if (!newTitulo.trim() || !newDescription.trim() || !newResident.trim() || !newBloque || !newApto) return;
-    const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: newTitulo.trim(), asunto: newSubject || null, descripcion: newDescription, nombreResidente: newResident, bloque: newBloque, apto: newApto }) });
+    if (!newTitulo.trim() || !newSubject || !newDescription.trim() || !newResident.trim() || !newBloque || !newApto) return;
+    const res = await fetch('/api/pqrs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo: newTitulo.trim(), categoryId: newSubject, descripcion: newDescription, nombreResidente: newResident, bloque: newBloque, apto: newApto }) });
     if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo crear la PQRS'); return; }
     const created = await res.json(); setCreateOpen(false); setNewTitulo(''); setNewSubject(''); setNewDescription(''); setNewResident(''); setNewBloque(''); setNewApto(''); setDetail(created); await load(); setSelectedId(created.id); showToast('PQRS creada ✓');
   }
 
   function openContact() {
     if (!selected) return;
-    setContactAsunto(selected.asunto && ASUNTO_LABEL[selected.asunto] ? selected.asunto : '');
     setContactNota('');
     setContactPrioridad('MEDIA');
     setContactOpen(true);
   }
 
   async function submitContact() {
-    if (!selected || !contactAsunto || !contactNota.trim()) return;
+    if (!selected || !contactNota.trim()) return;
     setContactSubmitting(true);
     try {
       const res = await fetch(`/api/pqrs/${selected.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primerContacto: true, asunto: contactAsunto, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
+        body: JSON.stringify({ primerContacto: true, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
       });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo registrar el primer contacto'); return; }
       setContactOpen(false); await load(); showToast('Recepción confirmada ✓ Se avisó al residente.');
@@ -245,7 +263,7 @@ function ModuloPqrsPageContent() {
   }
 
   const closeNeedsQueSeHizo = selected ? selected.faseActual !== 5 : false;
-  const closeHasExistingEvidence = !!(selected?.evidenciaCierre || selected?.evidenciaArchivoPath || selected?.evidenciaArchivoUrl);
+  const closeHasExistingEvidence = !!(selected?.evidenciaCierre || (selected?.evidenciaArchivoNombre && !selected.evidenciaArchivoRetiradaAt));
   const closeCanSubmit = !!closeAccion.trim() && (!closeNeedsQueSeHizo || !!closeQueSeHizo.trim()) && (!!closeEvidenciaTexto.trim() || !!closeFile || closeHasExistingEvidence) && !closeFileError;
 
   async function submitClose() {
@@ -265,6 +283,70 @@ function ModuloPqrsPageContent() {
     } finally { setCloseSubmitting(false); }
   }
 
+  async function refreshSelected(id: string) {
+    const res = await fetch(`/api/pqrs/${id}`, { cache: 'no-store' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error || 'No se pudo actualizar el detalle');
+    setDetail(body);
+    await load();
+  }
+
+  function openCorrection() {
+    if (!selected) return;
+    setCorrectionCategoryId(selected.categoryId || '');
+    setCorrectionBloque(String(selected.bloque));
+    setCorrectionApto(String(selected.apto));
+    setCorrectionWorkflow(selected.workflowType || 'SIMPLE');
+    setCorrectionPhase(selected.faseActual ? String(selected.faseActual) : '');
+    setCorrectionRoute(selected.faseTipo || '');
+    setCorrectionReopen(false);
+    setCorrectionReason('');
+    setCorrectionOpen(true);
+  }
+
+  async function submitCorrection() {
+    if (!selected || correctionReason.trim().length < 10 || correctionSubmitting) return;
+    const body: Record<string, unknown> = {
+      operationId: crypto.randomUUID(),
+      reason: correctionReason.trim(),
+    };
+    if (correctionCategoryId && correctionCategoryId !== selected.categoryId) body.categoryId = correctionCategoryId;
+    if (Number(correctionBloque) !== selected.bloque) body.bloque = Number(correctionBloque);
+    if (Number(correctionApto) !== selected.apto) body.apto = Number(correctionApto);
+    if (correctionWorkflow !== selected.workflowType) body.workflowType = correctionWorkflow;
+    const nextPhase = correctionPhase ? Number(correctionPhase) : null;
+    if (nextPhase !== (selected.faseActual ?? null)) body.faseActual = nextPhase;
+    const nextRoute = correctionWorkflow === 'MAINTENANCE' && correctionRoute ? correctionRoute : null;
+    if (nextRoute !== (selected.faseTipo ?? null)) body.faseTipo = nextRoute;
+    if (correctionReopen) body.reopen = true;
+    setCorrectionSubmitting(true);
+    try {
+      const res = await fetch(`/api/pqrs/${selected.id}/corregir`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const response = await res.json().catch(() => null);
+      if (!res.ok) { showToast(response?.error || 'No se pudo corregir el caso'); return; }
+      setCorrectionOpen(false);
+      await refreshSelected(selected.id);
+      showToast('Correccion registrada con auditoria');
+    } catch {
+      showToast('No se pudo conectar para corregir el caso');
+    } finally { setCorrectionSubmitting(false); }
+  }
+
+  async function withdrawEvidence(kind: 'file' | 'photo', photoId?: string) {
+    if (!selected) return;
+    const reason = window.prompt('Motivo del retiro (minimo 10 caracteres):')?.trim();
+    if (!reason) return;
+    const url = kind === 'file'
+      ? `/api/pqrs/${selected.id}/evidencia`
+      : `/api/pqrs/${selected.id}/fotos/${photoId}`;
+    const res = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) { showToast(body?.error || 'No se pudo retirar la evidencia'); return; }
+    await refreshSelected(selected.id);
+    showToast('Evidencia retirada y auditada');
+  }
   const seguimiento = useMemo(() => {
     if (!selected) return [] as { label: string; text: string }[];
     const entries: { label: string; text: string }[] = [];
@@ -312,7 +394,7 @@ function ModuloPqrsPageContent() {
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.titulo || 'Solicitud'}</div>
                   <span style={badge(p.estado)}>{label(p.estado)}</span>
                 </div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginBottom: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginBottom: 2 }}>{categoryLabel(p)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning }}>{p.numeroRadicacion || 'Pendiente'}</span>
                   <span style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombreResidente}</span>
@@ -328,7 +410,7 @@ function ModuloPqrsPageContent() {
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Pendiente'}</span>
                 <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
                 </span>
                 <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: 100, flexShrink: 0 }}>{p.nombreResidente}</span>
                 <span style={badge(p.estado)}>{label(p.estado)}</span>
@@ -352,7 +434,7 @@ function ModuloPqrsPageContent() {
                 <span style={badge(selected.estado)}>{label(selected.estado)}</span>
               </div>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
-              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{selected.asunto ? (ASUNTO_LABEL[selected.asunto] || selected.asunto) : 'Sin categoría'}</span></div>
+              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{categoryLabel(selected)}</span></div>
 
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 22 }}>
                 {STAGE_LABELS.map((stageLabel, i) => {
@@ -393,6 +475,25 @@ function ModuloPqrsPageContent() {
               </div>
               <p style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 500, lineHeight: 1.55, margin: '0 0 20px' }}>{selected.descripcion}</p>
 
+              {(selected.evidenciaArchivoNombre || (selected.fotos?.length || 0) > 0) && (
+                <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12, marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 8 }}>EVIDENCIAS</div>
+                  {selected.evidenciaArchivoNombre && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                      <a href={`/api/pqrs/${selected.id}/evidencia`} target="_blank" style={{ color: COLORS.navy, fontSize: 12.5, fontWeight: 700 }}>{selected.evidenciaArchivoNombre}</a>
+                      <button type="button" onClick={() => void withdrawEvidence('file')} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
+                    </div>
+                  )}
+                  {selected.fotos?.map((photo) => (
+                    <div key={photo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                      <a href={`/api/pqrs/${selected.id}/fotos/${photo.id}`} target="_blank" style={{ color: COLORS.navy, fontSize: 12.5, fontWeight: 700 }}>{photo.nombre}</a>
+                      <button type="button" onClick={() => void withdrawEvidence('photo', photo.id)} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+
               <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>Seguimiento</div>
               <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 20 }}>
                 {seguimiento.length === 0 && <p style={{ fontSize: 12, color: COLORS.textMuted, margin: 0 }}>Sin seguimiento registrado aún.</p>}
@@ -411,6 +512,7 @@ function ModuloPqrsPageContent() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={openCorrection} style={{ flex: 1, textAlign: 'center', background: '#FFFFFF', color: COLORS.navy, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Corregir caso</button>
                 {selected.estado === 'EN_ESPERA' && (
                   <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Confirmar recepción</button>
                 )}
@@ -438,10 +540,10 @@ function ModuloPqrsPageContent() {
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Registra una solicitud para hacerle seguimiento.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Título</label>
         <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría (opcional)</label>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
         <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: '#FFFFFF' }}>
-          <option value="">Sin categoría todavía</option>
-          {ASUNTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          <option value="">Selecciona una categoria</option>
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
         <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Descripción" rows={4} style={{ width: '100%', padding: '12px 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <input value={newResident} onChange={(e) => setNewResident(e.target.value)} placeholder="Nombre del residente" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
@@ -459,11 +561,6 @@ function ModuloPqrsPageContent() {
           <CloseButton onClick={() => setContactOpen(false)} />
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Esto pasa la PQRS a &quot;En proceso&quot;, genera su número de radicación y avisa al residente por correo.</p>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría (obligatoria)</label>
-        <select value={contactAsunto} onChange={(e) => setContactAsunto(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14, background: '#FFFFFF' }}>
-          <option value="">Selecciona una categoría…</option>
-          {ASUNTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-        </select>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Prioridad</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {(['ALTA', 'MEDIA', 'BAJA'] as const).map((p) => (
@@ -472,9 +569,43 @@ function ModuloPqrsPageContent() {
         </div>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de primer contacto</label>
         <textarea value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="¿Qué se le informó o gestionó al residente?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
-        <button type="button" onClick={submitContact} disabled={!contactAsunto || !contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: (contactAsunto && contactNota.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (contactAsunto && contactNota.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
+        <button type="button" onClick={submitContact} disabled={!contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactNota.trim() ? COLORS.navy : COLORS.neutralSoft, color: contactNota.trim() ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
       </Sheet>
 
+      {/* Correccion auditada */}
+      <Sheet open={correctionOpen} onClose={() => setCorrectionOpen(false)} maxWidth={500}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Corregir caso</div>
+          <CloseButton onClick={() => setCorrectionOpen(false)} />
+        </div>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>Los cambios quedan registrados en el historial y la auditoria.</p>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
+        <select value={correctionCategoryId} onChange={(e) => setCorrectionCategoryId(e.target.value)} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, marginBottom: 12 }}>
+          <option value="">Selecciona una categoria</option>
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+        </select>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <input type="number" min={1} value={correctionBloque} onChange={(e) => setCorrectionBloque(e.target.value)} placeholder="Bloque" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }} />
+          <input type="number" min={1} value={correctionApto} onChange={(e) => setCorrectionApto(e.target.value)} placeholder="Apartamento" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }} />
+        </div>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Workflow efectivo</label>
+        <select value={correctionWorkflow} onChange={(e) => setCorrectionWorkflow(e.target.value as 'SIMPLE' | 'MAINTENANCE')} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, marginBottom: 12 }}>
+          <option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option>
+        </select>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <select value={correctionPhase} onChange={(e) => setCorrectionPhase(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }}>
+            <option value="">Sin fase</option><option value="1">Fase 1</option>
+            {correctionWorkflow === 'MAINTENANCE' && <><option value="2">Fase 2</option><option value="3">Fase 3</option><option value="4">Fase 4</option></>}
+          </select>
+          <select disabled={correctionWorkflow !== 'MAINTENANCE'} value={correctionRoute} onChange={(e) => setCorrectionRoute(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }}>
+            <option value="">Sin ruta</option><option value="INSUMOS">Insumos</option><option value="PROVEEDOR">Proveedor</option>
+          </select>
+        </div>
+        {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado accidentalmente</label>}
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo obligatorio</label>
+        <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontFamily: 'inherit', marginBottom: 16 }} />
+        <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? '#FFF' : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
+      </Sheet>
       {/* Fase sheet */}
       <Sheet open={faseOpen} onClose={() => setFaseOpen(false)} maxWidth={480}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>

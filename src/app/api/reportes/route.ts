@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
 
   const estadoRaw = params.get("estado");
   const asunto = params.get("asunto");
+  const categoryId = params.get("categoryId");
   const prioridadRaw = params.get("prioridad");
   const bloqueRaw = params.get("bloque");
   const gestionadoPorId = params.get("gestionadoPorId");
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
     compareTo,
     granularity,
     estado: estado || undefined,
+    categoryId: categoryId || undefined,
     asunto: asunto || undefined,
     prioridad: prioridad || undefined,
     bloque: bloque ?? undefined,

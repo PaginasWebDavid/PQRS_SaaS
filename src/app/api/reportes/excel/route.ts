@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
   const { from, to, compareFrom, compareTo, granularity } = resolvePeriod(params);
   const estado = params.get("estado") as Estado | null;
   const asunto = params.get("asunto");
+  const categoryId = params.get("categoryId");
   const prioridad = params.get("prioridad") as Prioridad | null;
   const bloque = params.get("bloque");
   const gestionadoPorId = params.get("gestionadoPorId");
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   const [data, tenant] = await Promise.all([
     getPqrsReportData({
       tenantId, from, to, compareFrom, compareTo, granularity,
-      estado: estado || undefined, asunto: asunto || undefined, prioridad: prioridad || undefined,
+      estado: estado || undefined, categoryId: categoryId || undefined, asunto: asunto || undefined, prioridad: prioridad || undefined,
       bloque: bloque ? Number(bloque) : undefined, gestionadoPorId: gestionadoPorId || undefined,
       cumplimiento: cumplimiento || undefined,
     }),

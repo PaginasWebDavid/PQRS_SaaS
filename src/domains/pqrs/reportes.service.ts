@@ -95,6 +95,7 @@ export type ReportesFilters = {
   granularity: Granularity;
   estado?: Estado;
   asunto?: string;
+  categoryId?: string;
   prioridad?: Prioridad;
   bloque?: number;
   gestionadoPorId?: string;
@@ -109,6 +110,8 @@ type RawRow = {
   bloque: number;
   apto: number;
   asunto: string | null;
+  categoryId: string | null;
+  categorySnapshot: string | null;
   subAsunto: string | null;
   prioridad: Prioridad;
   estado: Estado;
@@ -131,6 +134,8 @@ const ROW_SELECT = {
   bloque: true,
   apto: true,
   asunto: true,
+  categoryId: true,
+  categorySnapshot: true,
   subAsunto: true,
   prioridad: true,
   estado: true,
@@ -240,6 +245,9 @@ function asuntoLabel(asunto: string | null) {
   if (!asunto) return "Sin categoría";
   return ASUNTO_LABELS[asunto] || asunto;
 }
+function categoryLabel(row: Pick<RawRow, "categorySnapshot" | "asunto">) {
+  return row.categorySnapshot?.trim() || asuntoLabel(row.asunto);
+}
 
 async function fetchRows(tenantId: string, from: Date, to: Date, filters: Partial<ReportesFilters>, byReceivedDate: boolean): Promise<RawRow[]> {
   return prisma.pqrs.findMany({
@@ -247,7 +255,8 @@ async function fetchRows(tenantId: string, from: Date, to: Date, filters: Partia
       tenantId,
       ...(byReceivedDate ? { fechaRecibido: { gte: from, lt: to } } : {}),
       ...(filters.estado ? { estado: filters.estado } : {}),
-      ...(filters.asunto ? { asunto: filters.asunto } : {}),
+      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+        ...(filters.asunto ? { asunto: filters.asunto } : {}),
       ...(filters.prioridad ? { prioridad: filters.prioridad } : {}),
       ...(filters.bloque ? { bloque: filters.bloque } : {}),
       ...(filters.gestionadoPorId ? { gestionadoPorId: filters.gestionadoPorId } : {}),
@@ -269,6 +278,7 @@ export async function getPqrsReportData(filters: ReportesFilters) {
       where: {
         tenantId: filters.tenantId,
         estado: { not: "TERMINADO" },
+        ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
         ...(filters.asunto ? { asunto: filters.asunto } : {}),
         ...(filters.prioridad ? { prioridad: filters.prioridad } : {}),
         ...(filters.bloque ? { bloque: filters.bloque } : {}),
@@ -350,9 +360,9 @@ export async function getPqrsReportData(filters: ReportesFilters) {
   const responsablesSobrecargados = responsableValues.filter((r) => r.count >= responsableThreshold);
 
   const currentByAsunto = new Map<string, number>();
-  for (const r of current) currentByAsunto.set(r.asunto || "Sin categoría", (currentByAsunto.get(r.asunto || "Sin categoría") || 0) + 1);
+  for (const r of current) { const key = categoryLabel(r); currentByAsunto.set(key, (currentByAsunto.get(key) || 0) + 1); }
   const compareByAsunto = new Map<string, number>();
-  for (const r of compare) compareByAsunto.set(r.asunto || "Sin categoría", (compareByAsunto.get(r.asunto || "Sin categoría") || 0) + 1);
+  for (const r of compare) { const key = categoryLabel(r); compareByAsunto.set(key, (compareByAsunto.get(key) || 0) + 1); }
   const categoriasAtipicas: { asunto: string; count: number; prevCount: number; deltaPct: number }[] = [];
   for (const [asunto, count] of Array.from(currentByAsunto.entries())) {
     const prevCount = compareByAsunto.get(asunto) || 0;
@@ -369,7 +379,7 @@ export async function getPqrsReportData(filters: ReportesFilters) {
     { key: "proximosAVencer", level: "media" as const, count: proximosAVencer.length, motivo: `Casos que llegarán al límite de ${slaDays} días en las próximas 24-48 horas`, filterHint: { quick: "proximosAVencer" } },
     { key: "vencidos", level: "alta" as const, count: vencidosAhora.length, motivo: `Casos que ya superaron el tiempo esperado de ${slaDays} días sin cerrarse`, filterHint: { quick: "vencidos" } },
     ...responsablesSobrecargados.map((r) => ({ key: `responsable-${r.name}`, level: "media" as const, count: r.count, motivo: `${r.name} tiene ${r.count} casos abiertos acumulados`, filterHint: { quick: "responsable", value: r.name } })),
-    ...categoriasAtipicas.map((c) => ({ key: `categoria-${c.asunto}`, level: "baja" as const, count: c.count, motivo: `La categoría "${asuntoLabel(c.asunto)}" aumentó ${c.deltaPct}% frente al periodo anterior (${c.prevCount} → ${c.count})`, filterHint: { quick: "categoria", value: c.asunto } })),
+    ...categoriasAtipicas.map((c) => ({ key: `categoria-${c.asunto}`, level: "baja" as const, count: c.count, motivo: `La categoría "${c.asunto}" aumentó ${c.deltaPct}% frente al periodo anterior (${c.prevCount} → ${c.count})`, filterHint: { quick: "categoria", value: c.asunto } })),
   ].filter((a) => a.count > 0);
 
   // ---------- C. Tiempos de atención ----------
@@ -404,7 +414,7 @@ export async function getPqrsReportData(filters: ReportesFilters) {
       { label: "3-7 días", count: closeBuckets3.entre3y7 },
       { label: "+7 días", count: closeBuckets3.mas7 },
     ],
-    porCategoria: groupTimeBy(current, (r) => asuntoLabel(r.asunto)),
+    porCategoria: groupTimeBy(current, (r) => categoryLabel(r)),
     porPrioridad: groupTimeBy(current, (r) => r.prioridad),
     porResponsable: groupTimeBy(current, (r) => r.gestionadoPor?.name || "Sin asignar"),
     pctCumplimiento: cumplimientoPctCurrent,
@@ -440,13 +450,13 @@ export async function getPqrsReportData(filters: ReportesFilters) {
     return Array.from(map.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
   }
   const distribucion = {
-    porCategoria: countBy(current, (r) => asuntoLabel(r.asunto)),
+    porCategoria: countBy(current, (r) => categoryLabel(r)),
     porSubcategoria: countBy(current.filter((r) => r.subAsunto), (r) => r.subAsunto as string),
     porEstado: countBy(current, (r) => r.estado),
     porPrioridad: countBy(current, (r) => r.prioridad),
     porResponsable: countBy(current, (r) => r.gestionadoPor?.name || "Sin asignar"),
     porBloque: countBy(current, (r) => `Bloque ${r.bloque}`),
-    categoriasMayorCrecimiento: categoriasAtipicas.map((c) => ({ label: asuntoLabel(c.asunto), deltaPct: c.deltaPct, count: c.count })).sort((a, b) => b.deltaPct - a.deltaPct),
+    categoriasMayorCrecimiento: categoriasAtipicas.map((c) => ({ label: c.asunto, deltaPct: c.deltaPct, count: c.count })).sort((a, b) => b.deltaPct - a.deltaPct),
     categoriasMayorTiempoResolucion: tiempos.porCategoria.filter((c) => c.avgCierre != null).sort((a, b) => (b.avgCierre ?? 0) - (a.avgCierre ?? 0)).slice(0, 5),
   };
 
@@ -485,7 +495,7 @@ export async function getPqrsReportData(filters: ReportesFilters) {
     solicitante: r.nombreResidente,
     ubicacion: `B${r.bloque}-${r.apto}`,
     bloque: r.bloque,
-    categoria: asuntoLabel(r.asunto),
+    categoria: categoryLabel(r),
     subcategoria: r.subAsunto,
     prioridad: r.prioridad,
     estado: r.estado,

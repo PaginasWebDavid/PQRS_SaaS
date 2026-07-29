@@ -17,9 +17,8 @@ model Tenant {
   city        String?
   address     String?
   cancelledAt DateTime?
-  // Plantilla de gestion de PQRS de este conjunto. Solo afecta PQRS NUEVAS: cada
-  // PQRS guarda su propio workflowType (snapshot inmutable) al crearse, asi que
-  // cambiar esto nunca altera casos ya en curso ni cerrados. Ver Pqrs.workflowType.
+  // Configuracion legacy conservada durante la migracion aditiva. Las PQRS nuevas
+  // derivan workflowType de PqrsCategory; este valor solo respalda lectores antiguos.
   pqrsWorkflowType PqrsWorkflowType @default(MAINTENANCE)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -27,6 +26,8 @@ model Tenant {
   users         User[]
   memberships   TenantMembership[]
   pqrs          Pqrs[]
+  pqrsCategories PqrsCategory[]
+  pqrsCorrections PqrsCorrection[]
   fotos         PqrsFoto[]
   historial     HistorialPqrs[]
   subscription  Subscription?
@@ -92,6 +93,10 @@ model User {
   updatedAt             DateTime   @updatedAt
   pqrsCreated           Pqrs[]     @relation("CreatedBy")
   pqrsManaged           Pqrs[]     @relation("ManagedBy")
+  pqrsCategoriesCreated PqrsCategory[] @relation("PqrsCategoryCreatedBy")
+  pqrsCorrections       PqrsCorrection[] @relation("PqrsCorrectionActor")
+  pqrsEvidenceWithdrawals Pqrs[] @relation("PqrsEvidenceWithdrawnBy")
+  pqrsPhotoWithdrawals  PqrsFoto[] @relation("PqrsPhotoWithdrawnBy")
   auditLogs             AuditLog[]        @relation("AuditActor")
   invitedInvitations    Invitation[]      @relation("InvitationInvitedBy")
   notifications         Notification[]
@@ -725,6 +730,11 @@ model Pqrs {
   titulo                        String?
   asunto                        String?
   subAsunto                     String?
+  // Relacion y etiqueta historica aditivas. asunto/subAsunto/tipoPqrs se
+  // conservan temporalmente para lectores legacy y migracion segura.
+  categoryId                    String?
+  category                      PqrsCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categorySnapshot              String?
   prioridad                     Prioridad       @default(MEDIA)
   descripcion                   String          @db.Text
   editadoPorResidente           Boolean         @default(false)
@@ -743,12 +753,18 @@ model Pqrs {
   evidenciaArchivoNombre        String?
   evidenciaArchivoTipo          String?
   evidenciaArchivoSize          Int?
+  evidenciaArchivoRetiradaAt    DateTime?
+  evidenciaArchivoRetiradaPorId String?
+  evidenciaArchivoRetiradaPor   User?           @relation("PqrsEvidenceWithdrawnBy", fields: [evidenciaArchivoRetiradaPorId], references: [id], onDelete: SetNull)
+  evidenciaArchivoRetiroMotivo  String?
+  // Tombstone privado: conserva el path de Storage retirado hasta que la limpieza
+  // fisica confirme exito. Nunca se selecciona fuera de pqrs-evidence.service.ts.
+  evidenciaArchivoRetiroStoragePath String?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
 
-  // Snapshot inmutable tomado de Tenant.pqrsWorkflowType al crear esta PQRS.
-  // Nunca se recalcula despues: si el conjunto cambia su plantilla, los casos
-  // ya creados conservan la que tenian, sin importar el nuevo valor del tenant.
+  // Snapshot inmutable derivado de PqrsCategory al crear la PQRS.
+  // Cambiar la categoria despues no altera casos historicos.
   workflowType                  PqrsWorkflowType @default(MAINTENANCE)
 
   // Fases de gestion (solo admin, no visible para residente)
@@ -776,6 +792,7 @@ model Pqrs {
   // Trazabilidad
   historial HistorialPqrs[]
   fotos     PqrsFoto[]
+  corrections PqrsCorrection[]
 
   @@index([tenantId])
   @@index([tenantId, estado])
@@ -783,6 +800,7 @@ model Pqrs {
   @@index([tenantId, numero])
   @@index([tenantId, mes])
   @@index([tenantId, asunto])
+  @@index([tenantId, categoryId])
   @@index([tenantId, bloque, apto])
   @@index([tenantId, creadoPorId])
 }
@@ -824,6 +842,12 @@ model PqrsFoto {
   size        Int?
   orden       Int
   createdAt   DateTime @default(now())
+  removedAt   DateTime?
+  removedByUserId String?
+  removedBy   User?    @relation("PqrsPhotoWithdrawnBy", fields: [removedByUserId], references: [id], onDelete: SetNull)
+  removalReason String?
+  // Tombstone privado, analogo a Pqrs.evidenciaArchivoRetiroStoragePath.
+  retiroStoragePath String?
 
   @@index([tenantId])
   @@index([pqrsId])
@@ -848,6 +872,48 @@ model HistorialPqrs {
 }
 
 
+model PqrsCategory {
+  id              String           @id @default(cuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  canonicalKey    String?
+  slug            String
+  displayName     String
+  isActive        Boolean          @default(true)
+  isCustom        Boolean          @default(false)
+  sortOrder       Int              @default(0)
+  workflowType    PqrsWorkflowType @default(SIMPLE)
+  createdByUserId String?
+  createdBy       User?            @relation("PqrsCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  pqrs            Pqrs[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, canonicalKey])
+  @@index([tenantId, isActive, sortOrder])
+}
+
+model PqrsCorrection {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pqrsId      String
+  pqrs        Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  actor       User?    @relation("PqrsCorrectionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  operationId String
+  reason      String
+  changes     Json
+  // Huella del payload aplicado (excluye operationId). Permite distinguir un
+  // reintento legitimo del mismo operationId de un reuso con datos distintos.
+  requestHash String?
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, operationId])
+  @@index([tenantId, pqrsId, createdAt])
+  @@index([actorUserId])
+}
 model Invitation {
   id          String           @id @default(cuid())
   tenantId    String

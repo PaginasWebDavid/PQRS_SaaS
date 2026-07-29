@@ -9,6 +9,7 @@ import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Prioridad = 'ALTA' | 'MEDIA' | 'BAJA';
+type PqrsCategory = { id: string; displayName: string; isActive: boolean };
 type Metric = { value: number | null; prev: number | null; deltaPct: number | null; goodDirection: 'up' | 'down'; soportado?: boolean };
 type AlertItem = { key: string; level: 'alta' | 'media' | 'baja'; count: number; motivo: string; filterHint: { quick: string; value?: string } };
 type TimeGroup = { key: string; count: number; avgCierre: number | null; cumplimientoPct: number | null };
@@ -50,17 +51,6 @@ const PRESETS = [
   { key: 'thisYear', label: 'Año actual' },
   { key: 'lastYear', label: 'Año anterior' },
   { key: 'custom', label: 'Personalizado' },
-];
-const ASUNTOS: { value: string; label: string }[] = [
-  { value: 'AREA COMUN', label: 'Área común' },
-  { value: 'AREA PRIVADA', label: 'Área privada' },
-  { value: 'CONTABILIDAD', label: 'Contabilidad' },
-  { value: 'CONVIVENCIA', label: 'Convivencia' },
-  { value: 'HUMEDAD/CUBIERTA', label: 'Humedad - Cubierta' },
-  { value: 'HUMEDAD/DEPOSITO', label: 'Humedad - Depósito' },
-  { value: 'HUMEDAD/VENTANAS', label: 'Humedad - Ventanas' },
-  { value: 'HUMEDAD/FACHADA', label: 'Humedad - Fachada' },
-  { value: 'HUMEDAD/GARAJE', label: 'Humedad - Garaje' },
 ];
 const PRESET_LABEL: Record<string, string> = Object.fromEntries(PRESETS.map((p) => [p.key, p.label]));
 const PRIORIDAD_LABEL: Record<Prioridad, string> = { ALTA: 'Alta', MEDIA: 'Media', BAJA: 'Baja' };
@@ -137,6 +127,7 @@ export default function ModuloReportesPage() {
   const isMobile = useIsMobile();
   const { toast, showToast } = useToast();
   const [data, setData] = useState<ReportData | null>(null);
+  const [categories, setCategories] = useState<PqrsCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -168,7 +159,7 @@ export default function ModuloReportesPage() {
     p.set('comparisonMode', comparisonMode);
     p.set('granularity', 'month');
     if (estado) p.set('estado', estado);
-    if (asunto) p.set('asunto', asunto);
+    if (asunto) p.set('categoryId', asunto);
     if (prioridad) p.set('prioridad', prioridad);
     if (bloque) p.set('bloque', bloque);
     if (gestionadoPorId) p.set('gestionadoPorId', gestionadoPorId);
@@ -176,6 +167,11 @@ export default function ModuloReportesPage() {
     return p;
   };
 
+  useEffect(() => {
+    fetch('/api/tenant/pqrs-categories', { cache: 'no-store' })
+      .then(async (res) => { const body = await res.json().catch(() => null); if (!res.ok || !Array.isArray(body)) throw new Error(); setCategories(body); })
+      .catch(() => showToast('No se pudieron cargar las categorias del reporte'));
+  }, [showToast]);
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -202,7 +198,7 @@ export default function ModuloReportesPage() {
 
   const activeChips = [
     estado && { key: 'estado', label: `Estado: ${ESTADO_LABEL[estado as Estado]}`, clear: () => setEstado('') },
-    asunto && { key: 'asunto', label: `Categoría: ${ASUNTOS.find((a) => a.value === asunto)?.label || asunto}`, clear: () => setAsunto('') },
+    asunto && { key: 'asunto', label: `Categoria: ${categories.find((item) => item.id === asunto)?.displayName || asunto}`, clear: () => setAsunto('') },
     prioridad && { key: 'prioridad', label: `Prioridad: ${PRIORIDAD_LABEL[prioridad as Prioridad]}`, clear: () => setPrioridad('') },
     bloque && { key: 'bloque', label: `Bloque ${bloque}`, clear: () => setBloque('') },
     gestionadoPorId && { key: 'resp', label: `Responsable: ${data?.staff.find((s) => s.id === gestionadoPorId)?.name || ''}`, clear: () => setGestionadoPorId('') },
@@ -352,7 +348,7 @@ export default function ModuloReportesPage() {
         <label style={labelStyle}>Categoría</label>
         <select value={asunto} onChange={(e) => setAsunto(e.target.value)} style={{ ...selectStyle, width: '100%', height: 42, marginBottom: 14 }}>
           <option value="">Todas las categorías</option>
-          {ASUNTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}{item.isActive ? '' : ' (inactiva)'}</option>)}
         </select>
         <label style={labelStyle}>Prioridad</label>
         <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)} style={{ ...selectStyle, width: '100%', height: 42, marginBottom: 14 }}>
