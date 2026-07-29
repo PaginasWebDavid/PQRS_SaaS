@@ -62,6 +62,7 @@
     --neutral-soft: #E8E8ED;
     --overlay: rgba(0, 0, 0, 0.35);
     --toast-bg: #1D1D1F;
+    --surface-disabled: #F0F0F0;
   }
 
   .dark {
@@ -116,6 +117,7 @@
     --neutral-soft: #2A2A2E;
     --overlay: rgba(0, 0, 0, 0.55);
     --toast-bg: #1D1D1F;
+    --surface-disabled: #232326;
   }
 
   * {

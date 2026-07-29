@@ -35,6 +35,7 @@ export const COLORS = {
   white: '#FFFFFF',
   overlay: 'var(--overlay)',
   toastBg: 'var(--toast-bg)',
+  disabledBg: 'var(--surface-disabled)',
 } as const;
 
 export const FONTS = {

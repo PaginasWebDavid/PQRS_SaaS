@@ -272,7 +272,7 @@ export default function VistaResidentePage() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
           {[['all', 'Todas'], ['abiertas', 'Recibidas'], ['gestion', 'En gestión'], ['resuelta', 'Resueltas']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
-        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: 16, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
+        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
         {!loading && !loadError && pqrsTotal > PQRS_PAGE_SIZE && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
             <button type='button' disabled={pqrsPage <= 1} onClick={() => void loadPqrs(pqrsPage - 1, filter, search)} style={{ ...secondary, width: 'auto', minWidth: 100, opacity: pqrsPage <= 1 ? 0.5 : 1 }}>Anterior</button>
@@ -286,28 +286,28 @@ export default function VistaResidentePage() {
     {tab === 'notif' && (
       <div className="apl-up">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><h1 style={{ ...h1, margin: 0 }}>Notificaciones</h1>{notifications.length > 0 && <button onClick={markAll} style={linkButton}>Marcar todas</button>}</div>
-        {notifications.length === 0 ? <Empty text="No tienes notificaciones." /> : notifications.map((n) => <button key={n.id} onClick={() => markRead(n)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, background: n.readAt ? '#FFF' : COLORS.bgCard, border: `1px solid ${n.readAt ? COLORS.border : 'transparent'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ width: 8, height: 8, borderRadius: 999, background: n.readAt ? COLORS.textMuted : COLORS.navy, marginTop: 6, flexShrink: 0 }} /><span><b style={{ fontSize: 13.5 }}>{n.title}</b><span style={{ display: 'block', fontSize: 12.5, color: COLORS.textSecondary, marginTop: 3 }}>{n.message}</span><small style={{ color: COLORS.textMuted }}>{fmt(n.createdAt)}</small></span></button>)}
+        {notifications.length === 0 ? <Empty text="No tienes notificaciones." /> : notifications.map((n) => <button key={n.id} onClick={() => markRead(n)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, background: n.readAt ? COLORS.bg : COLORS.bgCard, border: `1px solid ${n.readAt ? COLORS.border : 'transparent'}`, borderRadius: RADIUS.stat, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: n.readAt ? COLORS.textMuted : COLORS.navy, marginTop: 6, flexShrink: 0 }} /><span><b style={{ fontSize: 13.5 }}>{n.title}</b><span style={{ display: 'block', fontSize: 12.5, color: COLORS.textSecondary, marginTop: 3 }}>{n.message}</span><small style={{ color: COLORS.textMuted }}>{fmt(n.createdAt)}</small></span></button>)}
       </div>
     )}
 
     {tab === 'perfil' && (
       <div className="apl-up">
         <h1 style={h1}>Mi perfil</h1>
-        <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
+        <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: 22 }}>
           <Label>Nombre</Label>
           <input value={profileName} onChange={(e) => setProfileName(e.target.value)} style={inputStyle} />
           <Label>Teléfono</Label>
           <input value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} style={inputStyle} />
           <Label>Correo</Label>
-          <input value={me?.user?.email || ''} disabled style={{ ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted }} />
+          <input value={me?.user?.email || ''} disabled style={{ ...inputStyle, background: COLORS.disabledBg, color: COLORS.textMuted }} />
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <Label>Bloque</Label>
-              <input inputMode="numeric" value={profileBloque} disabled={bloqueAptoLocked} onChange={(e) => setProfileBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={bloqueAptoLocked ? { ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted } : inputStyle} />
+              <input inputMode="numeric" value={profileBloque} disabled={bloqueAptoLocked} onChange={(e) => setProfileBloque(e.target.value.replace(/\D/g, '').slice(0, 3))} style={bloqueAptoLocked ? { ...inputStyle, background: COLORS.disabledBg, color: COLORS.textMuted } : inputStyle} />
             </div>
             <div>
               <Label>Apartamento</Label>
-              <input inputMode="numeric" value={profileApto} disabled={bloqueAptoLocked} onChange={(e) => setProfileApto(e.target.value.replace(/\D/g, '').slice(0, 6))} style={bloqueAptoLocked ? { ...inputStyle, background: '#F0F0F0', color: COLORS.textMuted } : inputStyle} />
+              <input inputMode="numeric" value={profileApto} disabled={bloqueAptoLocked} onChange={(e) => setProfileApto(e.target.value.replace(/\D/g, '').slice(0, 6))} style={bloqueAptoLocked ? { ...inputStyle, background: COLORS.disabledBg, color: COLORS.textMuted } : inputStyle} />
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '8px 0 0' }}>
@@ -323,10 +323,10 @@ export default function VistaResidentePage() {
       <div className="apl-up">
         <h1 style={h1}>Ayuda</h1>
         <p style={sub}>¿Tienes un problema con la plataforma? Escríbenos y te responderemos por aquí y por correo.</p>
-        <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, marginBottom: 14 }}>
+        <div style={{ background: COLORS.navySoft, borderRadius: RADIUS.control, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, marginBottom: 14 }}>
           Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
         </div>
-        <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22, marginBottom: 20 }}>
+        <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: 22, marginBottom: 20 }}>
           <Label>Asunto</Label>
           <input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Ej. No puedo subir fotos a mi solicitud" style={inputStyle} />
           <Label>Mensaje</Label>
@@ -334,8 +334,8 @@ export default function VistaResidentePage() {
           <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>
-        {ticketsError ? <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600 }}>{ticketsError}<button type='button' onClick={() => void loadTickets()} style={{ ...secondary, width: 'auto', marginTop: 10 }}>Intentar de nuevo</button></div> : tickets.length === 0 ? <Empty text='Aún no has enviado ninguna solicitud.' /> : tickets.map((t) => (
-          <div key={t.id} style={{ background: '#FFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+        {ticketsError ? <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.input, padding: 12, fontSize: 12.5, fontWeight: 600 }}>{ticketsError}<button type='button' onClick={() => void loadTickets()} style={{ ...secondary, width: 'auto', marginTop: 10 }}>Intentar de nuevo</button></div> : tickets.length === 0 ? <Empty text='Aún no has enviado ninguna solicitud.' /> : tickets.map((t) => (
+          <div key={t.id} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <b style={{ fontSize: 13.5 }}>{t.subject}</b>
               <span style={ticketStatusBadge(t.status)}>{TICKET_STATUS_LABEL[t.status]}</span>
@@ -343,7 +343,7 @@ export default function VistaResidentePage() {
             <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{supportTicketCategoryLabel(t.category)}</div>
             <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
             {t.response && (
-              <div style={{ background: COLORS.successSoft, borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5 }}>
+              <div style={{ background: COLORS.successSoft, borderRadius: RADIUS.control, padding: '10px 12px', fontSize: 12, lineHeight: 1.5 }}>
                 <div style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.success, marginBottom: 4 }}>Respuesta de PQRS Services</div>
                 {t.response}
               </div>
@@ -385,7 +385,7 @@ export default function VistaResidentePage() {
         {taken && <p style={{ fontSize: 12, color: COLORS.textMuted }}>La administración ya empezó a gestionar esta solicitud; su contenido quedó bloqueado.</p>}
         {!taken && selected.editadoPorResidente && !editing && <p style={{ fontSize: 12, color: COLORS.textMuted }}>Ya editaste esta solicitud una vez; no puede editarse de nuevo.</p>}
         {selected.responsable && <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '18px 0 0' }}>Responsable: <b>{selected.responsable}</b></p>}
-        {(selected.accionTomada || selected.evidenciaCierre || selected.queSeHizoParaCerrar) && <div style={{ background: COLORS.successSoft, borderRadius: 14, padding: '14px 16px', marginTop: 16 }}>
+        {(selected.accionTomada || selected.evidenciaCierre || selected.queSeHizoParaCerrar) && <div style={{ background: COLORS.successSoft, borderRadius: RADIUS.stat, padding: '14px 16px', marginTop: 16 }}>
           <b style={{ fontSize: 13.5, color: COLORS.success }}>Respuesta de la administración</b>
           {selected.accionTomada && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.accionTomada}</p>}
           {selected.queSeHizoParaCerrar && <p style={{ margin: '8px 0 0', fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.queSeHizoParaCerrar}</p>}
@@ -403,11 +403,11 @@ export default function VistaResidentePage() {
 
 function Timeline({ steps }: { steps: Step[] }) {
   return (
-    <div style={{ background: COLORS.bgCard, borderRadius: 16, padding: '16px 18px', margin: '18px 0 4px' }}>
+    <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: '16px 18px', margin: '18px 0 4px' }}>
       {steps.map((s, i) => (
         <div key={s.label} style={{ display: 'flex', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ width: 22, height: 22, borderRadius: 999, background: s.done ? COLORS.success : '#FFFFFF', border: s.done ? 'none' : `1.5px solid ${COLORS.inputBorder}`, color: s.done ? '#FFFFFF' : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{s.done ? '✓' : i + 1}</div>
+            <div style={{ width: 22, height: 22, borderRadius: RADIUS.pill, background: s.done ? COLORS.success : COLORS.bg, border: s.done ? 'none' : `1.5px solid ${COLORS.inputBorder}`, color: s.done ? COLORS.white : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{s.done ? '✓' : i + 1}</div>
             {i < steps.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 26, background: s.done ? COLORS.success : COLORS.borderSoft, margin: '2px 0' }} />}
           </div>
           <div style={{ paddingBottom: i < steps.length - 1 ? 16 : 2 }}>
@@ -422,7 +422,7 @@ function Timeline({ steps }: { steps: Step[] }) {
 function PqrsCard({ row, onClick }: { row: Pqrs; onClick: () => void }) {
   const titulo = row.titulo || row.descripcion.slice(0, 60) || 'Solicitud';
   return (
-    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: '#FFF', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: COLORS.bg, borderRadius: RADIUS.cardSm, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
         <b style={{ fontSize: 14 }}>{titulo}</b>
         <span style={{ ...badgeOf(row.estado), flexShrink: 0 }}>{label(row.estado)}</span>
@@ -434,12 +434,12 @@ function PqrsCard({ row, onClick }: { row: Pqrs; onClick: () => void }) {
     </button>
   );
 }
-function Empty({ text = 'No hay solicitudes con este filtro.' }: { text?: string }) { return <div style={{ textAlign: 'center', padding: '50px 20px', color: COLORS.textMuted, background: COLORS.bgCard, borderRadius: 16, fontSize: 13.5, fontWeight: 500 }}>{text}</div>; }
+function Empty({ text = 'No hay solicitudes con este filtro.' }: { text?: string }) { return <div style={{ textAlign: 'center', padding: '50px 20px', color: COLORS.textMuted, background: COLORS.bgCard, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 500 }}>{text}</div>; }
 function Label({ children }: { children: React.ReactNode }) { return <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '14px 0 7px' }}>{children}</label>; }
 const h1: React.CSSProperties = { fontSize: 26, fontWeight: 800, margin: '0 0 6px' };
 const sub: React.CSSProperties = { color: COLORS.textSecondary, marginBottom: 24, fontSize: 14 };
-const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 12, fontSize: 14, fontFamily: 'inherit' };
-const primary: React.CSSProperties = { width: '100%', border: 0, background: COLORS.navy, color: '#FFF', fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginTop: 18, cursor: 'pointer', fontFamily: 'inherit' };
-const secondary: React.CSSProperties = { width: '100%', border: '1.5px solid ' + COLORS.inputBorder, background: '#FFF', color: COLORS.navy, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, marginTop: 14, cursor: 'pointer', fontFamily: 'inherit' };
+const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: RADIUS.input, fontSize: 14, fontFamily: 'inherit' };
+const primary: React.CSSProperties = { width: '100%', border: 0, background: COLORS.navy, color: COLORS.white, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginTop: 18, cursor: 'pointer', fontFamily: 'inherit' };
+const secondary: React.CSSProperties = { width: '100%', border: '1.5px solid ' + COLORS.inputBorder, background: COLORS.bg, color: COLORS.navy, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, marginTop: 14, cursor: 'pointer', fontFamily: 'inherit' };
 const linkButton: React.CSSProperties = { border: 0, background: 'none', color: COLORS.navy, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' };
-const newButton: React.CSSProperties = { width: '100%', border: 0, background: COLORS.navy, color: '#FFF', borderRadius: 18, padding: '20px 22px', marginBottom: 26, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontFamily: 'inherit' };
+const newButton: React.CSSProperties = { width: '100%', border: 0, background: COLORS.navy, color: COLORS.white, borderRadius: RADIUS.card, padding: '20px 22px', marginBottom: 26, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontFamily: 'inherit' };
