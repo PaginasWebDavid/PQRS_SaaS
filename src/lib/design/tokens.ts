@@ -1,38 +1,40 @@
-﻿// PQRS Services — design tokens. Exact hex values used across every screen of the redesign.
-// Do NOT invent new colors — every visual should pull from here.
+﻿// PQRS Services — design tokens. Every value here is a CSS variable defined in
+// src/app/globals.css (:root for light, .dark for dark mode). Do NOT hardcode
+// a new hex value in this file or in consuming components — add the variable
+// to globals.css first, then reference it here.
 
 export const COLORS = {
-  bg: '#FFFFFF',
-  bgSidebar: '#FAFAFA',
-  bgCard: '#F5F5F7',
-  border: 'rgba(0,0,0,0.07)',
-  borderSoft: 'rgba(0,0,0,0.06)',
-  inputBorder: '#E8E8ED',
-  inputBorderStrong: '#C7C7CC',
+  bg: 'hsl(var(--background))',
+  bgSidebar: 'var(--surface-sidebar)',
+  bgCard: 'var(--surface-card-soft)',
+  border: 'hsl(var(--border))',
+  borderSoft: 'var(--border-soft)',
+  inputBorder: 'var(--input-border)',
+  inputBorderStrong: 'var(--input-border-strong)',
 
-  textPrimary: '#1D1D1F',
-  textSecondary: '#6E6E73',
-  textSecondaryAlt: '#424245',
-  textMuted: '#8E8E93',
+  textPrimary: 'var(--text-primary)',
+  textSecondary: 'var(--text-secondary)',
+  textSecondaryAlt: 'var(--text-secondary-alt)',
+  textMuted: 'var(--text-muted)',
 
-  navy: '#122545',
-  navyHover: '#0B1A33',
-  navySoft: '#EAEEF6',
-  navyText: '#9FB1CE', // used on navy backgrounds (Super Admin sidebar)
-  navyMuted: '#B7C1D6',
-  navyMuted2: '#8FA1BF',
+  navy: 'var(--navy)',
+  navyHover: 'var(--navy-hover)',
+  navySoft: 'var(--navy-soft)',
+  navyText: 'var(--navy-text)', // used on navy backgrounds (Super Admin sidebar)
+  navyMuted: 'var(--navy-muted)',
+  navyMuted2: 'var(--navy-muted-2)',
 
-  success: '#1A6B3A',
-  successSoft: '#ECF6EF',
-  warning: '#8A5A00',
-  warningSoft: '#FBF3DF',
-  danger: '#B3261E',
-  dangerSoft: '#FBEAEA',
-  neutralSoft: '#E8E8ED',
+  success: 'var(--status-success)',
+  successSoft: 'var(--status-success-soft)',
+  warning: 'var(--status-warning)',
+  warningSoft: 'var(--status-warning-soft)',
+  danger: 'var(--status-danger)',
+  dangerSoft: 'var(--status-danger-soft)',
+  neutralSoft: 'var(--neutral-soft)',
 
   white: '#FFFFFF',
-  overlay: 'rgba(0,0,0,0.35)',
-  toastBg: '#1D1D1F',
+  overlay: 'var(--overlay)',
+  toastBg: 'var(--toast-bg)',
 } as const;
 
 export const FONTS = {
