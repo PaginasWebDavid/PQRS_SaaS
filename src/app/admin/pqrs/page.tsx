@@ -141,6 +141,9 @@ function ModuloPqrsPageContent() {
   const [correctionReopen, setCorrectionReopen] = useState(false);
   const [correctionReason, setCorrectionReason] = useState('');
   const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
+  const [withdrawTarget, setWithdrawTarget] = useState<{ kind: 'file' | 'photo'; photoId?: string } | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -334,18 +337,27 @@ function ModuloPqrsPageContent() {
     } finally { setCorrectionSubmitting(false); }
   }
 
-  async function withdrawEvidence(kind: 'file' | 'photo', photoId?: string) {
-    if (!selected) return;
-    const reason = window.prompt('Motivo del retiro (minimo 10 caracteres):')?.trim();
-    if (!reason) return;
-    const url = kind === 'file'
-      ? `/api/pqrs/${selected.id}/evidencia`
-      : `/api/pqrs/${selected.id}/fotos/${photoId}`;
-    const res = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) { showToast(body?.error || 'No se pudo retirar la evidencia'); return; }
-    await refreshSelected(selected.id);
-    showToast('Evidencia retirada y auditada');
+  function openWithdraw(kind: 'file' | 'photo', photoId?: string) {
+    setWithdrawTarget({ kind, photoId });
+    setWithdrawReason('');
+  }
+
+  async function submitWithdraw() {
+    if (!selected || !withdrawTarget) return;
+    const reason = withdrawReason.trim();
+    if (reason.length < 10) return;
+    setWithdrawSubmitting(true);
+    try {
+      const url = withdrawTarget.kind === 'file'
+        ? `/api/pqrs/${selected.id}/evidencia`
+        : `/api/pqrs/${selected.id}/fotos/${withdrawTarget.photoId}`;
+      const res = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) { showToast(body?.error || 'No se pudo retirar la evidencia'); return; }
+      setWithdrawTarget(null);
+      await refreshSelected(selected.id);
+      showToast('Evidencia retirada y auditada');
+    } finally { setWithdrawSubmitting(false); }
   }
   const seguimiento = useMemo(() => {
     if (!selected) return [] as { label: string; text: string }[];
@@ -481,13 +493,13 @@ function ModuloPqrsPageContent() {
                   {selected.evidenciaArchivoNombre && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
                       <a href={`/api/pqrs/${selected.id}/evidencia`} target="_blank" style={{ color: COLORS.navy, fontSize: 12.5, fontWeight: 700 }}>{selected.evidenciaArchivoNombre}</a>
-                      <button type="button" onClick={() => void withdrawEvidence('file')} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
+                      <button type="button" onClick={() => openWithdraw('file')} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
                     </div>
                   )}
                   {selected.fotos?.map((photo) => (
                     <div key={photo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                       <a href={`/api/pqrs/${selected.id}/fotos/${photo.id}`} target="_blank" style={{ color: COLORS.navy, fontSize: 12.5, fontWeight: 700 }}>{photo.nombre}</a>
-                      <button type="button" onClick={() => void withdrawEvidence('photo', photo.id)} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
+                      <button type="button" onClick={() => openWithdraw('photo', photo.id)} style={{ border: 0, background: 'none', color: COLORS.danger, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Retirar</button>
                     </div>
                   ))}
                 </div>
@@ -604,7 +616,18 @@ function ModuloPqrsPageContent() {
         {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado accidentalmente</label>}
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo obligatorio</label>
         <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
-        <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? '#FFF' : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
+        <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
+      </Sheet>
+      {/* Withdraw evidence sheet */}
+      <Sheet open={withdrawTarget !== null} onClose={() => setWithdrawTarget(null)} maxWidth={440}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Retirar evidencia</div>
+          <CloseButton onClick={() => setWithdrawTarget(null)} />
+        </div>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>El archivo deja de estar disponible para descarga y el motivo queda registrado en la auditoría.</p>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo del retiro (mínimo 10 caracteres)</label>
+        <textarea value={withdrawReason} onChange={(e) => setWithdrawReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica por qué se retira esta evidencia" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
+        <button type="button" onClick={submitWithdraw} disabled={withdrawReason.trim().length < 10 || withdrawSubmitting} style={{ width: '100%', border: 0, background: withdrawReason.trim().length >= 10 ? COLORS.danger : COLORS.neutralSoft, color: withdrawReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{withdrawSubmitting ? 'Retirando…' : 'Retirar evidencia'}</button>
       </Sheet>
       {/* Fase sheet */}
       <Sheet open={faseOpen} onClose={() => setFaseOpen(false)} maxWidth={480}>
