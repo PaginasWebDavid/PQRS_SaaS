@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ResidentShell } from '@/components/shell/ResidentShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
@@ -55,6 +56,7 @@ function buildTimeline(p: Pqrs, slaDays: number): Step[] {
 }
 
 export default function VistaResidentePage() {
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [data, setData] = useState<Pqrs[]>([]);
   const [notifications, setNotifications] = useState<Notice[]>([]);
@@ -233,6 +235,7 @@ export default function VistaResidentePage() {
 
   const bottomNav = [
     { key: 'inicio', label: 'Inicio', icon: '⌂', onClick: () => setTab('inicio') },
+    { key: 'reservas', label: 'Reservas', icon: '▤', onClick: () => router.push('/residente/reservas') },
     { key: 'notif', label: 'Alertas', icon: '◔', onClick: () => setTab('notif') },
     { key: 'perfil', label: 'Perfil', icon: '◐', onClick: () => setTab('perfil') },
     { key: 'ayuda', label: 'Ayuda', icon: '?', onClick: () => setTab('ayuda') },
