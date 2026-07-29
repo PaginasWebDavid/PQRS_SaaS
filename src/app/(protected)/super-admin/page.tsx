@@ -6,6 +6,7 @@ import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 import { paymentProviderLabel } from '@/lib/design/billing';
+import { CommercialTenantPanel, type CommercialMetrics, type CommercialTenantDetail } from '@/components/commercial/CommercialTenantPanel';
 
 const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { header: 'PLATAFORMA' },
@@ -42,9 +43,11 @@ type ApiTenant = {
   users?: { name?: string | null; email?: string | null }[];
   subscription?: { status?: string | null; unitsSnapshot?: number | null; currentPeriodEnd?: string | null; trialEndsAt?: string | null } | null;
   _count?: { users?: number; pqrs?: number };
+  commercialProfile?: CommercialTenantDetail['commercialProfile'];
+  featureEntitlements?: CommercialTenantDetail['featureEntitlements'];
 };
 
-type ApiPricingRule = { id: string; minUnits: number; maxUnits: number | null; priceCents: number; currency: string; isActive: boolean };
+type ApiPricingRule = { id: string; type: 'MONTHLY' | 'PILOT'; minUnits: number; maxUnits: number | null; priceCents: number; currency: string; isActive: boolean };
 type ApiAuditLog = {
   action: string;
   targetType: string | null;
@@ -143,7 +146,7 @@ const TENANT_BADGE: Record<TenantGroup, React.CSSProperties> = {
 };
 const TENANT_LABEL: Record<TenantGroup, string> = { active: 'Activo', trial: 'En prueba', pending_payment: 'Falta primer pago', grace: 'En mora', suspended: 'Suspendido', cancelled: 'Cancelado' };
 
-const AUDIT_ICON_STYLE = { width: 26, height: 26, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1 } as const;
+const AUDIT_ICON_STYLE = { width: 26, height: 26, borderRadius: RADIUS.pill, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1 } as const;
 
 function MiniBarChart({ data, color, formatValue }: { data: { label: string; value: number | null }[]; color: string; formatValue: (v: number) => string }) {
   const max = Math.max(1, ...data.map((d) => d.value || 0));
@@ -167,6 +170,9 @@ export default function DashboardSuperAdminPage() {
   const [filter, setFilter] = useState<'all' | TenantGroup>('all');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<(ApiTenant & CommercialTenantDetail) | null>(null);
+  const [commercialMetrics, setCommercialMetrics] = useState<CommercialMetrics | null>(null);
+  const [founderSlotsRemaining, setFounderSlotsRemaining] = useState(10);
   const [pendingInvitations, setPendingInvitations] = useState<{ id: string; email: string; role: string; expiresAt: string }[]>([]);
   const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -182,11 +188,17 @@ export default function DashboardSuperAdminPage() {
   const [createStep, setCreateStep] = useState(0);
   const [newName, setNewName] = useState(''); const [newCity, setNewCity] = useState(''); const [newUnits, setNewUnits] = useState('');
   const [newAdminName, setNewAdminName] = useState(''); const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAddress, setNewAddress] = useState(''); const [newAdminPhone, setNewAdminPhone] = useState('');
+  const [newImplementation, setNewImplementation] = useState<'STANDARD' | 'ASSISTED'>('STANDARD');
+  const [newReferralName, setNewReferralName] = useState(''); const [newReferralContact, setNewReferralContact] = useState('');
+  const [newReservations, setNewReservations] = useState(false); const [newResidentPayments, setNewResidentPayments] = useState(false);
+  const [newPilotPriceCop, setNewPilotPriceCop] = useState(''); const [newMonthlyPriceCop, setNewMonthlyPriceCop] = useState(''); const [newQuoteReason, setNewQuoteReason] = useState('');
   const [tiers, setTiers] = useState<ApiPricingRule[]>([]);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleMinUnits, setRuleMinUnits] = useState('');
   const [ruleMaxUnits, setRuleMaxUnits] = useState('');
   const [rulePrice, setRulePrice] = useState('');
+  const [ruleType, setRuleType] = useState<'MONTHLY' | 'PILOT'>('MONTHLY');
   const [addingRule, setAddingRule] = useState(false);
   const [ruleError, setRuleError] = useState<string | null>(null);
   const [ruleConfirmStep, setRuleConfirmStep] = useState(false);
@@ -315,7 +327,7 @@ export default function DashboardSuperAdminPage() {
   };
 
   const findPlanLabel = (units: number, rules: ApiPricingRule[]) => {
-    const match = rules.find((r) => r.isActive && units >= r.minUnits && (r.maxUnits == null || units <= r.maxUnits));
+    const match = rules.find((r) => r.type === 'MONTHLY' && r.isActive && units >= r.minUnits && (r.maxUnits == null || units <= r.maxUnits));
     if (!match) return 'Sin plan';
     return match.maxUnits ? `${match.minUnits}-${match.maxUnits}` : `${match.minUnits}+`;
   };
@@ -621,6 +633,7 @@ export default function DashboardSuperAdminPage() {
 
   const openAddRule = () => {
     setAddingRule(true);
+    setRuleType('MONTHLY');
     setEditingRuleId(null);
     setRuleMinUnits('');
     setRuleMaxUnits('');
@@ -632,6 +645,7 @@ export default function DashboardSuperAdminPage() {
   const openEditRule = (rule: ApiPricingRule) => {
     setEditingRuleId(rule.id);
     setAddingRule(false);
+    setRuleType(rule.type);
     setRuleMinUnits(String(rule.minUnits));
     setRuleMaxUnits(rule.maxUnits ? String(rule.maxUnits) : '');
     setRulePrice(String(rule.priceCents / 100));
@@ -659,7 +673,7 @@ export default function DashboardSuperAdminPage() {
     if (max !== null && max <= min) return 'El rango "hasta" debe ser mayor que "desde".';
 
     const priceCents = Math.round(price * 100);
-    const others = tiers.filter((t) => t.isActive && t.id !== editingRuleId);
+    const others = tiers.filter((t) => t.type === ruleType && t.isActive && t.id !== editingRuleId);
     for (const other of others) {
       if (min > other.minUnits && priceCents < other.priceCents) {
         return `Un conjunto de más unidades no puede costar menos que el rango de ${other.minUnits}+ unidades (${formatMoney(other.priceCents)}).`;
@@ -697,6 +711,7 @@ export default function DashboardSuperAdminPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'createPricingRule',
+        type: ruleType,
         minUnits: Number(ruleMinUnits),
         maxUnits: ruleMaxUnits ? Number(ruleMaxUnits) : null,
         priceCents: Math.round(Number(rulePrice) * 100),
@@ -803,9 +818,26 @@ export default function DashboardSuperAdminPage() {
     if (!selectedId) { setPendingInvitations([]); return; }
     fetch(`/api/platform/super-admin?tenantId=${selectedId}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setPendingInvitations(data?.selectedTenant?.invitations || []))
+      .then((data) => {
+        setPendingInvitations(data?.selectedTenant?.invitations || []);
+        setSelectedDetail(data?.selectedTenant || null);
+        setCommercialMetrics(data?.commercialMetrics || null);
+        setFounderSlotsRemaining(data?.founderSlotsRemaining ?? 10);
+      })
       .catch(() => setPendingInvitations([]));
   }, [selectedId]);
+
+  async function refreshSelectedCommercialDetail() {
+    if (!selectedId) return;
+    const response = await fetch(`/api/platform/super-admin?tenantId=${selectedId}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo actualizar la ficha comercial');
+    const data = await response.json();
+    setPendingInvitations(data?.selectedTenant?.invitations || []);
+    setSelectedDetail(data?.selectedTenant || null);
+    setCommercialMetrics(data?.commercialMetrics || null);
+    setFounderSlotsRemaining(data?.founderSlotsRemaining ?? 10);
+    await fetchOverview();
+  }
 
   async function resendTenantInvitation(invitationId: string) {
     if (!selectedId) return;
@@ -908,20 +940,23 @@ export default function DashboardSuperAdminPage() {
     ? supportTickets.filter((tk) => tk.tenant.name.toLowerCase().includes(supportTenantFilter.trim().toLowerCase()))
     : supportTickets;
   const selected = tenants.find((t) => t.id === selectedId);
+  const newUnitsNumber = Number(newUnits || 0);
+  const quotedPilotRule = tiers.find((rule) => rule.type === 'PILOT' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
+  const quotedMonthlyRule = tiers.find((rule) => rule.type === 'MONTHLY' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
   const alertTenants = tenants.filter((t) => t.group === 'grace' || t.group === 'trial' || t.group === 'pending_payment');
   const kpis = [
-    { label: 'Total conjuntos', value: String(stats.totalTenants), color: '#1D1D1F' },
+    { label: 'Total conjuntos', value: String(stats.totalTenants), color: COLORS.textPrimary },
     { label: 'Activos', value: String(stats.activeTenants), color: COLORS.success },
     { label: 'Suspendidos', value: String(stats.suspendedTenants), color: COLORS.textSecondaryAlt },
     { label: 'En prueba', value: String(stats.trialTenants), color: COLORS.navy },
     { label: 'Usuarios registrados', value: String(stats.totalUsers), color: COLORS.navy },
     { label: 'PQRS abiertas', value: String(Math.max(0, stats.totalPqrs - stats.closedPqrs)), color: COLORS.warning },
     { label: 'PQRS cerradas', value: String(stats.closedPqrs), color: COLORS.success },
-    { label: 'Ingresos MRR', value: billing ? formatMoney(billing.totalRevenueCents) : '', color: COLORS.success },
+    { label: 'Ingresos MRR', value: billing ? formatMoney(billing.monthlyRevenueCents) : '', color: COLORS.success },
     { label: 'Pagos recibidos (mes)', value: billing ? formatMoney(billing.monthlyRevenueCents) : '', color: COLORS.success },
     { label: 'Pagos pendientes', value: String(billing?.pendingPayments ?? 0), color: COLORS.warning },
     { label: 'Renovaciones próx.', value: String(billing?.upcomingRenewals ?? 0), color: COLORS.navy },
-    { label: 'Alertas', value: String(alertTenants.length), color: alertTenants.length > 0 ? COLORS.warning : '#1D1D1F' },
+    { label: 'Alertas', value: String(alertTenants.length), color: alertTenants.length > 0 ? COLORS.warning : COLORS.textPrimary },
   ];
   const q = search.trim().toLowerCase();
   const filteredTenants = tenants.filter((t) => (filter === 'all' || t.group === filter) && (!q || t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q)));
@@ -934,6 +969,15 @@ export default function DashboardSuperAdminPage() {
   const canReactivate = (group: TenantGroup) => group === 'suspended' || group === 'cancelled';
   const cancelTenant = async (id: string) => { await updateTenantStatus(id, 'CANCELLED'); setConfirmingCancel(false); };
 
+  const openCreateTenant = () => {
+    setCreateOpen(true); setCreatePhase('form'); setCreateStep(0);
+    setNewName(''); setNewCity(''); setNewAddress(''); setNewUnits('');
+    setNewAdminName(''); setNewAdminEmail(''); setNewAdminPhone('');
+    setNewImplementation('STANDARD'); setNewReferralName(''); setNewReferralContact('');
+    setNewReservations(false); setNewResidentPayments(false);
+    setNewPilotPriceCop(''); setNewMonthlyPriceCop(''); setNewQuoteReason('');
+  };
+
   const submitCreate = async () => {
     if (!newName.trim() || !newUnits || !newAdminEmail.trim()) return;
     setCreatePhase('progress');
@@ -944,28 +988,40 @@ export default function DashboardSuperAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'createTenant',
+          operationId: crypto.randomUUID(),
           name: newName,
           slug: newName,
           city: newCity,
+          address: newAddress,
           units: Number(newUnits),
           adminName: newAdminName || newAdminEmail,
           adminEmail: newAdminEmail,
+          adminPhone: newAdminPhone,
+          implementationType: newImplementation,
+          referralName: newReferralName || undefined,
+          referralContact: newReferralContact || undefined,
+          referralAgreementType: newReferralName ? 'GENERAL' : 'NONE',
+          reservationsEnabled: newReservations,
+          residentPaymentsEnabled: newResidentPayments,
+          pilotPriceCents: Number(newUnits) > 600 ? Math.round(Number(newPilotPriceCop) * 100) : undefined,
+          monthlyPriceCents: Number(newUnits) > 600 ? Math.round(Number(newMonthlyPriceCop) * 100) : undefined,
+          manualQuoteReason: Number(newUnits) > 600 ? newQuoteReason : undefined,
         }),
       });
-      if (!response.ok) throw new Error('No se pudo crear el conjunto');
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || 'No se pudo crear el conjunto');
       setCreateStep(5);
       await fetchOverview();
       setCreatePhase('done');
-      showToast(result.invitationSent ? 'Conjunto creado — invitación enviada al correo del admin' : 'Conjunto creado, pero no se pudo enviar el correo de invitación. Reenvíala desde Invitaciones.');
+      showToast('Piloto creado. Confirma la transferencia para activar el acceso y enviar la invitación.');
     } catch (error) {
       console.error(error);
       setCreatePhase('form');
-      showToast('No se pudo crear el conjunto');
+      showToast(error instanceof Error ? error.message : 'No se pudo crear el conjunto');
     }
   };
 
-  const createSteps = ['Creando el conjunto…', 'Calculando la tarifa…', 'Generando la licencia (pendiente de pago)…', 'Enviando invitación por correo…'];
+  const createSteps = ['Creando el conjunto…', 'Congelando precios…', 'Preparando la licencia pendiente de pago…', 'Configurando alcance comercial…'];
 
   const navGroups: NavGroup[] = NAV_DEFS.map((n) => n.key ? { key: n.key, label: n.label, onClick: () => setNav(n.key!) } : { header: n.header });
 
@@ -978,14 +1034,14 @@ export default function DashboardSuperAdminPage() {
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>{loading ? 'Cargando datos reales...' : stats.totalTenants + ' conjuntos administrados'}</p>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
             {kpis.map((k) => (
-              <div key={k.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 15 }}>
+              <div key={k.label} style={{ background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: 15 }}>
                 <div style={{ fontSize: 10.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
                 <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.015em', color: k.color }}>{k.value}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ background: COLORS.warningSoft, borderRadius: 16, padding: '18px 20px', marginBottom: 24 }}>
+          <div style={{ background: COLORS.warningSoft, borderRadius: RADIUS.cardSm, padding: '18px 20px', marginBottom: 24 }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: COLORS.warning, marginBottom: 9 }}>Alertas importantes</div>
             {alertTenants.length === 0 ? (
               <div style={{ fontSize: 12.5, color: COLORS.warning }}>Sin alertas activas.</div>
@@ -1007,7 +1063,7 @@ export default function DashboardSuperAdminPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1fr', gap: 20, alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                   <span style={{ fontSize: 15, fontWeight: 800 }}>Conjuntos recientes</span>
                   <button type="button" onClick={() => setNav('conjuntos')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver todos ›</button>
@@ -1025,7 +1081,7 @@ export default function DashboardSuperAdminPage() {
                 )}
               </div>
 
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: '20px 22px' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 22px' }}>
                 <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Actividad reciente</div>
                 {auditLog.length === 0 ? (
                   <div style={{ padding: '20px 0', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>{loading ? 'Cargando actividad…' : 'Aún no hay actividad registrada.'}</div>
@@ -1035,7 +1091,7 @@ export default function DashboardSuperAdminPage() {
                     return (
                       <div key={i} style={{ display: 'flex', gap: 11 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 999, background: color, marginTop: 5, flexShrink: 0 }} />
+                          <div style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: color, marginTop: 5, flexShrink: 0 }} />
                           {i < arr.length - 1 && <div style={{ width: 1.5, flex: 1, background: COLORS.borderSoft, margin: '3px 0' }} />}
                         </div>
                         <div style={{ paddingBottom: i < arr.length - 1 ? 16 : 0 }}>
@@ -1050,7 +1106,7 @@ export default function DashboardSuperAdminPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: '20px 22px' }}>
+              <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: '20px 22px' }}>
                 <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em', marginBottom: 14 }}>Resumen ejecutivo</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
@@ -1070,10 +1126,10 @@ export default function DashboardSuperAdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: '20px 22px' }}>
+              <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: '20px 22px' }}>
                 <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em', marginBottom: 12 }}>Accesos rápidos</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <button type="button" onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: 'none', border: 'none', padding: '7px 0', font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>+ Crear conjunto</button>
+                  <button type="button" onClick={openCreateTenant} style={{ background: 'none', border: 'none', padding: '7px 0', font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>+ Crear conjunto</button>
                   <button type="button" onClick={() => setNav('precios')} style={{ background: 'none', border: 'none', padding: '7px 0', font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>Editar reglas de precio</button>
                   <button type="button" onClick={() => setNav('auditoria')} style={{ background: 'none', border: 'none', padding: '7px 0', font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>Ver auditoría</button>
                 </div>
@@ -1088,15 +1144,15 @@ export default function DashboardSuperAdminPage() {
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
             <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit' }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
-              <button type="button" onClick={() => { setCreateOpen(true); setCreatePhase('form'); setNewName(''); setNewCity(''); setNewUnits(''); setNewAdminName(''); setNewAdminEmail(''); }} style={{ background: COLORS.navy, border: 'none', color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
+              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit' }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
+              <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
             </div>
           </div>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administrador…" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administrador…" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
             {(['all', 'active', 'trial', 'pending_payment', 'grace', 'suspended', 'cancelled'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} style={{ ...tabStyle(filter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</button>)}
           </div>
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflowX: 'auto', overflowY: 'hidden' }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflowX: 'auto', overflowY: 'hidden' }}>
             {filteredTenants.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>
             ) : (
@@ -1140,25 +1196,25 @@ export default function DashboardSuperAdminPage() {
           {finSubTab === 'licencia' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Licencias activas</div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing?.activeLicenses ?? 0}</div>
                 </div>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>En mora</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.warning }}>{tenants.filter((t) => t.group === 'grace').length}</div>
                 </div>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Renovaciones próximas</div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing?.upcomingRenewals ?? 0}</div>
                 </div>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Suspendidos</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.textSecondaryAlt }}>{tenants.filter((t) => t.group === 'suspended').length}</div>
                 </div>
               </div>
 
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 18, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 18, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>Período de gracia global</div>
                   <div style={{ fontSize: 11.5, color: COLORS.textSecondary }}>Días de gracia antes de suspender automáticamente una licencia vencida</div>
@@ -1168,13 +1224,13 @@ export default function DashboardSuperAdminPage() {
                   min={1}
                   value={graceDaysInput}
                   onChange={(e) => setGraceDaysInput(e.target.value)}
-                  style={{ width: 70, height: 44, padding: '0 10px', borderRadius: 10, border: `1px solid ${COLORS.border}`, fontSize: 13.5, fontWeight: 500, font: 'inherit' }}
+                  style={{ width: 70, height: 44, padding: '0 10px', borderRadius: RADIUS.input, border: `1px solid ${COLORS.border}`, fontSize: 13.5, fontWeight: 500, font: 'inherit' }}
                 />
-                <button type="button" onClick={submitGraceDays} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: '#FFFFFF', background: COLORS.navy, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
+                <button type="button" onClick={submitGraceDays} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.white, background: COLORS.navy, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
                 <span style={{ fontSize: 11, color: COLORS.textMuted }}>Actual: {graceDays} días</span>
               </div>
 
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
                 {tenants.map((t) => (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                     <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
@@ -1182,8 +1238,8 @@ export default function DashboardSuperAdminPage() {
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 170 }}>{t.licenseEnd}</span>
                     {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
                     <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
-                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.white, background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
+                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                     </div>
                   </div>
                 ))}
@@ -1194,16 +1250,16 @@ export default function DashboardSuperAdminPage() {
           {finSubTab === 'pagos' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Pagos recibidos (mes)</div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing ? formatMoney(billing.monthlyRevenueCents) : '—'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{billing?.monthlyApprovedPayments ?? 0} pagos aprobados</div>
                 </div>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Pagos pendientes</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.warning }}>{billing?.pendingPayments ?? 0}</div>
                 </div>
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Proveedor de pagos</div>
                     <div style={{ fontSize: 14, fontWeight: 800 }}>{mercadoPago?.connected ? 'Conectado' : 'No conectado'}</div>
@@ -1220,7 +1276,7 @@ export default function DashboardSuperAdminPage() {
                 ))}
               </div>
 
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
                 {payments.filter((p) => paymentFilter === 'all' || p.status === paymentFilter).length === 0 ? (
                   <div style={{ padding: '32px 22px', textAlign: 'center', fontSize: 12.5, color: COLORS.textMuted }}>No hay pagos para mostrar</div>
                 ) : (
@@ -1248,7 +1304,7 @@ export default function DashboardSuperAdminPage() {
           <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Define cuánto paga cada conjunto según su número de unidades.</p>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
-            <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
               <div style={{ display: 'flex', padding: '14px 22px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span><span style={{ width: 140 }} />
               </div>
@@ -1259,8 +1315,9 @@ export default function DashboardSuperAdminPage() {
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, opacity: p.isActive ? 1 : 0.55 }}>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.minUnits}</span>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.maxUnits ? p.maxUnits : 'Sin límite'}</span>
-                  <span style={{ flex: 2, fontSize: 15, color: '#1D1D1F', fontWeight: 800 }}>
-                    {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>/mes</span>{!p.isActive && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}> · inactiva</span>}
+                  <span style={{ flex: 2, fontSize: 15, color: COLORS.textPrimary, fontWeight: 800 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: p.type === 'PILOT' ? COLORS.warning : COLORS.navy, marginRight: 8 }}>{p.type === 'PILOT' ? 'PILOTO 45 DÍAS' : 'MENSUAL'}</span>
+                    {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>{p.type === 'PILOT' ? ' / piloto' : '/mes'}</span>{!p.isActive && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}> · inactiva</span>}
                   </span>
                   <div style={{ width: 140, display: 'flex', gap: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
                     <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: p.isActive ? COLORS.warning : COLORS.success, cursor: 'pointer' }}>{p.isActive ? 'Desactivar' : 'Activar'}</button>
@@ -1270,36 +1327,36 @@ export default function DashboardSuperAdminPage() {
                 </div>
               ))}
               <button type="button" onClick={openAddRule} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', background: 'none', font: 'inherit', padding: '16px 22px', fontSize: 13, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>
-                <span style={{ width: 22, height: 22, borderRadius: 999, background: COLORS.navySoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>+</span>
+                <span style={{ width: 22, height: 22, borderRadius: RADIUS.pill, background: COLORS.navySoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>+</span>
                 Agregar rango
               </button>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 20 }}>
+            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 20 }}>
               <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 4 }}>Topes de precio</div>
               <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.4 }}>Ninguna regla se puede guardar fuera de este rango. Ajusta esto solo si el negocio realmente cambió de escala.</div>
 
               <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope mínimo (COP)</label>
-              <input type="number" value={capsMinInput} onChange={(e) => { setCapsMinInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
+              <input type="number" value={capsMinInput} onChange={(e) => { setCapsMinInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
 
               <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope máximo (COP)</label>
-              <input type="number" value={capsMaxInput} onChange={(e) => { setCapsMaxInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
+              <input type="number" value={capsMaxInput} onChange={(e) => { setCapsMaxInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
 
               {capsError && (
-                <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 10, padding: '10px 12px', fontSize: 11.5, fontWeight: 600, marginBottom: 14, lineHeight: 1.4 }}>{capsError}</div>
+                <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.input, padding: '10px 12px', fontSize: 11.5, fontWeight: 600, marginBottom: 14, lineHeight: 1.4 }}>{capsError}</div>
               )}
 
               {!capsConfirmStep ? (
-                <button type="button" onClick={reviewCapsForm} disabled={capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', opacity: (capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)) ? 0.5 : 1 }}>Actualizar topes</button>
+                <button type="button" onClick={reviewCapsForm} disabled={capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', opacity: (capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)) ? 0.5 : 1 }}>Actualizar topes</button>
               ) : (
-                <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: 12, padding: 14 }}>
+                <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.input, padding: 14 }}>
                   <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 700, marginBottom: 8, lineHeight: 1.4 }}>
                     Esto cambia el rango permitido para TODAS las reglas de precio, presentes y futuras. ¿Confirmas?
                   </div>
                   <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>{formatMoney(Number(capsMinInput) * 100)} — {formatMoney(Number(capsMaxInput) * 100)}</div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button type="button" onClick={cancelCapsForm} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar</button>
-                    <button type="button" onClick={submitCaps} style={{ flex: 1, border: 'none', background: COLORS.success, color: '#FFFFFF', font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar</button>
+                    <button type="button" onClick={submitCaps} style={{ flex: 1, border: 'none', background: COLORS.success, color: COLORS.white, font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar</button>
                   </div>
                 </div>
               )}
@@ -1320,37 +1377,39 @@ export default function DashboardSuperAdminPage() {
           <>
             <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Define el rango de unidades y cuánto se le cobrará mensualmente a los conjuntos en ese rango.</p>
 
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Tipo de tarifa</label>
+            <select value={ruleType} disabled={Boolean(editingRuleId)} onChange={(e) => setRuleType(e.target.value as 'MONTHLY' | 'PILOT')} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', marginBottom: 14 }}><option value="MONTHLY">Plan Gestión mensual</option><option value="PILOT">Piloto pago de 45 días</option></select>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Desde (unidades)</label>
-            <input type="number" value={ruleMinUnits} onChange={(e) => setRuleMinUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
+            <input type="number" value={ruleMinUnits} onChange={(e) => setRuleMinUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
 
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Hasta (unidades)</label>
-            <input type="number" placeholder="Vacío = sin límite superior" value={ruleMaxUnits} onChange={(e) => setRuleMaxUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
+            <input type="number" placeholder="Vacío = sin límite superior" value={ruleMaxUnits} onChange={(e) => setRuleMaxUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
 
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Precio mensual (COP)</label>
-            <input type="number" value={rulePrice} onChange={(e) => setRulePrice(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 6 }} />
+            <input type="number" value={rulePrice} onChange={(e) => setRulePrice(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 6 }} />
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, margin: '0 0 20px' }}>Entre {formatMoney(pricingCapsMinCents)} y {formatMoney(pricingCapsMaxCents)} — nunca se puede guardar fuera de este rango.</p>
 
             {ruleError && (
-              <div style={{ background: COLORS.dangerSoft, border: `1px solid #F3C2C2`, color: COLORS.danger, borderRadius: 12, padding: '12px 14px', fontSize: 12.5, fontWeight: 600, marginBottom: 18, lineHeight: 1.4 }}>
+              <div style={{ background: COLORS.dangerSoft, border: `1px solid #F3C2C2`, color: COLORS.danger, borderRadius: RADIUS.input, padding: '12px 14px', fontSize: 12.5, fontWeight: 600, marginBottom: 18, lineHeight: 1.4 }}>
                 {ruleError}
               </div>
             )}
 
-            <button type="button" onClick={reviewRuleForm} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Revisar y confirmar</button>
+            <button type="button" onClick={reviewRuleForm} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Revisar y confirmar</button>
           </>
         )}
 
         {ruleConfirmStep && (
           <>
-            <div style={{ background: COLORS.warningSoft, border: `1px solid #F3D9B1`, borderRadius: 14, padding: 18, marginBottom: 20 }}>
+            <div style={{ background: COLORS.warningSoft, border: `1px solid #F3D9B1`, borderRadius: RADIUS.stat, padding: 18, marginBottom: 20 }}>
               <div style={{ fontSize: 13, color: COLORS.warning, fontWeight: 700, marginBottom: 10 }}>Vas a cobrar esto de verdad:</div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1D1F', marginBottom: 4 }}>{formatMoney(Math.round(Number(rulePrice) * 100))}<span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>/mes</span></div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>{formatMoney(Math.round(Number(rulePrice) * 100))}<span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>/mes</span></div>
               <div style={{ fontSize: 12.5, color: COLORS.textSecondary }}>A conjuntos de {ruleMinUnits} {ruleMaxUnits ? `a ${ruleMaxUnits}` : 'o más'} unidades</div>
             </div>
             <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Confirma que este valor es el correcto antes de guardarlo. Se aplicará de inmediato al cálculo de precio de nuevos conjuntos.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={() => setRuleConfirmStep(false)} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', background: 'none', color: '#1D1D1F', fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Revisar de nuevo</button>
-              <button type="button" onClick={editingRuleId ? submitEditRule : submitNewRule} style={{ flex: 1, border: 'none', font: 'inherit', background: COLORS.success, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar y guardar</button>
+              <button type="button" onClick={() => setRuleConfirmStep(false)} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', background: 'none', color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Revisar de nuevo</button>
+              <button type="button" onClick={editingRuleId ? submitEditRule : submitNewRule} style={{ flex: 1, border: 'none', font: 'inherit', background: COLORS.success, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar y guardar</button>
             </div>
           </>
         )}
@@ -1384,7 +1443,7 @@ export default function DashboardSuperAdminPage() {
           {
             label: 'Ingreso promedio por conjunto',
             value: formatMoney(arpuCents),
-            color: '#1D1D1F',
+            color: COLORS.textPrimary,
             note: 'Cuánto paga en promedio cada licencia activa por mes. Útil para negociar precios y medir el impacto de subir tarifas.',
           },
           {
@@ -1410,7 +1469,7 @@ export default function DashboardSuperAdminPage() {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
                   {insightCards.map((c) => (
-                    <div key={c.label} style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 16 }}>
+                    <div key={c.label} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: 16 }}>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{c.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: c.color, marginBottom: 8 }}>{c.value}</div>
                       <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.4 }}>{c.note}</div>
@@ -1419,12 +1478,12 @@ export default function DashboardSuperAdminPage() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20, marginBottom: 20 }}>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Ingresos mensuales (MRR)</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados</div>
                     <MiniBarChart data={analytics.mrrTrend.map((m) => ({ label: m.month, value: m.revenueCents }))} color={COLORS.success} formatValue={(v) => formatMoney(v).replace('COP', '').trim()} />
                   </div>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Crecimiento de conjuntos</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Conjuntos nuevos por mes, últimos 6 meses</div>
                     <MiniBarChart data={analytics.newTenantsTrend.map((m) => ({ label: m.month, value: m.count }))} color={COLORS.navy} formatValue={(v) => String(v)} />
@@ -1432,26 +1491,26 @@ export default function DashboardSuperAdminPage() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Tiempo de cierre de PQRS</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Promedio de días para cerrar un caso, por mes — la señal más directa de qué tan bien está funcionando el servicio</div>
                     <MiniBarChart data={analytics.closeTimeTrend.map((m) => ({ label: m.month, value: m.avgDays }))} color={COLORS.warning} formatValue={(v) => `${v}d`} />
                     <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
                       {analytics.closeTimeBuckets.map((b) => (
-                        <div key={b.label} style={{ flex: 1, background: COLORS.bgCard, borderRadius: 10, padding: '10px 12px' }}>
+                        <div key={b.label} style={{ flex: 1, background: COLORS.bgCard, borderRadius: RADIUS.input, padding: '10px 12px' }}>
                           <div style={{ fontSize: 16, fontWeight: 800 }}>{b.percent}%</div>
                           <div style={{ fontSize: 10.5, color: COLORS.textMuted }}>{b.label}</div>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>PQRS sin resolver</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>Casos abiertos ahora mismo, por antigüedad</div>
                     {analytics.backlogAging.map((b, i) => (
                       <div key={b.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                         <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.textSecondaryAlt }}>{b.label}</span>
-                        <span style={badgeStyle(i === 2 && b.count > 0 ? COLORS.dangerSoft : COLORS.neutralSoft, i === 2 && b.count > 0 ? COLORS.danger : '#1D1D1F')}>{b.count}</span>
+                        <span style={badgeStyle(i === 2 && b.count > 0 ? COLORS.dangerSoft : COLORS.neutralSoft, i === 2 && b.count > 0 ? COLORS.danger : COLORS.textPrimary)}>{b.count}</span>
                       </div>
                     ))}
                     {analytics.backlogAging[2].count > 0 && (
@@ -1463,7 +1522,7 @@ export default function DashboardSuperAdminPage() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Conjuntos en riesgo</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>En mora, ordenados por días de atraso — candidatos a contactar antes de perderlos</div>
                     {analytics.atRiskTenants.length === 0 ? (
@@ -1477,7 +1536,7 @@ export default function DashboardSuperAdminPage() {
                       ))
                     )}
                   </div>
-                  <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Concentración de ingresos</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>Conjuntos que más aportan — si uno se va, esto es lo que se pierde</div>
                     {analytics.topTenantsByRevenue.map((t) => (
@@ -1489,7 +1548,7 @@ export default function DashboardSuperAdminPage() {
                   </div>
                 </div>
 
-                <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>De qué se quejan los residentes</div>
                   <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>Distribución de PQRS por tipo, en toda la plataforma</div>
                   {analytics.pqrsByType.map((t) => {
@@ -1501,8 +1560,8 @@ export default function DashboardSuperAdminPage() {
                           <span style={{ fontWeight: 700 }}>{PQRS_TYPE_LABEL[t.tipo] || t.tipo}</span>
                           <span style={{ color: COLORS.textMuted }}>{t.count} ({pct}%)</span>
                         </div>
-                        <div style={{ height: 8, borderRadius: 999, background: COLORS.bgCard, overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: COLORS.navy, borderRadius: 999 }} />
+                        <div style={{ height: 8, borderRadius: RADIUS.pill, background: COLORS.bgCard, overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: COLORS.navy, borderRadius: RADIUS.pill }} />
                         </div>
                       </div>
                     );
@@ -1523,13 +1582,13 @@ export default function DashboardSuperAdminPage() {
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elige un conjunto para ver quién tiene acceso y con qué rol</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 20, alignItems: 'flex-start' }}>
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
                 <div style={{ padding: 14, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                   <input
                     value={usersSearch}
                     onChange={(e) => setUsersSearch(e.target.value)}
                     placeholder="Buscar conjunto…"
-                    style={{ width: '100%', height: 38, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 9, fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit' }}
+                    style={{ width: '100%', height: 38, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit' }}
                   />
                 </div>
                 <div style={{ maxHeight: 560, overflowY: 'auto' }} className="no-scrollbar">
@@ -1547,7 +1606,7 @@ export default function DashboardSuperAdminPage() {
                           background: usersTenantId === t.id ? COLORS.navySoft : 'none',
                         }}
                       >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: usersTenantId === t.id ? COLORS.navy : '#1D1D1F' }}>{t.name}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: usersTenantId === t.id ? COLORS.navy : COLORS.textPrimary }}>{t.name}</span>
                         <span style={{ fontSize: 11, color: COLORS.textMuted }}>{t.city} · {t.units} unidades</span>
                       </button>
                     ))
@@ -1555,7 +1614,7 @@ export default function DashboardSuperAdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, minHeight: 300 }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, minHeight: 300 }}>
                 {!usersTenantId && (
                   <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Selecciona un conjunto de la lista para ver sus usuarios.</div>
                 )}
@@ -1575,7 +1634,7 @@ export default function DashboardSuperAdminPage() {
                     ) : (
                       usersTenantDetail.users.map((u) => (
                         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: RADIUS.pill, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
                             {u.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1620,7 +1679,7 @@ export default function DashboardSuperAdminPage() {
             })}
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
             {auditLoading && (
               <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Cargando…</div>
             )}
@@ -1666,10 +1725,10 @@ export default function DashboardSuperAdminPage() {
             value={supportTenantFilter}
             onChange={(e) => setSupportTenantFilter(e.target.value)}
             placeholder="Filtrar por conjunto…"
-            style={{ width: '100%', maxWidth: 280, height: 38, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 12.5, fontFamily: 'inherit', marginBottom: 16 }}
+            style={{ width: '100%', maxWidth: 280, height: 38, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 12.5, fontFamily: 'inherit', marginBottom: 16 }}
           />
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
             {supportLoading && (
               <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Cargando…</div>
             )}
@@ -1682,7 +1741,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div>
                   <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>{tk.tenant.name} · {tk.createdBy.name} · {formatRelativeTime(tk.createdAt)}</div>
                 </span>
-                <span style={badgeStyle(COLORS.neutralSoft, '#1D1D1F')}>{supportTicketCategoryLabel(tk.category)}</span>
+                <span style={badgeStyle(COLORS.neutralSoft, COLORS.textPrimary)}>{supportTicketCategoryLabel(tk.category)}</span>
                 <span style={supportStatusBadge(tk.status)}>{SUPPORT_STATUS_LABEL[tk.status]}</span>
                 <button type="button" onClick={() => openRespond(tk)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>{tk.status === 'ABIERTA' ? 'Responder' : 'Ver'}</button>
               </div>
@@ -1702,10 +1761,10 @@ export default function DashboardSuperAdminPage() {
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>
               {respondingTicket.tenant.name} · {respondingTicket.createdBy.name} ({respondingTicket.createdBy.email}) · {formatRelativeTime(respondingTicket.createdAt)}
             </p>
-            <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 16, fontSize: 13, lineHeight: 1.5, marginBottom: 18, whiteSpace: 'pre-wrap' }}>{respondingTicket.message}</div>
+            <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 16, fontSize: 13, lineHeight: 1.5, marginBottom: 18, whiteSpace: 'pre-wrap' }}>{respondingTicket.message}</div>
 
             {respondingTicket.response && (
-              <div style={{ background: COLORS.successSoft, borderRadius: 12, padding: 16, fontSize: 12.5, lineHeight: 1.5, marginBottom: 18, whiteSpace: 'pre-wrap' }}>
+              <div style={{ background: COLORS.successSoft, borderRadius: RADIUS.input, padding: 16, fontSize: 12.5, lineHeight: 1.5, marginBottom: 18, whiteSpace: 'pre-wrap' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.success, marginBottom: 6 }}>Respuesta enviada {respondingTicket.respondedAt ? formatRelativeTime(respondingTicket.respondedAt) : ''}</div>
                 {respondingTicket.response}
               </div>
@@ -1714,12 +1773,12 @@ export default function DashboardSuperAdminPage() {
             {respondingTicket.status !== 'CERRADA' && (
               <>
                 <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>{respondingTicket.response ? 'Actualizar respuesta' : 'Responder'}</label>
-                <textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} placeholder="Escribe la solución o respuesta para este conjunto" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14, resize: 'vertical' }} />
+                <textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} placeholder="Escribe la solución o respuesta para este conjunto" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14, resize: 'vertical' }} />
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 18, cursor: 'pointer' }}>
                   <input type="checkbox" checked={closeOnRespond} onChange={(e) => setCloseOnRespond(e.target.checked)} />
                   Cerrar esta solicitud al responder
                 </label>
-                <button type="button" disabled={!responseText.trim()} onClick={submitResponse} style={{ width: '100%', border: 'none', font: 'inherit', background: responseText.trim() ? COLORS.navy : COLORS.neutralSoft, color: responseText.trim() ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: responseText.trim() ? 'pointer' : 'default' }}>Enviar respuesta</button>
+                <button type="button" disabled={!responseText.trim()} onClick={submitResponse} style={{ width: '100%', border: 'none', font: 'inherit', background: responseText.trim() ? COLORS.navy : COLORS.neutralSoft, color: responseText.trim() ? COLORS.white : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: responseText.trim() ? 'pointer' : 'default' }}>Enviar respuesta</button>
               </>
             )}
           </>
@@ -1731,33 +1790,33 @@ export default function DashboardSuperAdminPage() {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Configuración</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 4px' }}>Ajustes reales de la plataforma — cada opción aquí afecta el comportamiento del sistema.</p>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Branding</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Se refleja en el sidebar de este panel.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre de la plataforma</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input value={platformNameInput} onChange={(e) => setPlatformNameInput(e.target.value)} style={{ flex: 1, height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', background: '#FFFFFF' }} />
-              <button type="button" onClick={submitPlatformName} disabled={!platformNameInput.trim() || platformNameInput.trim() === generalSettings.platformName} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: '#FFFFFF', background: (platformNameInput.trim() && platformNameInput.trim() !== generalSettings.platformName) ? COLORS.navy : COLORS.neutralSoft, padding: '0 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
+              <input value={platformNameInput} onChange={(e) => setPlatformNameInput(e.target.value)} style={{ flex: 1, height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', background: COLORS.bg }} />
+              <button type="button" onClick={submitPlatformName} disabled={!platformNameInput.trim() || platformNameInput.trim() === generalSettings.platformName} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.white, background: (platformNameInput.trim() && platformNameInput.trim() !== generalSettings.platformName) ? COLORS.navy : COLORS.neutralSoft, padding: '0 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
             </div>
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Integraciones</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Estado real de los servicios externos, leído directamente de las variables de entorno configuradas.</p>
             {integrationsFull ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>Resend (correo transaccional)</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.resend.fromEmailConfigured ? 'Remitente configurado' : 'Falta configurar remitente'}</div>
                   </div>
                   <span style={integrationsFull.resend.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.resend.connected ? 'Conectado' : 'No conectado'}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>Supabase Storage (evidencias y archivos)</div>
                   <span style={integrationsFull.supabaseStorage.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.supabaseStorage.connected ? 'Conectado' : 'No conectado'}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>Proveedor de pagos (cobros)</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.mercadoPago.webhookSecretConfigured ? 'Webhook configurado' : 'Falta configurar webhook'}</div>
@@ -1771,17 +1830,17 @@ export default function DashboardSuperAdminPage() {
             <button type="button" onClick={sendTestEmail} disabled={sendingTestEmail} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: sendingTestEmail ? 'default' : 'pointer' }}>{sendingTestEmail ? 'Enviando…' : 'Enviar correo de prueba a mi cuenta'}</button>
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Reglas operativas</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Define qué tan rápido se debe cerrar una PQRS. Esto alimenta directamente las gráficas y alertas de Analytics.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>SLA de cierre de PQRS (días)</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input type="number" min={1} value={slaDaysInput} onChange={(e) => setSlaDaysInput(e.target.value)} style={{ width: 100, height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
-              <button type="button" onClick={submitSlaDays} disabled={!slaDaysInput || Number(slaDaysInput) === generalSettings.pqrsCloseSlaDays} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: '#FFFFFF', background: (slaDaysInput && Number(slaDaysInput) !== generalSettings.pqrsCloseSlaDays) ? COLORS.navy : COLORS.neutralSoft, padding: '0 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
+              <input type="number" min={1} value={slaDaysInput} onChange={(e) => setSlaDaysInput(e.target.value)} style={{ width: 100, height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
+              <button type="button" onClick={submitSlaDays} disabled={!slaDaysInput || Number(slaDaysInput) === generalSettings.pqrsCloseSlaDays} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.white, background: (slaDaysInput && Number(slaDaysInput) !== generalSettings.pqrsCloseSlaDays) ? COLORS.navy : COLORS.neutralSoft, padding: '0 18px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
             </div>
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Feature flags</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Interruptores reales — apagarlos cambia el comportamiento del sistema al instante.</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
@@ -1805,16 +1864,16 @@ export default function DashboardSuperAdminPage() {
       {nav === 'cuenta' && (
         <div className="apl-up" style={{ maxWidth: 560 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 18px' }}>Mi cuenta</h1>
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 20 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 24, marginBottom: 20 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Perfil</div>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '0 0 7px' }}>Nombre completo</label>
-            <input value={accountName} onChange={(e) => setAccountName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+            <input value={accountName} onChange={(e) => setAccountName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, margin: '0 0 7px' }}>Correo</label>
-            <input value={accountEmail} disabled style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: COLORS.bgCard, color: COLORS.textMuted, marginBottom: 18 }} />
-            <button type="button" onClick={saveAccount} disabled={!accountName.trim()} style={{ border: 'none', background: accountName.trim() ? COLORS.navy : COLORS.neutralSoft, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, cursor: accountName.trim() ? 'pointer' : 'default', fontFamily: 'inherit' }}>Guardar cambios</button>
+            <input value={accountEmail} disabled style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', background: COLORS.bgCard, color: COLORS.textMuted, marginBottom: 18 }} />
+            <button type="button" onClick={saveAccount} disabled={!accountName.trim()} style={{ border: 'none', background: accountName.trim() ? COLORS.navy : COLORS.neutralSoft, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, cursor: accountName.trim() ? 'pointer' : 'default', fontFamily: 'inherit' }}>Guardar cambios</button>
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24 }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 24 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Seguridad</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div>
@@ -1826,7 +1885,7 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{accountCreatedAt ? new Date(accountCreatedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}</div>
               </div>
             </div>
-            <a href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</a>
+            <a href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</a>
           </div>
         </div>
       )}
@@ -1839,19 +1898,32 @@ export default function DashboardSuperAdminPage() {
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Crear conjunto</h2>
               <CloseButton onClick={() => setCreateOpen(false)} />
             </div>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se creará el conjunto, su administrador y la licencia automáticamente.</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>El conjunto quedará pendiente de pago. La invitación se prepara únicamente después de confirmar la transferencia.</p>
+            <div style={{ fontSize: 11.5, color: COLORS.navy, fontWeight: 800, marginBottom: 10 }}>PASO 1 · DATOS DEL CONJUNTO</div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label><input value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
-              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label><input value={newCity} onChange={(e) => setNewCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label><input value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label><input value={newCity} onChange={(e) => setNewCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit' }} /></div>
             </div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Dirección</label>
+            <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Número de unidades</label>
-            <input type="number" value={newUnits} onChange={(e) => setNewUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 16 }} />
+            <input type="number" value={newUnits} onChange={(e) => setNewUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 16 }} />
+            <div style={{ fontSize: 11.5, color: COLORS.navy, fontWeight: 800, marginBottom: 10 }}>PASO 2 · PRECIOS</div>
+            {newUnitsNumber > 0 && newUnitsNumber <= 600 && <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12, marginBottom: 16, fontSize: 12.5, fontWeight: 700 }}>Piloto 45 días: {formatMoney(quotedPilotRule?.priceCents || 0)} · mensual posterior: {formatMoney(quotedMonthlyRule?.priceCents || 0)}</div>}
+            {newUnitsNumber > 600 && <div style={{ background: COLORS.warningSoft, borderRadius: RADIUS.input, padding: 12, marginBottom: 16 }}><div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 8 }}>Cotización individual obligatoria</div><input value={newPilotPriceCop} onChange={(e) => setNewPilotPriceCop(e.target.value)} placeholder="Piloto COP" style={{ width: '100%', height: 40, padding: '0 11px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit', marginBottom: 8 }} /><input value={newMonthlyPriceCop} onChange={(e) => setNewMonthlyPriceCop(e.target.value)} placeholder="Mensual COP" style={{ width: '100%', height: 40, padding: '0 11px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit', marginBottom: 8 }} /><input value={newQuoteReason} onChange={(e) => setNewQuoteReason(e.target.value)} placeholder="Motivo y aprobación" style={{ width: '100%', height: 40, padding: '0 11px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit' }} /></div>}
             <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, marginBottom: 6, fontSize: 12, color: COLORS.textMuted, fontWeight: 700 }}>ADMINISTRADOR PRINCIPAL</div>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre</label>
-            <input value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
+            <input value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Correo</label>
-            <input value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 24 }} />
-            <button type="button" onClick={submitCreate} disabled={!(newName.trim() && newUnits && newAdminEmail.trim())} style={{ width: '100%', border: 'none', font: 'inherit', textAlign: 'center', background: (newName.trim() && newUnits && newAdminEmail.trim()) ? COLORS.navy : COLORS.neutralSoft, color: (newName.trim() && newUnits && newAdminEmail.trim()) ? '#FFFFFF' : COLORS.textMuted, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Crear conjunto</button>
+            <input value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 24 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Teléfono</label>
+            <input value={newAdminPhone} onChange={(e) => setNewAdminPhone(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 16 }} />
+            <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, paddingTop: 14, marginBottom: 10, fontSize: 11.5, color: COLORS.navy, fontWeight: 800 }}>PASO 3 · ALCANCE DEL PILOTO</div>
+            <select value={newImplementation} onChange={(e) => setNewImplementation(e.target.value as 'STANDARD' | 'ASSISTED')} style={{ width: '100%', height: 42, padding: '0 11px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit', marginBottom: 10 }}><option value="STANDARD">Implementación estándar</option><option value="ASSISTED">Implementación asistida</option></select>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 12 }}><label style={{ fontSize: 12.5, fontWeight: 700 }}><input type="checkbox" checked={newReservations} onChange={(e) => setNewReservations(e.target.checked)} /> Reservas</label><label style={{ fontSize: 12.5, fontWeight: 700 }}><input type="checkbox" checked={newResidentPayments} onChange={(e) => setNewResidentPayments(e.target.checked)} /> Pagos de residentes</label></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}><input value={newReferralName} onChange={(e) => setNewReferralName(e.target.value)} placeholder="Referido (opcional)" style={{ width: '100%', height: 40, padding: '0 11px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit' }} /><input value={newReferralContact} onChange={(e) => setNewReferralContact(e.target.value)} placeholder="Contacto del referido" style={{ width: '100%', height: 40, padding: '0 11px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, font: 'inherit' }} /></div>
+            <div style={{ background: COLORS.navySoft, borderRadius: RADIUS.input, padding: 12, marginBottom: 14, fontSize: 12, color: COLORS.navy, fontWeight: 600, lineHeight: 1.6 }}><strong>PASO 4 · CONFIRMACIÓN</strong><br />45 días de acceso tras confirmar el pago · piloto {newUnitsNumber > 600 ? (newPilotPriceCop ? formatMoney(Number(newPilotPriceCop) * 100) : 'por definir') : formatMoney(quotedPilotRule?.priceCents || 0)} · posterior {newUnitsNumber > 600 ? (newMonthlyPriceCop ? formatMoney(Number(newMonthlyPriceCop) * 100) : 'por definir') : formatMoney(quotedMonthlyRule?.priceCents || 0)} · {newReservations || newResidentPayments ? [newReservations ? 'Reservas' : '', newResidentPayments ? 'Pagos' : ''].filter(Boolean).join(', ') : 'sin add-ons'}</div>
+            <button type="button" onClick={submitCreate} disabled={!(newName.trim() && newUnits && newAdminName.trim() && newAdminEmail.trim() && (newUnitsNumber <= 600 || (newPilotPriceCop && newMonthlyPriceCop && newQuoteReason.trim())))} style={{ width: '100%', border: 'none', font: 'inherit', textAlign: 'center', background: (newName.trim() && newUnits && newAdminName.trim() && newAdminEmail.trim() && (newUnitsNumber <= 600 || (newPilotPriceCop && newMonthlyPriceCop && newQuoteReason.trim()))) ? COLORS.navy : COLORS.neutralSoft, color: (newName.trim() && newUnits && newAdminName.trim() && newAdminEmail.trim() && (newUnitsNumber <= 600 || (newPilotPriceCop && newMonthlyPriceCop && newQuoteReason.trim()))) ? COLORS.white : COLORS.textMuted, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Crear piloto pendiente de pago</button>
           </>
         )}
         {createPhase === 'progress' && (
@@ -1862,8 +1934,8 @@ export default function DashboardSuperAdminPage() {
                 const done = i < createStep;
                 return (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 999, background: done ? COLORS.success : COLORS.neutralSoft, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : ''}</div>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: done ? '#1D1D1F' : '#B0B0B5' }}>{label}</span>
+                    <div style={{ width: 22, height: 22, borderRadius: RADIUS.pill, background: done ? COLORS.success : COLORS.neutralSoft, color: COLORS.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : ''}</div>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: done ? COLORS.textPrimary : '#B0B0B5' }}>{label}</span>
                   </div>
                 );
               })}
@@ -1872,10 +1944,10 @@ export default function DashboardSuperAdminPage() {
         )}
         {createPhase === 'done' && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 999, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto 18px' }}>✓</div>
+            <div style={{ width: 52, height: 52, borderRadius: RADIUS.pill, background: COLORS.successSoft, color: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto 18px' }}>✓</div>
             <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px' }}>Conjunto creado</h2>
-            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 24px' }}>Se envió una invitación a {newAdminEmail} para activar su cuenta de administrador.</p>
-            <button type="button" onClick={() => setCreateOpen(false)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Listo</button>
+            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 24px' }}>El piloto quedó pendiente de pago. La invitación para {newAdminEmail} se creará al confirmar la transferencia.</p>
+            <button type="button" onClick={() => setCreateOpen(false)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Listo</button>
           </div>
         )}
       </Sheet>
@@ -1890,12 +1962,12 @@ export default function DashboardSuperAdminPage() {
             </div>
             <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Actualiza los datos básicos de este conjunto.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label>
-            <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label>
-            <input value={editCity} onChange={(e) => setEditCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
+            <input value={editCity} onChange={(e) => setEditCity(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Número de unidades</label>
-            <input type="number" value={editUnits} onChange={(e) => setEditUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 24 }} />
-            <button type="button" onClick={submitEditTenant} disabled={!(editName.trim() && editUnits)} style={{ width: '100%', border: 'none', font: 'inherit', textAlign: 'center', background: (editName.trim() && editUnits) ? COLORS.navy : COLORS.neutralSoft, color: (editName.trim() && editUnits) ? '#FFFFFF' : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar cambios</button>
+            <input type="number" value={editUnits} onChange={(e) => setEditUnits(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 24 }} />
+            <button type="button" onClick={submitEditTenant} disabled={!(editName.trim() && editUnits)} style={{ width: '100%', border: 'none', font: 'inherit', textAlign: 'center', background: (editName.trim() && editUnits) ? COLORS.navy : COLORS.neutralSoft, color: (editName.trim() && editUnits) ? COLORS.white : COLORS.textMuted, fontSize: 14.5, fontWeight: 700, padding: '14px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar cambios</button>
           </>
         )}
       </Sheet>
@@ -1913,39 +1985,39 @@ export default function DashboardSuperAdminPage() {
 
             {!confirmingCancel && !grantingCourtesy && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
-                <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
-                <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
+                <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
+                <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
+                <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
                 <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
               </div>
             )}
             {grantingCourtesy && (
-              <div style={{ border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 18, marginBottom: 20 }}>
+              <div style={{ border: `1.5px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 18, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>Otorgar cortesía</div>
                 <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 14 }}>Extiende el período activo sin cobrar — para casos puntuales de atención al cliente. Queda registrado en la auditoría.</div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Días a extender (1-90)</label>
-                <input type="number" min={1} max={90} value={courtesyDays} onChange={(e) => setCourtesyDays(e.target.value)} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 12 }} />
+                <input type="number" min={1} max={90} value={courtesyDays} onChange={(e) => setCourtesyDays(e.target.value)} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontFamily: 'inherit', marginBottom: 12 }} />
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Motivo (queda en la auditoría)</label>
-                <input value={courtesyReason} onChange={(e) => setCourtesyReason(e.target.value)} placeholder="Ej: reclamo justificado, cortesía de bienvenida…" style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
+                <input value={courtesyReason} onChange={(e) => setCourtesyReason(e.target.value)} placeholder="Ej: reclamo justificado, cortesía de bienvenida…" style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => grantCourtesy(selected.id)} disabled={courtesySubmitting} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{courtesySubmitting ? 'Aplicando...' : 'Confirmar cortesia'}</button>
+                  <button type="button" onClick={() => grantCourtesy(selected.id)} disabled={courtesySubmitting} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{courtesySubmitting ? 'Aplicando...' : 'Confirmar cortesia'}</button>
                   <button type="button" onClick={() => { setGrantingCourtesy(false); setCourtesyReason(''); }} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.textSecondary, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Cancelar</button>
                 </div>
               </div>
             )}
             {confirmingCancel && (
-              <div style={{ border: `1.5px solid #F3D9B1`, background: COLORS.warningSoft, borderRadius: 14, padding: 18, marginBottom: 20 }}>
+              <div style={{ border: `1.5px solid #F3D9B1`, background: COLORS.warningSoft, borderRadius: RADIUS.stat, padding: 18, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>¿Cancelar este conjunto?</div>
                 <div style={{ fontSize: 12.5, color: COLORS.warning, marginBottom: 14 }}>Esta acción no se puede deshacer.</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => cancelTenant(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.warning, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, cancelar</button>
+                  <button type="button" onClick={() => cancelTenant(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.warning, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, cancelar</button>
                   <button type="button" onClick={() => setConfirmingCancel(false)} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Volver</button>
                 </div>
               </div>
             )}
 
             {pendingInvitations.length > 0 && (
-              <div style={{ background: COLORS.warningSoft, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+              <div style={{ background: COLORS.warningSoft, borderRadius: RADIUS.stat, padding: 16, marginBottom: 20 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 10 }}>Invitaciones pendientes de aceptar</div>
                 {pendingInvitations.map((inv) => (
                   <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '6px 0' }}>
@@ -1953,19 +2025,21 @@ export default function DashboardSuperAdminPage() {
                       <div style={{ fontSize: 12.5, fontWeight: 700 }}>{inv.email}</div>
                       <div style={{ fontSize: 11, color: COLORS.textSecondary }}>{inv.role} · vence {new Date(inv.expiresAt).toLocaleDateString('es-CO')}</div>
                     </div>
-                    <button type="button" disabled={resendingInvitationId === inv.id} onClick={() => resendTenantInvitation(inv.id)} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', flexShrink: 0 }}>{resendingInvitationId === inv.id ? 'Enviando…' : 'Reenviar'}</button>
+                    <button type="button" disabled={resendingInvitationId === inv.id} onClick={() => resendTenantInvitation(inv.id)} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', flexShrink: 0 }}>{resendingInvitationId === inv.id ? 'Enviando…' : 'Reenviar'}</button>
                   </div>
                 ))}
               </div>
             )}
 
+            <CommercialTenantPanel tenantId={selected.id} detail={selectedDetail} metrics={commercialMetrics} founderSlotsRemaining={founderSlotsRemaining} onUpdated={refreshSelectedCommercialDetail} />
+            <div style={{ height: 20 }} />
             <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÓN GENERAL</div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
-              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
-              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
-              <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PQRS ABIERTAS</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.pqrsOpen}</div></div>
+              <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
+              <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
+              <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PQRS ABIERTAS</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.pqrsOpen}</div></div>
             </div>
-            <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 14 }}>
+            <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{selected.adminName}</div>
               <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{selected.adminEmail} · {selected.adminPhone}</div>
             </div>
