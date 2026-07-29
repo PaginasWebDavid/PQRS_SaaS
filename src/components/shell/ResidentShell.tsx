@@ -65,6 +65,7 @@ export function ResidentShell({
 }: { activeKey: string; initials: string; greetingName: string; bottomNav: BottomNavItem[]; children: ReactNode }) {
   const isMobile = useIsMobile(860);
   const [tenantStatus, setTenantStatus] = useState<string | null | undefined>(undefined);
+  const [entitlements, setEntitlements] = useState<{ reservations: boolean; residentPayments: boolean } | null>(null);
 
   const [profileError, setProfileError] = useState(false);
 
@@ -74,13 +75,14 @@ export function ResidentShell({
       if (res.status === 401) { logout(); return null; }
       if (!res.ok) throw new Error('profile');
       return res.json();
-    }).then((data) => { if (alive && data) setTenantStatus(data?.tenant?.status ?? data?.licenseSummary?.status ?? null); })
+    }).then((data) => { if (alive && data) { setTenantStatus(data?.tenant?.status ?? data?.licenseSummary?.status ?? null); setEntitlements(data?.entitlements || { reservations: false, residentPayments: false }); } })
       .catch(() => { if (alive) setProfileError(true); });
     return () => { alive = false; };
   }, []);
 
   const profileLoading = tenantStatus === undefined && !profileError;
   const blockedStatus = tenantStatus && BLOCKING_STATUSES.includes(tenantStatus) ? tenantStatus : null;
+  const visibleBottomNav = bottomNav.filter((item) => item.key === 'reservas' ? entitlements?.reservations === true : item.key === 'pagos' ? entitlements?.residentPayments === true : true);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFFFFF', display: 'flex' }}>
@@ -92,13 +94,14 @@ export function ResidentShell({
           </div>
           <div style={{ padding: '0 8px 16px' }}><TenantSwitcher /></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            {bottomNav.map((n) => (
-              <div key={n.key} onClick={n.onClick} style={{
-                padding: '10px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13.5,
+            {visibleBottomNav.map((n) => (
+              <button key={n.key} type="button" onClick={n.onClick} aria-current={n.key === activeKey ? 'page' : undefined} style={{
+                padding: '10px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13.5, textAlign: 'left',
                 fontWeight: n.key === activeKey ? 700 : 600,
                 background: n.key === activeKey ? COLORS.navySoft : 'transparent',
                 color: n.key === activeKey ? COLORS.navy : COLORS.textSecondaryAlt,
-              }}>{n.label}</div>
+                border: 'none', font: 'inherit', width: '100%',
+              }}>{n.label}</button>
             ))}
           </div>
           <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${COLORS.borderSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -134,11 +137,11 @@ export function ResidentShell({
 
         {isMobile && (
           <div style={{ position: 'sticky', bottom: 0, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px) saturate(1.8)', borderTop: `1px solid ${COLORS.borderSoft}`, display: 'flex', padding: '8px 6px calc(8px + env(safe-area-inset-bottom))', flexShrink: 0 }}>
-            {bottomNav.map((n) => (
-              <div key={n.key} onClick={n.onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 0', cursor: 'pointer' }}>
+            {visibleBottomNav.map((n) => (
+              <button key={n.key} type="button" onClick={n.onClick} aria-current={n.key === activeKey ? 'page' : undefined} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 0', cursor: 'pointer', border: 'none', background: 'none', font: 'inherit' }}>
                 <span style={{ fontSize: 18, color: n.key === activeKey ? COLORS.navy : COLORS.textMuted }}>{n.icon}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: n.key === activeKey ? COLORS.navy : COLORS.textMuted }}>{n.label}</span>
-              </div>
+              </button>
             ))}
           </div>
         )}
