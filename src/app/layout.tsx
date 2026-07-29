@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { SessionProvider } from "@/components/session-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600", "700", "800"] });
@@ -27,8 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={cn("font-sans", manrope.variable, jetbrainsMono.variable)}>
-      <body className="antialiased">
-        <SessionProvider>{children}</SessionProvider>
+      <body className="antialiased" suppressHydrationWarning>
+        <ThemeProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
