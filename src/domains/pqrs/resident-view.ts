@@ -1,8 +1,12 @@
+import { pqrsCategoryVisibleLabel } from "./pqrs-category-policy";
+
 type ResidentPqrsSource = {
   id: string;
   numero: number;
   titulo?: string | null;
   asunto?: string | null;
+  categoryId?: string | null;
+  categorySnapshot?: string | null;
   descripcion: string;
   estado: "EN_ESPERA" | "EN_PROGRESO" | "TERMINADO";
   fechaRecibido: Date;
@@ -17,6 +21,7 @@ type ResidentPqrsSource = {
   evidenciaArchivoNombre?: string | null;
   evidenciaArchivoTipo?: string | null;
   evidenciaArchivoSize?: number | null;
+  evidenciaArchivoRetiradaAt?: Date | null;
   creadoPor?: { name: string | null } | null;
   gestionadoPor?: { name: string | null } | null;
   historial?: Array<{
@@ -38,19 +43,31 @@ type ResidentPqrsSource = {
 // Nunca exponer la URL publica de Supabase Storage ni la ruta interna al cliente
 // (ni siquiera a ADMIN/CONSEJO): todo acceso a archivos debe pasar por las rutas
 // propias (/fotos, /evidencia) que verifican tenant/dueno antes de servir el archivo.
-export function withoutStorageUrls<T extends { evidenciaArchivoUrl?: string | null; evidenciaArchivoPath?: string | null }>(pqrs: T) {
-  const rest = { ...pqrs };
+export function withoutStorageUrls<T extends Record<string, unknown>>(pqrs: T) {
+  const rest = { ...pqrs } as Record<string, unknown>;
+  delete rest.evidenciaArchivoData;
   delete rest.evidenciaArchivoUrl;
   delete rest.evidenciaArchivoPath;
-  return rest;
+  if (Array.isArray(rest.fotos)) {
+    rest.fotos = rest.fotos.map((photo) => {
+      if (!photo || typeof photo !== "object") return photo;
+      const safe = { ...(photo as Record<string, unknown>) };
+      delete safe.data;
+      delete safe.url;
+      delete safe.storagePath;
+      return safe;
+    });
+  }
+  return rest as Omit<T, "evidenciaArchivoData" | "evidenciaArchivoUrl" | "evidenciaArchivoPath">;
 }
-
 export function toResidentPqrsView(pqrs: ResidentPqrsSource) {
   return {
     id: pqrs.id,
     numero: pqrs.numero,
     titulo: pqrs.titulo,
-    asunto: pqrs.asunto,
+    asunto: pqrsCategoryVisibleLabel(pqrs),
+    categoryId: pqrs.categoryId ?? null,
+    categorySnapshot: pqrs.categorySnapshot ?? pqrsCategoryVisibleLabel(pqrs),
     descripcion: pqrs.descripcion,
     estado: pqrs.estado,
     fechaRecibido: pqrs.fechaRecibido,
@@ -64,7 +81,7 @@ export function toResidentPqrsView(pqrs: ResidentPqrsSource) {
     accionTomada: pqrs.accionTomada ?? null,
     evidenciaCierre: pqrs.evidenciaCierre ?? null,
     queSeHizoParaCerrar: pqrs.queSeHizoParaCerrar ?? null,
-    evidenciaArchivo: pqrs.evidenciaArchivoNombre
+    evidenciaArchivo: pqrs.evidenciaArchivoNombre && !pqrs.evidenciaArchivoRetiradaAt
       ? {
           nombre: pqrs.evidenciaArchivoNombre,
           tipo: pqrs.evidenciaArchivoTipo ?? null,

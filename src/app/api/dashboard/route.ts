@@ -42,14 +42,14 @@ export async function GET(req: NextRequest) {
     where: { tenantId },
     orderBy: { creadoAt: "desc" },
     take: 5,
-    include: { pqrs: { select: { numero: true, nombreResidente: true, asunto: true } } },
+    include: { pqrs: { select: { numero: true, nombreResidente: true, asunto: true, categorySnapshot: true } } },
   });
 
   const recentPqrsRaw = await prisma.pqrs.findMany({
     where: { tenantId },
     orderBy: { fechaRecibido: "desc" },
     take: 6,
-    select: { id: true, numero: true, titulo: true, asunto: true, nombreResidente: true, estado: true, fechaRecibido: true },
+    select: { id: true, numero: true, titulo: true, asunto: true, categorySnapshot: true, nombreResidente: true, estado: true, fechaRecibido: true },
   });
 
   const usersActiveCount = await prisma.tenantMembership.count({ where: { tenantId, isActive: true } });
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       fechaPrimerContacto: true,
       tiempoRespuestaPrimerContacto: true,
       tiempoRespuestaCierre: true,
-      asunto: true,
+      asunto: true, categorySnapshot: true,
       subAsunto: true,
       nombreResidente: true,
       bloque: true,
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
   // By asunto (for bar chart)
   const asuntoCounts: Record<string, number> = {};
   for (const p of pqrs) {
-    const key = p.asunto || "Sin asunto";
+    const key = p.categorySnapshot || p.asunto || "Sin categoria";
     asuntoCounts[key] = (asuntoCounts[key] || 0) + 1;
   }
   const porAsunto = Object.entries(asuntoCounts)
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
   // By asunto with status breakdown and descriptions
   const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
   for (const p of pqrs) {
-    const key = p.asunto || "Sin asunto";
+    const key = p.categorySnapshot || p.asunto || "Sin categoria";
     if (!asuntoMap[key]) {
       asuntoMap[key] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
     }
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
     .map((p) => ({
       id: p.id,
       numero: p.numero,
-      asunto: p.asunto || "Sin asunto",
+      asunto: p.categorySnapshot || p.asunto || "Sin categoria",
       nombreResidente: p.nombreResidente,
       bloque: p.bloque,
       apto: p.apto,
@@ -189,7 +189,7 @@ export async function GET(req: NextRequest) {
     .map((p) => ({
       id: p.id,
       numero: p.numero,
-      asunto: p.asunto || "Sin asunto",
+      asunto: p.categorySnapshot || p.asunto || "Sin categoria",
       nombreResidente: p.nombreResidente,
       bloque: p.bloque,
       apto: p.apto,
@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
     recentPqrs: recentPqrsRaw.map((p) => ({
       id: p.id,
       numero: p.numero,
-      asunto: p.titulo || p.asunto || "Sin título",
+      asunto: p.titulo || p.categorySnapshot || p.asunto || "Sin título",
       nombreResidente: p.nombreResidente,
       estado: p.estado,
       fechaRecibido: p.fechaRecibido,
@@ -231,7 +231,7 @@ export async function GET(req: NextRequest) {
       id: h.id,
       numero: h.pqrs.numero,
       nombreResidente: h.pqrs.nombreResidente,
-      asunto: h.pqrs.asunto,
+      asunto: h.pqrs.categorySnapshot || h.pqrs.asunto,
       estadoAntes: h.estadoAntes,
       estadoDespues: h.estadoDespues,
       nota: h.nota,

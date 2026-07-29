@@ -11,6 +11,7 @@ import { createNotification, NotificationTypes } from "@/domains/notifications/n
 import { isPqrsTakenByAdministration } from "@/domains/pqrs/pqrs-permissions";
 import { VALID_NEXT_FASE_BY_WORKFLOW } from "@/domains/pqrs/pqrs-workflow.service";
 import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
+import { pqrsCategoryVisibleLabel } from "@/domains/pqrs/pqrs-category-policy";
 import {
   escapePqrsHtml,
   isRecord,
@@ -47,17 +48,6 @@ async function notifyOtherAdministrators({
 
 const ALLOWED_EVIDENCE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
-const ASUNTOS_VALIDOS = [
-  "AREA COMUN",
-  "AREA PRIVADA",
-  "CONTABILIDAD",
-  "CONVIVENCIA",
-  "HUMEDAD/CUBIERTA",
-  "HUMEDAD/DEPOSITO",
-  "HUMEDAD/VENTANAS",
-  "HUMEDAD/FACHADA",
-  "HUMEDAD/GARAJE",
-];
 
 async function handleGet(
   req: NextRequest,
@@ -89,6 +79,7 @@ async function handleGet(
       gestionadoPor: { select: { name: true } },
       historial: { orderBy: { creadoAt: "asc" } },
       fotos: {
+        where: { removedAt: null },
         select: { id: true, nombre: true, tipo: true, size: true, orden: true },
         orderBy: { orden: "asc" },
       },
@@ -167,6 +158,7 @@ async function handlePatch(
       include: {
         historial: { orderBy: { creadoAt: "asc" } },
         fotos: {
+        where: { removedAt: null },
           select: { id: true, nombre: true, tipo: true, size: true, orden: true },
           orderBy: { orden: "asc" },
         },
@@ -223,21 +215,16 @@ async function handlePatch(
       );
     }
 
-    // Asunto es obligatorio para registrar primer contacto
-    if (body.asunto !== undefined && typeof body.asunto !== "string") {
-      return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
-    }
-    const asunto = body.asunto || pqrs.asunto;
-    if (!asunto) {
+    if (body.asunto !== undefined || body.categoryId !== undefined) {
       return NextResponse.json(
-        { error: "Debe seleccionar un asunto antes de registrar el primer contacto" },
+        { error: "La categoria solo puede cambiarse mediante Corregir caso" },
         { status: 400 }
       );
     }
-
-    if (!ASUNTOS_VALIDOS.includes(asunto)) {
+    const categoryLabel = pqrsCategoryVisibleLabel(pqrs);
+    if (categoryLabel === "Sin categoria") {
       return NextResponse.json(
-        { error: "Asunto invalido" },
+        { error: "Corrige la categoria antes de registrar el primer contacto" },
         { status: 400 }
       );
     }
@@ -272,7 +259,6 @@ async function handlePatch(
         where: { id: params.id, tenantId },
         data: {
           estado: "EN_PROGRESO",
-          asunto,
           ...(prioridad ? { prioridad } : {}),
           fechaPrimerContacto: ahora,
           tiempoRespuestaPrimerContacto: diffDays,
@@ -328,7 +314,7 @@ async function handlePatch(
                 <p style="margin:4px 0 0;font-size:24px;font-weight:800;color:#1A6B3A;">${numeroRadicacion}</p>
               </div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background:#F5F5F7;border-radius:12px;overflow:hidden;">
-                <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;width:40%;">ASUNTO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;">${asunto}</td></tr>
+                <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;width:40%;">ASUNTO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;">${escapePqrsHtml(categoryLabel)}</td></tr>
               </table>
               <div style="background:#F5F5F7;border-radius:12px;padding:16px 18px;">
                 <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#8E8E93;">NOTA DEL PRIMER CONTACTO</p>
@@ -511,7 +497,7 @@ async function handlePatch(
     );
   }
 
-  const { evidenciaArchivoData, evidenciaArchivoNombre, terminar, asunto } = body;
+  const { evidenciaArchivoData, evidenciaArchivoNombre, terminar } = body;
   let accionTomada: string | undefined;
   let evidenciaCierre: string | undefined;
   let queSeHizoParaCerrar: string | undefined;
@@ -560,12 +546,6 @@ async function handlePatch(
   const ahora = new Date();
   const updateData: Record<string, unknown> = {};
 
-  if (asunto !== undefined) {
-    if (typeof asunto !== "string" || !ASUNTOS_VALIDOS.includes(asunto)) {
-      return NextResponse.json({ error: "Asunto invalido" }, { status: 400 });
-    }
-    updateData.asunto = asunto;
-  }
   if (accionTomada !== undefined) updateData.accionTomada = accionTomada;
   if (evidenciaCierre !== undefined) updateData.evidenciaCierre = evidenciaCierre;
   if (queSeHizoParaCerrar !== undefined) updateData.queSeHizoParaCerrar = queSeHizoParaCerrar;
@@ -593,6 +573,9 @@ async function handlePatch(
       updateData.evidenciaArchivoNombre = stored.fileName;
       updateData.evidenciaArchivoTipo = stored.contentType;
       updateData.evidenciaArchivoSize = stored.size;
+      updateData.evidenciaArchivoRetiradaAt = null;
+      updateData.evidenciaArchivoRetiradaPorId = null;
+      updateData.evidenciaArchivoRetiroMotivo = null;
     } catch (error) {
       const message = error instanceof PqrsValidationError ? error.message : "No se pudo subir la evidencia";
       return NextResponse.json({ error: message }, { status: error instanceof PqrsValidationError ? 400 : 500 });
@@ -720,7 +703,7 @@ async function handlePatch(
             <p>Le informamos que su solicitud ha sido cerrada.</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background:#F5F5F7;border-radius:12px;overflow:hidden;">
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;width:44%;">N.° RADICACIÓN</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;">${pqrs.numeroRadicacion || "N/A"}</td></tr>
-              <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">ASUNTO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">${pqrs.asunto || "N/A"}</td></tr>
+              <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">ASUNTO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">${escapePqrsHtml(pqrsCategoryVisibleLabel(pqrs))}</td></tr>
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">FECHA RECIBIDO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">${fechaRecibido}</td></tr>
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">FECHA CIERRE</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1D1D1F;border-top:1px solid #E5E5EA;">${fechaCierre}</td></tr>
               <tr><td style="padding:12px 16px;font-size:12px;color:#8E8E93;font-weight:700;border-top:1px solid #E5E5EA;">ESTADO</td><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#1A6B3A;border-top:1px solid #E5E5EA;">${ESTADO_LABEL["TERMINADO"]}</td></tr>

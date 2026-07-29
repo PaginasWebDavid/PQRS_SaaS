@@ -10,6 +10,7 @@ import { COLORS, RADIUS } from '@/lib/design/tokens';
 type PqrsWorkflowType = 'SIMPLE' | 'MAINTENANCE';
 type TenantInfo = { units?: number | null; status?: string | null; pqrsWorkflowType?: PqrsWorkflowType | null };
 type TenantSettings = { tenant?: TenantInfo | null; pqrsCloseSlaDays?: number; integrations?: { correoTransaccional: boolean; almacenamientoEvidencias: boolean; pagos: boolean } };
+type PqrsCategory = { id: string; displayName: string; isActive: boolean; isCustom: boolean; sortOrder: number; workflowType: PqrsWorkflowType };
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: 'Falta primer pago', TRIAL: 'Trial', ACTIVE: 'Activa',
@@ -36,7 +37,10 @@ export default function ConfiguracionConjuntoPage() {
   const [email, setEmail] = useState('');
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [loadError, setLoadError] = useState('');
-  const [workflowSaving, setWorkflowSaving] = useState(false);
+  const [categories, setCategories] = useState<PqrsCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryWorkflow, setNewCategoryWorkflow] = useState<PqrsWorkflowType>('SIMPLE');
+  const [categorySaving, setCategorySaving] = useState(false);
   const { toast, showToast } = useToast();
 
   useEffect(() => {
@@ -67,22 +71,31 @@ export default function ConfiguracionConjuntoPage() {
 
   const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: '#FFFFFF' };
   const statusLabel = settings?.tenant?.status ? (STATUS_LABEL[settings.tenant.status] || settings.tenant.status) : '—';
-  const workflowType = settings?.tenant?.pqrsWorkflowType || 'MAINTENANCE';
 
-  async function saveWorkflow(next: PqrsWorkflowType) {
-    if (workflowSaving || next === workflowType) return;
-    setWorkflowSaving(true);
+  async function updateCategory(categoryId: string, patch: Partial<Pick<PqrsCategory, 'displayName' | 'isActive' | 'sortOrder' | 'workflowType'>>) {
+    if (categorySaving) return;
+    setCategorySaving(true);
     try {
-      const res = await fetch('/api/tenant/pqrs-workflow', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workflowType: next }) });
+      const res = await fetch('/api/tenant/pqrs-categories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId, ...patch }) });
       const body = await res.json().catch(() => null);
-      if (!res.ok) { showToast(body?.error || 'No se pudo guardar la plantilla de PQRS'); return; }
-      setSettings((current) => current ? { ...current, tenant: { ...current.tenant, pqrsWorkflowType: next } } : current);
-      showToast('Plantilla de PQRS actualizada ✓');
-    } catch {
-      showToast('No se pudo guardar la plantilla. Revisa tu conexión.');
-    } finally {
-      setWorkflowSaving(false);
-    }
+      if (!res.ok) { if (res.status !== 409) showToast(body?.error || 'No se pudo actualizar la categoria'); return; }
+      setCategories((current) => current.map((item) => item.id === body.id ? body : item).sort((a, b) => a.sortOrder - b.sortOrder));
+      showToast('Categoria actualizada');
+    } catch { showToast('No se pudo actualizar la categoria. Revisa tu conexion.'); }
+    finally { setCategorySaving(false); }
+  }
+
+  async function createCategory() {
+    if (categorySaving || newCategoryName.trim().length < 2) return;
+    setCategorySaving(true);
+    try {
+      const nextOrder = Math.min(999, Math.max(90, ...categories.map((item) => item.sortOrder + 10)));
+      const res = await fetch('/api/tenant/pqrs-categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: newCategoryName.trim(), sortOrder: nextOrder, workflowType: newCategoryWorkflow }) });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) { showToast(body?.error || 'No se pudo crear la categoria'); return; }
+      setCategories((current) => [...current, body].sort((a, b) => a.sortOrder - b.sortOrder)); setNewCategoryName(''); showToast('Categoria creada');
+    } catch { showToast('No se pudo crear la categoria. Revisa tu conexion.'); }
+    finally { setCategorySaving(false); }
   }
 
   return (
@@ -134,32 +147,29 @@ export default function ConfiguracionConjuntoPage() {
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Plantilla de gestión de PQRS</div>
+          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Categorias de PQRS</div>
           <p style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', lineHeight: 1.6 }}>
-            Define cómo se gestionan las PQRS de tu conjunto a partir de ahora. No afecta solicitudes ya creadas.
+            SIMPLE sirve para solicitudes administrativas, convivencia, consultas o certificados. MAINTENANCE incluye inspeccion, insumos o proveedor y ejecucion. Los cambios solo afectan casos nuevos.
           </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => saveWorkflow('SIMPLE')}
-              disabled={workflowSaving}
-              style={{ flex: '1 1 200px', textAlign: 'left', border: workflowType === 'SIMPLE' ? `2px solid ${COLORS.navy}` : `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Simple</div>
-              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Recibida → Primer contacto → En gestión → Cerrada</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => saveWorkflow('MAINTENANCE')}
-              disabled={workflowSaving}
-              style={{ flex: '1 1 200px', textAlign: 'left', border: workflowType === 'MAINTENANCE' ? `2px solid ${COLORS.navy}` : `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Mantenimiento</div>
-              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Incluye ruta de insumos o proveedor y ejecución</div>
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {categories.map((category) => (
+              <div key={category.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(170px, 1fr) 92px 145px 82px', gap: 8, alignItems: 'center', padding: 10, background: COLORS.bgCard, borderRadius: 12 }}>
+                <input value={category.displayName} onChange={(e) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, displayName: e.target.value } : item))} onBlur={() => void updateCategory(category.id, { displayName: category.displayName })} style={{ ...inputStyle, height: 38 }} />
+                <input type="number" min={0} max={999} value={category.sortOrder} onChange={(e) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, sortOrder: Number(e.target.value) } : item))} onBlur={() => void updateCategory(category.id, { sortOrder: category.sortOrder })} style={{ ...inputStyle, height: 38 }} />
+                <select value={category.workflowType} onChange={(e) => void updateCategory(category.id, { workflowType: e.target.value as PqrsWorkflowType })} style={{ ...inputStyle, height: 38 }}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option></select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}><input type="checkbox" checked={category.isActive} onChange={(e) => void updateCategory(category.id, { isActive: e.target.checked })} /> Activa</label>
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, marginTop: 16, paddingTop: 16 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 8 }}>Categoria personalizada ({categories.filter((item) => item.isCustom).length}/3)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 150px auto', gap: 8 }}>
+              <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} maxLength={80} placeholder="Nombre de la categoria" style={inputStyle} />
+              <select value={newCategoryWorkflow} onChange={(e) => setNewCategoryWorkflow(e.target.value as PqrsWorkflowType)} style={inputStyle}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option></select>
+              <button type="button" onClick={() => void createCategory()} disabled={categorySaving || categories.filter((item) => item.isCustom).length >= 3} style={{ border: 0, background: COLORS.navy, color: '#FFF', borderRadius: RADIUS.pill, padding: '0 18px', fontWeight: 700 }}>Crear</button>
+            </div>
           </div>
         </div>
-
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 4 }}>Estado del sistema</div>
           <p style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 10px' }}>Si algo no está conectado, contacta a soporte de PQRS Services.</p>

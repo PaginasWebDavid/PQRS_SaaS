@@ -10,7 +10,7 @@ import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
 type Pqrs = {
-  id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
+  id: string; numero: number; titulo?: string | null; asunto?: string | null; categorySnapshot?: string | null; descripcion: string; nombreResidente: string;
   bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
   notaPrimerContacto?: string | null;
   workflowType?: 'SIMPLE' | 'MAINTENANCE';
@@ -45,6 +45,7 @@ const ASUNTOS: { value: string; label: string }[] = [
   { value: 'HUMEDAD/GARAJE', label: 'Humedad - Garaje' },
 ];
 const ASUNTO_LABEL: Record<string, string> = Object.fromEntries(ASUNTOS.map((a) => [a.value, a.label]));
+const categoryLabel = (p: Pqrs) => p.categorySnapshot || (p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoria');
 function stageIndex(estado: Estado) { return estado === 'EN_ESPERA' ? 0 : estado === 'EN_PROGRESO' ? 1 : 2; }
 function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success); }
 function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
@@ -78,7 +79,7 @@ function VistaConsejoPageContent() {
   }, [reloadKey]);
 
   const filtered = useMemo(
-    () => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${p.asunto || ''} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))),
+    () => data.filter((p) => (filter === 'all' || p.estado === filter) && (!search || `${p.numero} ${p.titulo || ''} ${categoryLabel(p)} ${p.nombreResidente} ${p.bloque}-${p.apto}`.toLowerCase().includes(search.toLowerCase()))),
     [data, filter, search]
   );
   const selectedSummary = data.find((p) => p.id === selectedId) ?? filtered[0] ?? data[0];
@@ -174,7 +175,7 @@ function VistaConsejoPageContent() {
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: isMobile ? 'auto' : 84, flexShrink: 0, order: isMobile ? 1 : 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
               <span style={{ flex: isMobile ? '1 1 100%' : 1, minWidth: isMobile ? 0 : 120, overflow: 'hidden', order: isMobile ? 3 : 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
-                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'}</div>
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
               </span>
               <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: isMobile ? 'auto' : 100, flexShrink: 0, order: isMobile ? 4 : 0 }}>{p.nombreResidente}</span>
               <span style={{ ...badge(p.estado), order: isMobile ? 2 : 0 }}>{label(p.estado)}</span>
@@ -192,7 +193,7 @@ function VistaConsejoPageContent() {
                 <span style={badge(selected.estado)}>{label(selected.estado)}</span>
               </div>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
-              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{selected.asunto ? (ASUNTO_LABEL[selected.asunto] || selected.asunto) : 'Sin categoría'}</span></div>
+              <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{categoryLabel(selected)}</span></div>
 
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 22 }}>
                 {STAGE_LABELS.map((stageLabel, i) => {
