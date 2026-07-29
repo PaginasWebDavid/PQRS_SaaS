@@ -1,7 +1,7 @@
 'use client';
 import { ReactNode, useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import { COLORS } from '@/lib/design/tokens';
+import { COLORS, RADIUS } from '@/lib/design/tokens';
 import { LogoMark } from './Logo';
 import { useIsMobile } from './Sheet';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
@@ -33,7 +33,7 @@ function ResidentBlockedScreen({ status }: { status: string }) {
   const copy = BLOCKED_COPY[status] || BLOCKED_COPY.SUSPENDED;
   return (
     <div style={{ maxWidth: 420, margin: '60px auto 0', textAlign: 'center' }}>
-      <div style={{ width: 56, height: 56, borderRadius: 999, background: COLORS.warningSoft, color: COLORS.warning, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, margin: '0 auto 20px' }}>!</div>
+      <div style={{ width: 56, height: 56, borderRadius: RADIUS.pill, background: COLORS.warningSoft, color: COLORS.warning, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, margin: '0 auto 20px' }}>!</div>
       <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{copy.title}</h1>
       <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 10px' }}>{copy.body}</p>
       <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, marginTop: 22 }}>
@@ -55,7 +55,7 @@ function ResidentErrorScreen() {
 function ShellLoadingScreen() {
   return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 34, height: 34, borderRadius: 999, border: `3px solid ${COLORS.borderSoft}`, borderTopColor: COLORS.navy, animation: 'apl-spin 800ms linear infinite' }} />
+      <div style={{ width: 34, height: 34, borderRadius: RADIUS.pill, border: `3px solid ${COLORS.borderSoft}`, borderTopColor: COLORS.navy, animation: 'apl-spin 800ms linear infinite' }} />
     </div>
   );
 }
@@ -85,7 +85,7 @@ export function ResidentShell({
   const visibleBottomNav = bottomNav.filter((item) => item.key === 'reservas' ? entitlements?.reservations === true : item.key === 'pagos' ? entitlements?.residentPayments === true : true);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFFFFF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex' }}>
       {!isMobile && (
         <div style={{ width: 250, flexShrink: 0, borderRight: `1px solid ${COLORS.borderSoft}`, background: COLORS.bgSidebar, position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '22px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 20px' }}>
@@ -96,7 +96,7 @@ export function ResidentShell({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {visibleBottomNav.map((n) => (
               <button key={n.key} type="button" onClick={n.onClick} aria-current={n.key === activeKey ? 'page' : undefined} style={{
-                padding: '10px 12px', borderRadius: 10, cursor: 'pointer', fontSize: 13.5, textAlign: 'left',
+                padding: '10px 12px', borderRadius: RADIUS.control, cursor: 'pointer', fontSize: 13.5, textAlign: 'left',
                 fontWeight: n.key === activeKey ? 700 : 600,
                 background: n.key === activeKey ? COLORS.navySoft : 'transparent',
                 color: n.key === activeKey ? COLORS.navy : COLORS.textSecondaryAlt,
@@ -105,7 +105,7 @@ export function ResidentShell({
             ))}
           </div>
           <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${COLORS.borderSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{initials}</div>
+            <div style={{ width: 32, height: 32, borderRadius: RADIUS.pill, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{initials}</div>
             <div style={{ fontSize: 12.5, fontWeight: 800, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{greetingName}</div>
             <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Salir</button>
           </div>
@@ -121,7 +121,7 @@ export function ResidentShell({
                 <span style={{ fontWeight: 800, fontSize: 14 }}>PQRS <span style={{ fontWeight: 500, color: COLORS.textSecondary }}>Services</span></span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{initials}</div>
+                <div style={{ width: 30, height: 30, borderRadius: RADIUS.pill, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{initials}</div>
                 <button type="button" onClick={logout} style={{ border: 0, background: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: COLORS.textMuted, cursor: 'pointer', fontFamily: 'inherit' }}>Salir</button>
               </div>
             </div>
