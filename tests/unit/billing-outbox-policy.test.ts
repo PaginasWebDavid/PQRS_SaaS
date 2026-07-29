@@ -7,9 +7,11 @@ import {
   classifyProviderHttpStatus,
   computeBillingOutboxNextAttemptAt,
   decideAbandonedBillingOutbox,
+  getBillingOutboxContent,
   hasBillingOutboxAttemptsRemaining,
   sanitizeBillingOutboxPayload,
 } from "../../src/domains/billing/billing-outbox-policy";
+import { paymentProviderLabel } from "../../src/lib/design/billing";
 
 const BOUNDARY = new Date("2026-07-27T12:00:00.000Z");
 const BASE = {
@@ -116,4 +118,19 @@ test("15. dedupe key and backoff reject invalid inputs", () => {
   assert.throws(() => buildBillingOutboxDedupeKey({ ...BASE, boundary: new Date("invalid") }), /boundary/);
   assert.throws(() => computeBillingOutboxNextAttemptAt(new Date("invalid"), 1), /now/);
   assert.throws(() => computeBillingOutboxNextAttemptAt(BOUNDARY, 0), /attemptCount/);
+});
+test("16. el contenido de cortesia nunca afirma que hubo un pago", () => {
+  const content = getBillingOutboxContent("COURTESY_EXTENSION_GRANTED", {
+    version: 1,
+    periodEndsAt: "2026-08-15T00:00:00.000Z",
+  });
+  assert.match(content.title, /cortesia/i);
+  assert.match(content.message, /sin cobro/i);
+  assert.doesNotMatch(`${content.title} ${content.message} ${content.emailBodyHtml}`, /pago aprobado/i);
+});
+
+test("17. los proveedores se muestran con conceptos distintos", () => {
+  assert.equal(paymentProviderLabel("MERCADO_PAGO"), "Mercado Pago");
+  assert.equal(paymentProviderLabel("SIMULATED"), "Pago manual");
+  assert.equal(paymentProviderLabel("COURTESY"), "Cortesia");
 });

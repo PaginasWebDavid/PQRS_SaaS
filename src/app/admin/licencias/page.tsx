@@ -6,8 +6,9 @@ import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 import { SUBSCRIPTION_STATUS_LABEL } from '@/lib/design/licenseStatus';
+import { paymentProviderLabel } from '@/lib/design/billing';
 
-type Payment = { id: string; amountCents: number; currency: string; status: string; dueDate: string; paidAt?: string | null };
+type Payment = { id: string; amountCents: number; currency: string; status: string; provider: string; dueDate: string; paidAt?: string | null };
 type LicenseSummary = {
   status: string; autoRenew: boolean; currentPeriodEnd: string; nextPaymentDueDate: string;
   priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot?: number | null; pendingPriceCents?: number | null; pendingCurrency?: string | null; pendingPriceEffectiveAt?: string | null; recentPayments: Payment[];
@@ -24,8 +25,8 @@ const STATUS_DOT: Record<string, string> = {
 };
 const NEEDS_PAYMENT = new Set(['PENDING_PAYMENT', 'GRACE_PERIOD', 'SUSPENDED']);
 
-const BADGE = { paid: badgeStyle(COLORS.successSoft, COLORS.success), pending: badgeStyle(COLORS.warningSoft, COLORS.warning) };
-const FILTERS = [{ key: 'all', label: 'Todas' }, { key: 'paid', label: 'Pagadas' }, { key: 'pending', label: 'Pendientes' }];
+const BADGE = { paid: badgeStyle(COLORS.successSoft, COLORS.success), pending: badgeStyle(COLORS.warningSoft, COLORS.warning), courtesy: badgeStyle(COLORS.navySoft, COLORS.navy) };
+const FILTERS = [{ key: 'all', label: 'Todas' }, { key: 'paid', label: 'Pagadas' }, { key: 'pending', label: 'Pendientes' }, { key: 'courtesy', label: 'Cortesias' }];
 
 export default function ModuloLicenciasPage() {
   const isMobile = useIsMobile();
@@ -50,7 +51,16 @@ export default function ModuloLicenciasPage() {
   useEffect(() => { load(); }, []);
 
   const license = me?.licenseSummary;
-  const invoices = (license?.recentPayments || []).map((p, idx) => ({ number: `Factura #${String(idx + 1).padStart(4, '0')}`, date: shortDate(p.paidAt || p.dueDate), amount: money(p.amountCents, p.currency), group: p.status === 'APPROVED' ? 'paid' : 'pending' }));
+  const invoices = (license?.recentPayments || []).map((p, idx) => {
+    const courtesy = p.provider === 'COURTESY';
+    return {
+      number: courtesy ? `Cortesia #${String(idx + 1).padStart(4, '0')}` : `Factura #${String(idx + 1).padStart(4, '0')}`,
+      date: shortDate(p.paidAt || p.dueDate),
+      amount: courtesy ? 'Sin cobro' : money(p.amountCents, p.currency),
+      group: courtesy ? 'courtesy' : p.status === 'APPROVED' ? 'paid' : 'pending',
+      providerLabel: paymentProviderLabel(p.provider),
+    };
+  });
   const rows = filter === 'all' ? invoices : invoices.filter((i) => i.group === filter);
 
   async function payNow() {
@@ -127,19 +137,19 @@ export default function ModuloLicenciasPage() {
               <div key={inv.number} style={{ padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
-                  <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+                  <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'courtesy' ? 'Cortesia' : inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted }}>{inv.date}</span>
-                  <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600 }}>{inv.amount}</span>
+                  <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600 }}>{inv.amount} - {inv.providerLabel}</span>
                 </div>
               </div>
             ) : (
               <div key={inv.number} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <span style={{ flex: 1, minWidth: 100, fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 110 }}>{inv.date}</span>
-                <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 120, textAlign: 'right' }}>{inv.amount}</span>
-                <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+                <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 150, textAlign: 'right' }}>{inv.amount}<br /><small>{inv.providerLabel}</small></span>
+                <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'courtesy' ? 'Cortesia' : inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
               </div>
             )
           )) : <div style={{ padding: 24, color: COLORS.textMuted, fontWeight: 600 }}>No hay pagos registrados.</div>}

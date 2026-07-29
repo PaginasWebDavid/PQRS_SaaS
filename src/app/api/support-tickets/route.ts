@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getTenantIdFromSession } from "@/domains/organizations/tenant.service";
 import { getTenantAccessResponse } from "@/lib/tenant-access-response";
-import { createSupportTicket, listSupportTicketsForUser } from "@/domains/support/support-ticket.service";
+import {
+  allowedSupportCategoriesForRole,
+  createSupportTicket,
+  isAllowedSupportCategory,
+  listSupportTicketsForTenantAdmin,
+  listSupportTicketsForUser,
+} from "@/domains/support/support-ticket.service";
 import { isFeatureEnabled } from "@/domains/platform/platform-setting.service";
 
 export async function GET() {
@@ -18,7 +24,11 @@ export async function GET() {
   if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
-  const tickets = await listSupportTicketsForUser({ tenantId, userId: session.user.id });
+  // ADMIN ve todos los tickets de su propio conjunto (propios + de sus
+  // residentes/consejo); RESIDENTE y CONSEJO solo ven los suyos.
+  const tickets = session.user.role === "ADMIN"
+    ? await listSupportTicketsForTenantAdmin({ tenantId })
+    : await listSupportTicketsForUser({ tenantId, userId: session.user.id });
   return NextResponse.json(tickets);
 }
 
@@ -46,17 +56,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Asunto y mensaje son obligatorios" }, { status: 400 });
   }
 
+  if (!isAllowedSupportCategory(session.user.role, body.category)) {
+    return NextResponse.json(
+      { error: `Categoria invalida. Usa una de: ${allowedSupportCategoriesForRole(session.user.role).join(", ")}` },
+      { status: 400 }
+    );
+  }
+
   try {
     const ticket = await createSupportTicket({
       actorUserId: session.user.id,
       tenantId,
       subject: body.subject.trim(),
       message: body.message.trim(),
-      category: ["TECNICO", "FACTURACION", "CUENTA", "OTRO"].includes(body.category) ? body.category : "OTRO",
+      category: body.category,
     });
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo crear la solicitud";
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error("[support-tickets] Unexpected create failure", {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return NextResponse.json({ error: "No se pudo crear la solicitud" }, { status: 500 });
   }
 }

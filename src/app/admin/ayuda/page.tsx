@@ -4,6 +4,7 @@ import { AdminShell } from '@/components/shell/AdminShell';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
+import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 
 const FAQS = [
   { q: '¿Cómo cierro una PQRS?', a: 'Abre la solicitud en el módulo PQRS y usa "Avanzar estado" hasta llegar a Terminada, agregando una nota interna con la evidencia de cierre.' },
@@ -13,12 +14,12 @@ const FAQS = [
   { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes el período de gracia que se muestra en Licencias y pagos para ponerte al día antes de que la licencia se suspenda. Puedes pagar en cualquier momento desde ahí.' },
 ];
 
-type Category = 'TECNICO' | 'FACTURACION' | 'CUENTA' | 'OTRO';
+type Category = 'TECHNICAL' | 'ACCESS' | 'PRIVACY_SECURITY' | 'BILLING';
 const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
-  { value: 'TECNICO', label: 'Problema técnico' },
-  { value: 'FACTURACION', label: 'Facturación' },
-  { value: 'CUENTA', label: 'Mi cuenta / conjunto' },
-  { value: 'OTRO', label: 'Otro' },
+  { value: 'TECHNICAL', label: 'Problema técnico' },
+  { value: 'ACCESS', label: 'Acceso a la plataforma' },
+  { value: 'PRIVACY_SECURITY', label: 'Privacidad / seguridad' },
+  { value: 'BILLING', label: 'Facturación' },
 ];
 
 type Ticket = {
@@ -30,6 +31,7 @@ type Ticket = {
   response: string | null;
   respondedAt: string | null;
   createdAt: string;
+  createdBy?: { name: string | null } | null;
 };
 
 const STATUS_LABEL: Record<string, string> = { ABIERTA: 'Abierta', RESPONDIDA: 'Respondida', CERRADA: 'Cerrada' };
@@ -39,7 +41,7 @@ export default function AyudaPage() {
   const [open, setOpen] = useState(0);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [category, setCategory] = useState<Category>('OTRO');
+  const [category, setCategory] = useState<Category>('TECHNICAL');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -76,7 +78,7 @@ export default function AyudaPage() {
       }
       setSubject('');
       setMessage('');
-      setCategory('OTRO');
+      setCategory('TECHNICAL');
       fetchTickets();
       showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
     } catch {
@@ -106,7 +108,10 @@ export default function AyudaPage() {
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Contactar soporte</div>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, margin: '0 0 18px' }}>
+            Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
+          </div>
 
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Tipo de solicitud</label>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -135,10 +140,13 @@ export default function AyudaPage() {
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}`, fontSize: 14, fontWeight: 800 }}>Mis solicitudes</div>
+          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>Solicitudes de mi conjunto</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Incluye las tuyas y las de otros usuarios de tu conjunto (solo lectura).</div>
+          </div>
           {loading && <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Cargando…</div>}
           {!loading && tickets.length === 0 && (
-            <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Aún no has enviado ninguna solicitud.</div>
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Aún no se ha enviado ninguna solicitud.</div>
           )}
           {!loading && tickets.map((t) => (
             <div key={t.id} style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
@@ -146,6 +154,7 @@ export default function AyudaPage() {
                 <span style={{ fontSize: 13.5, fontWeight: 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto' }}>{t.subject}</span>
                 <span style={{ ...statusBadge(t.status), flexShrink: 0 }}>{STATUS_LABEL[t.status]}</span>
               </div>
+              <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{supportTicketCategoryLabel(t.category)}{t.createdBy?.name ? ` - Por ${t.createdBy.name}` : ''}</div>
               <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
               {t.response && (
                 <div style={{ background: COLORS.successSoft, borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#1D1D1F', lineHeight: 1.5 }}>

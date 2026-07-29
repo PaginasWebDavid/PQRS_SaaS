@@ -9,6 +9,7 @@ import { AuditAction } from "@prisma/client";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification, NotificationTypes } from "@/domains/notifications/notification.service";
 import { isPqrsTakenByAdministration } from "@/domains/pqrs/pqrs-permissions";
+import { VALID_NEXT_FASE_BY_WORKFLOW } from "@/domains/pqrs/pqrs-workflow.service";
 import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
 import {
   escapePqrsHtml,
@@ -377,8 +378,12 @@ async function handlePatch(
 
     const current = pqrs.faseActual || 0;
     const existingTipo = pqrs.faseTipo as "INSUMOS" | "PROVEEDOR" | null;
+    // Plantilla con la que esta PQRS nacio (snapshot inmutable, ver
+    // Pqrs.workflowType): un cambio posterior en la configuracion del tenant
+    // nunca afecta a un caso ya creado.
+    const isSimpleWorkflow = pqrs.workflowType === "SIMPLE";
 
-    if (existingTipo && requestedTipo && requestedTipo !== existingTipo) {
+    if (!isSimpleWorkflow && existingTipo && requestedTipo && requestedTipo !== existingTipo) {
       return NextResponse.json({ error: "El tipo de gestion (insumos/proveedor) ya fue definido y no se puede cambiar" }, { status: 400 });
     }
 
@@ -388,33 +393,31 @@ async function handlePatch(
     };
     const finalCurrentNota = (notesByFase[current] ?? existingNotesByFase[current])?.trim?.();
 
-    // Valid forward transitions per branch: 1->2 (INSUMOS) or 1->3 (PROVEEDOR); then INSUMOS skips to 2->4; PROVEEDOR goes 3->4; both converge 4->5.
-    const validNextFase: Record<number, number[]> = {
-      0: [1],
-      1: [2, 3],
-      2: [4],
-      3: [4],
-      4: [5],
-    };
+    // MAINTENANCE: 1->2 (INSUMOS) o 1->3 (PROVEEDOR); INSUMOS salta a 2->4;
+    // PROVEEDOR va 3->4; ambas convergen en 4->5. SIMPLE: una sola fase
+    // generica de gestion (1) que cierra directo en 5, sin insumos/proveedor.
+    const validNextFase = VALID_NEXT_FASE_BY_WORKFLOW[pqrs.workflowType];
 
     if (requestedFase === current) {
       if (current < 1 || current > 4) {
         return NextResponse.json({ error: "Esta fase no admite nota" }, { status: 400 });
       }
     } else if ((validNextFase[current] || []).includes(requestedFase)) {
-      if (current === 1) {
-        if (requestedFase === 2 && requestedTipo !== "INSUMOS") {
-          return NextResponse.json({ error: "Para avanzar a fase II debes elegir la ruta de insumos" }, { status: 400 });
+      if (!isSimpleWorkflow) {
+        if (current === 1) {
+          if (requestedFase === 2 && requestedTipo !== "INSUMOS") {
+            return NextResponse.json({ error: "Para avanzar a fase II debes elegir la ruta de insumos" }, { status: 400 });
+          }
+          if (requestedFase === 3 && requestedTipo !== "PROVEEDOR") {
+            return NextResponse.json({ error: "Para avanzar a fase III debes elegir la ruta de proveedor" }, { status: 400 });
+          }
         }
-        if (requestedFase === 3 && requestedTipo !== "PROVEEDOR") {
-          return NextResponse.json({ error: "Para avanzar a fase III debes elegir la ruta de proveedor" }, { status: 400 });
+        if (current === 2 && existingTipo !== "INSUMOS") {
+          return NextResponse.json({ error: "Esta PQRS no sigue la ruta de insumos" }, { status: 400 });
         }
-      }
-      if (current === 2 && existingTipo !== "INSUMOS") {
-        return NextResponse.json({ error: "Esta PQRS no sigue la ruta de insumos" }, { status: 400 });
-      }
-      if (current === 3 && existingTipo !== "PROVEEDOR") {
-        return NextResponse.json({ error: "Esta PQRS no sigue la ruta de proveedor" }, { status: 400 });
+        if (current === 3 && existingTipo !== "PROVEEDOR") {
+          return NextResponse.json({ error: "Esta PQRS no sigue la ruta de proveedor" }, { status: 400 });
+        }
       }
       if (current >= 1 && current <= 4 && !finalCurrentNota) {
         return NextResponse.json({ error: `Debes registrar la nota de la fase ${current} antes de avanzar` }, { status: 400 });

@@ -5,6 +5,7 @@ import { AdminShell } from '@/components/shell/AdminShell';
 import { useIsMobile } from '@/components/shell/Sheet';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
@@ -12,6 +13,7 @@ type Pqrs = {
   id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
   bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
   notaPrimerContacto?: string | null;
+  workflowType?: 'SIMPLE' | 'MAINTENANCE';
   faseActual?: number | null; faseTipo?: FaseTipo | null;
   fase1Nota?: string | null; fase2Nota?: string | null; fase3Nota?: string | null; fase4Nota?: string | null;
   accionTomada?: string | null; queSeHizoParaCerrar?: string | null; evidenciaCierre?: string | null; evidenciaArchivoNombre?: string | null;
@@ -43,14 +45,6 @@ const ASUNTOS: { value: string; label: string }[] = [
   { value: 'HUMEDAD/GARAJE', label: 'Humedad - Garaje' },
 ];
 const ASUNTO_LABEL: Record<string, string> = Object.fromEntries(ASUNTOS.map((a) => [a.value, a.label]));
-const FASE_LABELS: Record<number, string> = {
-  1: 'Inspección de Campo',
-  2: 'Adquisición de insumos',
-  3: 'Firma contrato proveedor',
-  4: 'Ejecución',
-  5: 'Terminado',
-};
-
 function stageIndex(estado: Estado) { return estado === 'EN_ESPERA' ? 0 : estado === 'EN_PROGRESO' ? 1 : 2; }
 function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success); }
 function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
@@ -128,7 +122,7 @@ function VistaConsejoPageContent() {
     }
     ([1, 2, 3, 4] as const).forEach((n) => {
       const nota = selected[`fase${n}Nota` as keyof Pqrs] as string | null | undefined;
-      if (nota) entries.push({ label: `Fase ${n} · ${FASE_LABELS[n]}`, text: nota });
+      if (nota) entries.push({ label: pqrsPhaseDisplayLabel(selected.workflowType, n), text: nota });
     });
     if (selected.estado === 'TERMINADO') {
       if (selected.accionTomada) entries.push({ label: 'Acción tomada', text: selected.accionTomada });
@@ -216,7 +210,7 @@ function VistaConsejoPageContent() {
               {selected.estado === 'EN_PROGRESO' && (
                 <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 14, marginBottom: 18 }}>
                   <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>FASE DE GESTIÓN (SOLO LECTURA)</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? `Fase ${faseActual} · ${FASE_LABELS[faseActual]}` : 'Sin iniciar'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? pqrsPhaseDisplayLabel(selected?.workflowType, faseActual) : 'Sin iniciar'}</div>
                   {faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}
                 </div>
               )}

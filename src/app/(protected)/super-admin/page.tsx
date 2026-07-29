@@ -1,9 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SuperAdminShell, NavGroup } from '@/components/shell/SuperAdminShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
+import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
+import { paymentProviderLabel } from '@/lib/design/billing';
 
 const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { header: 'PLATAFORMA' },
@@ -127,7 +129,6 @@ type ApiSupportTicket = {
   createdBy: { name: string; email: string };
 };
 type SupportCounts = { abierta: number; respondida: number; cerrada: number; total: number };
-const SUPPORT_CATEGORY_LABEL: Record<string, string> = { TECNICO: 'Técnico', FACTURACION: 'Facturación', CUENTA: 'Cuenta', OTRO: 'Otro' };
 const SUPPORT_STATUS_LABEL: Record<string, string> = { ABIERTA: 'Abierta', RESPONDIDA: 'Respondida', CERRADA: 'Cerrada' };
 const supportStatusBadge = (status: string) => status === 'ABIERTA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : status === 'RESPONDIDA' ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.neutralSoft, COLORS.textSecondaryAlt);
 
@@ -170,6 +171,10 @@ export default function DashboardSuperAdminPage() {
   const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [grantingCourtesy, setGrantingCourtesy] = useState(false);
+  const [courtesySubmitting, setCourtesySubmitting] = useState(false);
+  const [renewingTenantId, setRenewingTenantId] = useState<string | null>(null);
+  const renewalOperationKeys = useRef(new Map<string, string>());
+  const courtesyOperationKey = useRef<string | null>(null);
   const [courtesyDays, setCourtesyDays] = useState('7');
   const [courtesyReason, setCourtesyReason] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -219,6 +224,7 @@ export default function DashboardSuperAdminPage() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLoadingMore, setAuditLoadingMore] = useState(false);
   const [supportFilter, setSupportFilter] = useState('all');
+  const [supportTenantFilter, setSupportTenantFilter] = useState('');
   const [supportTickets, setSupportTickets] = useState<ApiSupportTicket[]>([]);
   const [supportCounts, setSupportCounts] = useState<SupportCounts | null>(null);
   const [supportLoading, setSupportLoading] = useState(false);
@@ -393,42 +399,64 @@ export default function DashboardSuperAdminPage() {
   };
 
   const renewSubscription = async (id: string) => {
-    const response = await fetch('/api/platform/super-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'renewSubscription', tenantId: id }),
-    });
-    if (!response.ok) {
-      showToast('No se pudo renovar la licencia');
-      return;
+    if (renewingTenantId) return;
+    const operationId = renewalOperationKeys.current.get(id) || globalThis.crypto.randomUUID();
+    renewalOperationKeys.current.set(id, operationId);
+    setRenewingTenantId(id);
+    try {
+      const response = await fetch('/api/platform/super-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'renewSubscription', tenantId: id, idempotencyKey: operationId }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        showToast(body?.error || 'No se pudo renovar la licencia');
+        return;
+      }
+      renewalOperationKeys.current.delete(id);
+      await fetchOverview();
+      showToast('Licencia renovada');
+    } catch {
+      showToast('No se pudo confirmar la renovacion. Vuelve a intentarlo.');
+    } finally {
+      setRenewingTenantId(null);
     }
-    await fetchOverview();
-    showToast('Licencia renovada ✓');
   };
 
   const grantCourtesy = async (id: string) => {
+    if (courtesySubmitting) return;
     const days = Number(courtesyDays);
     if (!Number.isSafeInteger(days) || days <= 0 || days > 90 || !courtesyReason.trim()) {
-      showToast('Indica días (1-90) y un motivo');
+      showToast('Indica dias (1-90) y un motivo');
       return;
     }
-    const response = await fetch('/api/platform/super-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'grantCourtesyExtension', tenantId: id, days, reason: courtesyReason.trim() }),
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      showToast(body?.error || 'No se pudo otorgar la cortesía');
-      return;
+    const operationId = courtesyOperationKey.current || globalThis.crypto.randomUUID();
+    courtesyOperationKey.current = operationId;
+    setCourtesySubmitting(true);
+    try {
+      const response = await fetch('/api/platform/super-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'grantCourtesyExtension', tenantId: id, days, reason: courtesyReason.trim(), idempotencyKey: operationId }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        showToast(body?.error || 'No se pudo otorgar la cortesia');
+        return;
+      }
+      courtesyOperationKey.current = null;
+      await fetchOverview();
+      setGrantingCourtesy(false);
+      setCourtesyReason('');
+      setCourtesyDays('7');
+      showToast(`Cortesia de ${days} dia(s) aplicada`);
+    } catch {
+      showToast('No se pudo confirmar la cortesia. Vuelve a intentarlo.');
+    } finally {
+      setCourtesySubmitting(false);
     }
-    await fetchOverview();
-    setGrantingCourtesy(false);
-    setCourtesyReason('');
-    setCourtesyDays('7');
-    showToast(`Cortesía de ${days} día(s) aplicada ✓`);
   };
-
   const openEdit = (t: Tenant) => {
     setEditingTenant(t);
     setEditName(t.name);
@@ -876,6 +904,9 @@ export default function DashboardSuperAdminPage() {
     showToast('Respuesta enviada — el usuario recibirá una notificación y un correo ✓');
   };
 
+  const supportTicketsFiltered = supportTenantFilter.trim()
+    ? supportTickets.filter((tk) => tk.tenant.name.toLowerCase().includes(supportTenantFilter.trim().toLowerCase()))
+    : supportTickets;
   const selected = tenants.find((t) => t.id === selectedId);
   const alertTenants = tenants.filter((t) => t.group === 'grace' || t.group === 'trial' || t.group === 'pending_payment');
   const kpis = [
@@ -897,6 +928,10 @@ export default function DashboardSuperAdminPage() {
 
   const suspend = async (id: string) => { await updateTenantStatus(id, 'SUSPENDED'); };
   const reactivate = async (id: string) => { await updateTenantStatus(id, 'ACTIVE'); };
+  // Reactivar tambien aplica a conjuntos CANCELLED, no solo SUSPENDED — el
+  // backend (updateTenantStatusForSuperAdmin) ya lo soporta con las mismas
+  // validaciones de evidencia de pago; solo faltaba el boton.
+  const canReactivate = (group: TenantGroup) => group === 'suspended' || group === 'cancelled';
   const cancelTenant = async (id: string) => { await updateTenantStatus(id, 'CANCELLED'); setConfirmingCancel(false); };
 
   const submitCreate = async () => {
@@ -1080,7 +1115,7 @@ export default function DashboardSuperAdminPage() {
                     <span style={{ width: 190, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
                       <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
                       <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                      <button type="button" onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: t.group === 'suspended' ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</button>
+                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                     </span>
                   </div>
                 ))}
@@ -1147,8 +1182,8 @@ export default function DashboardSuperAdminPage() {
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 170 }}>{t.licenseEnd}</span>
                     {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
                     <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                      <button type="button" onClick={() => renewSubscription(t.id)} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Renovar</button>
-                      <button type="button" onClick={() => (t.group === 'suspended' ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{t.group === 'suspended' ? 'Reactivar' : 'Suspender'}</button>
+                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
+                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#1D1D1F', background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                     </div>
                   </div>
                 ))}
@@ -1194,7 +1229,7 @@ export default function DashboardSuperAdminPage() {
                     .map((tx) => (
                       <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                         <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{tx.tenantName}</span>
-                        <span style={{ fontSize: 12, color: COLORS.textSecondary, width: 100 }}>{tx.provider}</span>
+                        <span style={{ fontSize: 12, color: COLORS.textSecondary, width: 100 }}>{paymentProviderLabel(tx.provider)}</span>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 90 }}>{new Date(tx.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
                         <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 110, textAlign: 'right' }}>{formatMoney(tx.amountCents, tx.currency)}</span>
                         <span style={paymentBadge(tx.status)}>{PAYMENT_STATUS_LABEL[tx.status] || tx.status}</span>
@@ -1615,7 +1650,7 @@ export default function DashboardSuperAdminPage() {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Centro de soporte</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Solicitudes reales enviadas por los administradores de cada conjunto desde su centro de ayuda</p>
 
-          <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {[
               { key: 'all', label: 'Todas', count: supportCounts?.total },
               { key: 'ABIERTA', label: 'Abiertas', count: supportCounts?.abierta },
@@ -1627,21 +1662,27 @@ export default function DashboardSuperAdminPage() {
               </button>
             ))}
           </div>
+          <input
+            value={supportTenantFilter}
+            onChange={(e) => setSupportTenantFilter(e.target.value)}
+            placeholder="Filtrar por conjunto…"
+            style={{ width: '100%', maxWidth: 280, height: 38, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 12.5, fontFamily: 'inherit', marginBottom: 16 }}
+          />
 
           <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
             {supportLoading && (
               <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Cargando…</div>
             )}
-            {!supportLoading && supportTickets.length === 0 && (
+            {!supportLoading && supportTicketsFiltered.length === 0 && (
               <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes en esta categoría.</div>
             )}
-            {!supportLoading && supportTickets.map((tk) => (
+            {!supportLoading && supportTicketsFiltered.map((tk) => (
               <div key={tk.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                 <span style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div>
                   <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>{tk.tenant.name} · {tk.createdBy.name} · {formatRelativeTime(tk.createdAt)}</div>
                 </span>
-                <span style={badgeStyle(COLORS.neutralSoft, '#1D1D1F')}>{SUPPORT_CATEGORY_LABEL[tk.category] || tk.category}</span>
+                <span style={badgeStyle(COLORS.neutralSoft, '#1D1D1F')}>{supportTicketCategoryLabel(tk.category)}</span>
                 <span style={supportStatusBadge(tk.status)}>{SUPPORT_STATUS_LABEL[tk.status]}</span>
                 <button type="button" onClick={() => openRespond(tk)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>{tk.status === 'ABIERTA' ? 'Responder' : 'Ver'}</button>
               </div>
@@ -1872,8 +1913,9 @@ export default function DashboardSuperAdminPage() {
 
             {!confirmingCancel && !grantingCourtesy && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                <button type="button" onClick={() => (selected.group === 'suspended' ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: selected.group === 'suspended' ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{selected.group === 'suspended' ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
+                <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
                 <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
+                <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: '#1D1D1F', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
                 <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
               </div>
             )}
@@ -1886,7 +1928,7 @@ export default function DashboardSuperAdminPage() {
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Motivo (queda en la auditoría)</label>
                 <input value={courtesyReason} onChange={(e) => setCourtesyReason(e.target.value)} placeholder="Ej: reclamo justificado, cortesía de bienvenida…" style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => grantCourtesy(selected.id)} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Confirmar cortesía</button>
+                  <button type="button" onClick={() => grantCourtesy(selected.id)} disabled={courtesySubmitting} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{courtesySubmitting ? 'Aplicando...' : 'Confirmar cortesia'}</button>
                   <button type="button" onClick={() => { setGrantingCourtesy(false); setCourtesyReason(''); }} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.textSecondary, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Cancelar</button>
                 </div>
               </div>

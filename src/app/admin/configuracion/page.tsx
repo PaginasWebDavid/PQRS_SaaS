@@ -7,7 +7,8 @@ import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
 
-type TenantInfo = { units?: number | null; status?: string | null };
+type PqrsWorkflowType = 'SIMPLE' | 'MAINTENANCE';
+type TenantInfo = { units?: number | null; status?: string | null; pqrsWorkflowType?: PqrsWorkflowType | null };
 type TenantSettings = { tenant?: TenantInfo | null; pqrsCloseSlaDays?: number; integrations?: { correoTransaccional: boolean; almacenamientoEvidencias: boolean; pagos: boolean } };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -35,6 +36,7 @@ export default function ConfiguracionConjuntoPage() {
   const [email, setEmail] = useState('');
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [workflowSaving, setWorkflowSaving] = useState(false);
   const { toast, showToast } = useToast();
 
   useEffect(() => {
@@ -65,6 +67,23 @@ export default function ConfiguracionConjuntoPage() {
 
   const inputStyle: React.CSSProperties = { width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', background: '#FFFFFF' };
   const statusLabel = settings?.tenant?.status ? (STATUS_LABEL[settings.tenant.status] || settings.tenant.status) : '—';
+  const workflowType = settings?.tenant?.pqrsWorkflowType || 'MAINTENANCE';
+
+  async function saveWorkflow(next: PqrsWorkflowType) {
+    if (workflowSaving || next === workflowType) return;
+    setWorkflowSaving(true);
+    try {
+      const res = await fetch('/api/tenant/pqrs-workflow', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workflowType: next }) });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) { showToast(body?.error || 'No se pudo guardar la plantilla de PQRS'); return; }
+      setSettings((current) => current ? { ...current, tenant: { ...current.tenant, pqrsWorkflowType: next } } : current);
+      showToast('Plantilla de PQRS actualizada ✓');
+    } catch {
+      showToast('No se pudo guardar la plantilla. Revisa tu conexión.');
+    } finally {
+      setWorkflowSaving(false);
+    }
+  }
 
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="configuracion" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Configuración">
@@ -112,6 +131,33 @@ export default function ConfiguracionConjuntoPage() {
             Una PQRS se marca como vencida en Reportes cuando supera este número de días sin resolverse. Esta regla la define PQRS Services para toda la plataforma.
           </p>
           <Link href="/admin/licencias" style={{ fontSize: 13, fontWeight: 700, color: COLORS.navy }}>Ver detalle de licencia y pagos →</Link>
+        </div>
+
+        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Plantilla de gestión de PQRS</div>
+          <p style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', lineHeight: 1.6 }}>
+            Define cómo se gestionan las PQRS de tu conjunto a partir de ahora. No afecta solicitudes ya creadas.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => saveWorkflow('SIMPLE')}
+              disabled={workflowSaving}
+              style={{ flex: '1 1 200px', textAlign: 'left', border: workflowType === 'SIMPLE' ? `2px solid ${COLORS.navy}` : `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Simple</div>
+              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Recibida → Primer contacto → En gestión → Cerrada</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => saveWorkflow('MAINTENANCE')}
+              disabled={workflowSaving}
+              style={{ flex: '1 1 200px', textAlign: 'left', border: workflowType === 'MAINTENANCE' ? `2px solid ${COLORS.navy}` : `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Mantenimiento</div>
+              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Incluye ruta de insumos o proveedor y ejecución</div>
+            </button>
+          </div>
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
