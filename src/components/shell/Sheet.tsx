@@ -94,16 +94,18 @@ export function Sheet({
 
 export function CloseButton({ onClick }: { onClick: () => void }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
+      aria-label="Cerrar"
       style={{
         width: 30, height: 30, borderRadius: RADIUS.pill, background: COLORS.bgCard,
         display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textMuted,
-        cursor: 'pointer', fontSize: 13, flexShrink: 0,
+        cursor: 'pointer', fontSize: 13, flexShrink: 0, border: 'none', font: 'inherit',
       }}
     >
       ✕
-    </div>
+    </button>
   );
 }
 
