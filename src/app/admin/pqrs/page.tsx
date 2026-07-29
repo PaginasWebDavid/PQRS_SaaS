@@ -371,16 +371,16 @@ function ModuloPqrsPageContent() {
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>PQRS</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes...' : `${data.length} solicitudes reales`}</p>
         </div>
-        <button type="button" onClick={() => setCreateOpen(true)} style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar una PQRS</button>
+        <button type="button" onClick={() => setCreateOpen(true)} style={{ background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar una PQRS</button>
       </div>
 
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por asunto, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por asunto, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
         {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => { setFilter(f.key); setPage(1); }} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
-        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
           {data.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
           {data.map((p) => (
             isMobile ? (
@@ -391,7 +391,7 @@ function ModuloPqrsPageContent() {
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 18px', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.titulo || 'Solicitud'}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.titulo || 'Solicitud'}</div>
                   <span style={badge(p.estado)}>{label(p.estado)}</span>
                 </div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginBottom: 2 }}>{categoryLabel(p)}</div>
@@ -409,7 +409,7 @@ function ModuloPqrsPageContent() {
               >
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Pendiente'}</span>
                 <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
                 </span>
                 <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: 100, flexShrink: 0 }}>{p.nombreResidente}</span>
@@ -426,7 +426,7 @@ function ModuloPqrsPageContent() {
           )}
         </div>
 
-        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
           {selected ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -442,7 +442,7 @@ function ModuloPqrsPageContent() {
                   const done = i < idx; const current = i === idx;
                   return (
                     <div key={stageLabel} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 999, background: done ? COLORS.success : current ? COLORS.navy : COLORS.neutralSoft, color: done || current ? '#FFFFFF' : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : i + 1}</div>
+                      <div style={{ width: 24, height: 24, borderRadius: RADIUS.pill, background: done ? COLORS.success : current ? COLORS.navy : COLORS.neutralSoft, color: done || current ? COLORS.white : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : i + 1}</div>
                       {i < STAGE_LABELS.length - 1 && <div style={{ flex: 1, height: 2, background: i < idx ? COLORS.success : COLORS.neutralSoft, margin: '0 2px' }} />}
                     </div>
                   );
@@ -450,10 +450,10 @@ function ModuloPqrsPageContent() {
               </div>
 
               {selected.estado === 'EN_PROGRESO' && (
-                <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 14, marginBottom: 18 }}>
+                <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 14, marginBottom: 18 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>FASE DE GESTIÓN</div>
-                    {activeSemaphore && <div style={{ width: 9, height: 9, borderRadius: 999, background: activeSemaphore.color }} title={`${activeSemaphore.elapsed}/${activeSemaphore.target} días hábiles`} />}
+                    {activeSemaphore && <div style={{ width: 9, height: 9, borderRadius: RADIUS.pill, background: activeSemaphore.color }} title={`${activeSemaphore.elapsed}/${activeSemaphore.target} días hábiles`} />}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? pqrsPhaseDisplayLabel(selected?.workflowType, faseActual) : 'Sin iniciar'}</div>
                   {faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}
@@ -476,7 +476,7 @@ function ModuloPqrsPageContent() {
               <p style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 500, lineHeight: 1.55, margin: '0 0 20px' }}>{selected.descripcion}</p>
 
               {(selected.evidenciaArchivoNombre || (selected.fotos?.length || 0) > 0) && (
-                <div style={{ background: COLORS.bgCard, borderRadius: 12, padding: 12, marginBottom: 18 }}>
+                <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12, marginBottom: 18 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 8 }}>EVIDENCIAS</div>
                   {selected.evidenciaArchivoNombre && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
@@ -500,7 +500,7 @@ function ModuloPqrsPageContent() {
                 {seguimiento.map((s, i) => (
                   <div key={s.label} style={{ display: 'flex', gap: 11 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.navy, marginTop: 5, flexShrink: 0 }} />
+                      <div style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: COLORS.navy, marginTop: 5, flexShrink: 0 }} />
                       {i < seguimiento.length - 1 && <div style={{ width: 1.5, flex: 1, background: COLORS.neutralSoft, margin: '3px 0' }} />}
                     </div>
                     <div style={{ paddingBottom: i < seguimiento.length - 1 ? 16 : 0 }}>
@@ -512,14 +512,14 @@ function ModuloPqrsPageContent() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" onClick={openCorrection} style={{ flex: 1, textAlign: 'center', background: '#FFFFFF', color: COLORS.navy, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Corregir caso</button>
+                <button type="button" onClick={openCorrection} style={{ flex: 1, textAlign: 'center', background: COLORS.bg, color: COLORS.navy, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Corregir caso</button>
                 {selected.estado === 'EN_ESPERA' && (
-                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Confirmar recepción</button>
+                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Confirmar recepción</button>
                 )}
                 {selected.estado === 'EN_PROGRESO' && (
                   <>
-                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: '#1D1D1F', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Actualizar gestión</button>
-                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Marcar como resuelta</button>
+                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: COLORS.textPrimary, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Actualizar gestión</button>
+                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Marcar como resuelta</button>
                   </>
                 )}
                 {selected.estado === 'TERMINADO' && (
@@ -539,19 +539,19 @@ function ModuloPqrsPageContent() {
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Registra una solicitud para hacerle seguimiento.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Título</label>
-        <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
+        <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
-        <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: '#FFFFFF' }}>
+        <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: COLORS.bg }}>
           <option value="">Selecciona una categoria</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
-        <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Descripción" rows={4} style={{ width: '100%', padding: '12px 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
-        <input value={newResident} onChange={(e) => setNewResident(e.target.value)} placeholder="Nombre del residente" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
+        <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Descripción" rows={4} style={{ width: '100%', padding: '12px 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
+        <input value={newResident} onChange={(e) => setNewResident(e.target.value)} placeholder="Nombre del residente" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-          <input value={newBloque} onChange={(e) => setNewBloque(e.target.value)} placeholder="Bloque" type="number" style={{ height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit' }} />
-          <input value={newApto} onChange={(e) => setNewApto(e.target.value)} placeholder="Apto" type="number" style={{ height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit' }} />
+          <input value={newBloque} onChange={(e) => setNewBloque(e.target.value)} placeholder="Bloque" type="number" style={{ height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit' }} />
+          <input value={newApto} onChange={(e) => setNewApto(e.target.value)} placeholder="Apto" type="number" style={{ height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit' }} />
         </div>
-        <button type="button" onClick={submitCreate} style={{ width: '100%', textAlign: 'center', background: COLORS.navy, color: '#FFFFFF', fontSize: 13, fontWeight: 600, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar PQRS</button>
+        <button type="button" onClick={submitCreate} style={{ width: '100%', textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 600, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar PQRS</button>
       </Sheet>
 
       {/* Primer contacto sheet */}
@@ -564,12 +564,12 @@ function ModuloPqrsPageContent() {
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Prioridad</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {(['ALTA', 'MEDIA', 'BAJA'] as const).map((p) => (
-            <button key={p} type="button" onClick={() => setContactPrioridad(p)} style={{ flex: 1, border: `1.5px solid ${contactPrioridad === p ? COLORS.navy : COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: contactPrioridad === p ? COLORS.navySoft : 'none', color: contactPrioridad === p ? COLORS.navy : '#1D1D1F' }}>{p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja'}</button>
+            <button key={p} type="button" onClick={() => setContactPrioridad(p)} style={{ flex: 1, border: `1.5px solid ${contactPrioridad === p ? COLORS.navy : COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: contactPrioridad === p ? COLORS.navySoft : 'none', color: contactPrioridad === p ? COLORS.navy : COLORS.textPrimary }}>{p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja'}</button>
           ))}
         </div>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de primer contacto</label>
-        <textarea value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="¿Qué se le informó o gestionó al residente?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
-        <button type="button" onClick={submitContact} disabled={!contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactNota.trim() ? COLORS.navy : COLORS.neutralSoft, color: contactNota.trim() ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
+        <textarea value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="¿Qué se le informó o gestionó al residente?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
+        <button type="button" onClick={submitContact} disabled={!contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactNota.trim() ? COLORS.navy : COLORS.neutralSoft, color: contactNota.trim() ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
       </Sheet>
 
       {/* Correccion auditada */}
@@ -580,30 +580,30 @@ function ModuloPqrsPageContent() {
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>Los cambios quedan registrados en el historial y la auditoria.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
-        <select value={correctionCategoryId} onChange={(e) => setCorrectionCategoryId(e.target.value)} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, marginBottom: 12 }}>
+        <select value={correctionCategoryId} onChange={(e) => setCorrectionCategoryId(e.target.value)} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 12 }}>
           <option value="">Selecciona una categoria</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <input type="number" min={1} value={correctionBloque} onChange={(e) => setCorrectionBloque(e.target.value)} placeholder="Bloque" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }} />
-          <input type="number" min={1} value={correctionApto} onChange={(e) => setCorrectionApto(e.target.value)} placeholder="Apartamento" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }} />
+          <input type="number" min={1} value={correctionBloque} onChange={(e) => setCorrectionBloque(e.target.value)} placeholder="Bloque" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }} />
+          <input type="number" min={1} value={correctionApto} onChange={(e) => setCorrectionApto(e.target.value)} placeholder="Apartamento" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }} />
         </div>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Workflow efectivo</label>
-        <select value={correctionWorkflow} onChange={(e) => setCorrectionWorkflow(e.target.value as 'SIMPLE' | 'MAINTENANCE')} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, marginBottom: 12 }}>
+        <select value={correctionWorkflow} onChange={(e) => setCorrectionWorkflow(e.target.value as 'SIMPLE' | 'MAINTENANCE')} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 12 }}>
           <option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option>
         </select>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <select value={correctionPhase} onChange={(e) => setCorrectionPhase(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }}>
+          <select value={correctionPhase} onChange={(e) => setCorrectionPhase(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }}>
             <option value="">Sin fase</option><option value="1">Fase 1</option>
             {correctionWorkflow === 'MAINTENANCE' && <><option value="2">Fase 2</option><option value="3">Fase 3</option><option value="4">Fase 4</option></>}
           </select>
-          <select disabled={correctionWorkflow !== 'MAINTENANCE'} value={correctionRoute} onChange={(e) => setCorrectionRoute(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11 }}>
+          <select disabled={correctionWorkflow !== 'MAINTENANCE'} value={correctionRoute} onChange={(e) => setCorrectionRoute(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }}>
             <option value="">Sin ruta</option><option value="INSUMOS">Insumos</option><option value="PROVEEDOR">Proveedor</option>
           </select>
         </div>
         {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado accidentalmente</label>}
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo obligatorio</label>
-        <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontFamily: 'inherit', marginBottom: 16 }} />
+        <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
         <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? '#FFF' : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
       </Sheet>
       {/* Fase sheet */}
@@ -616,11 +616,11 @@ function ModuloPqrsPageContent() {
         {faseActual === 0 && (
           <>
             <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Esta PQRS aún no ha iniciado su gestión por fases. Empieza con la Fase I.</p>
-            <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+            <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 16, marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800 }}>{isSimpleWorkflow ? 'En gestión' : 'Fase I · Inspección de Campo'}</div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Plazo: 2 días hábiles</div>
             </div>
-            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : isSimpleWorkflow ? 'Iniciar gestión' : 'Iniciar Fase I'}</button>
+            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : isSimpleWorkflow ? 'Iniciar gestión' : 'Iniciar Fase I'}</button>
           </>
         )}
 
@@ -628,7 +628,7 @@ function ModuloPqrsPageContent() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <div style={{ fontSize: 13.5, fontWeight: 800 }}>{pqrsPhaseDisplayLabel(selected?.workflowType, faseActual)}</div>
-              {activeSemaphore && <div style={{ width: 10, height: 10, borderRadius: 999, background: activeSemaphore.color }} />}
+              {activeSemaphore && <div style={{ width: 10, height: 10, borderRadius: RADIUS.pill, background: activeSemaphore.color }} />}
             </div>
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, margin: '0 0 18px' }}>
               {activeSemaphore ? `${activeSemaphore.elapsed} de ${activeSemaphore.target} días hábiles transcurridos` : `Plazo: ${FASE_TARGET_DAYS[faseActual]} días hábiles`}
@@ -636,28 +636,28 @@ function ModuloPqrsPageContent() {
             </p>
 
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de esta fase (obligatoria para avanzar)</label>
-            <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder="¿Qué pasó en esta fase?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
+            <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder="¿Qué pasó en esta fase?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
 
             {faseActual === 1 && isSimpleWorkflow && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Marcar gestión como completa'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Marcar gestión como completa'}</button>
             )}
             {faseActual === 1 && !isSimpleWorkflow && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => submitFaseAction({ faseActual: 2, faseTipo: 'INSUMOS', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>Fase II — Insumos</button>
-                <button type="button" onClick={() => submitFaseAction({ faseActual: 3, faseTipo: 'PROVEEDOR', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>Fase III — Proveedor</button>
+                <button type="button" onClick={() => submitFaseAction({ faseActual: 2, faseTipo: 'INSUMOS', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase II — Insumos</button>
+                <button type="button" onClick={() => submitFaseAction({ faseActual: 3, faseTipo: 'PROVEEDOR', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase III — Proveedor</button>
               </div>
             )}
             {(faseActual === 2 || faseActual === 3) && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 4, noteFase: faseActual, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase IV — Ejecución'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 4, noteFase: faseActual, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase IV — Ejecución'}</button>
             )}
             {faseActual === 4 && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 4, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase V — Terminado'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 4, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase V — Terminado'}</button>
             )}
           </>
         )}
 
         {faseActual === 5 && (
-          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: 11, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puedes marcar la PQRS como resuelta.</div>
+          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: RADIUS.input, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puedes marcar la PQRS como resuelta.</div>
         )}
       </Sheet>
 
@@ -670,12 +670,12 @@ function ModuloPqrsPageContent() {
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>El residente recibirá una notificación y un correo con esta información{closeFile || closeHasExistingEvidence ? ', incluyendo el archivo de evidencia' : ''}.</p>
 
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Acción tomada</label>
-        <textarea value={closeAccion} onChange={(e) => setCloseAccion(e.target.value)} rows={3} placeholder="¿Qué se hizo para resolver la solicitud?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+        <textarea value={closeAccion} onChange={(e) => setCloseAccion(e.target.value)} rows={3} placeholder="¿Qué se hizo para resolver la solicitud?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
 
         {closeNeedsQueSeHizo && (
           <>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>¿Qué se hizo para cerrar? <span style={{ fontWeight: 500, color: COLORS.textMuted }}>(obligatorio: no se completaron las 5 fases)</span></label>
-            <textarea value={closeQueSeHizo} onChange={(e) => setCloseQueSeHizo(e.target.value)} rows={3} placeholder="Justifica el cierre sin haber completado todas las fases" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+            <textarea value={closeQueSeHizo} onChange={(e) => setCloseQueSeHizo(e.target.value)} rows={3} placeholder="Justifica el cierre sin haber completado todas las fases" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
           </>
         )}
 
@@ -683,12 +683,12 @@ function ModuloPqrsPageContent() {
         {closeHasExistingEvidence && !closeFile && (
           <div style={{ fontSize: 11.5, color: COLORS.success, fontWeight: 600, marginBottom: 8 }}>Ya hay evidencia guardada para esta PQRS{selected?.evidenciaArchivoNombre ? ` (${selected.evidenciaArchivoNombre})` : ''}.</div>
         )}
-        <textarea value={closeEvidenciaTexto} onChange={(e) => setCloseEvidenciaTexto(e.target.value)} rows={2} placeholder="Descripción de la evidencia (opcional si adjuntas un archivo)" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 10 }} />
+        <textarea value={closeEvidenciaTexto} onChange={(e) => setCloseEvidenciaTexto(e.target.value)} rows={2} placeholder="Descripción de la evidencia (opcional si adjuntas un archivo)" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 10 }} />
         <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => handleCloseFileChange(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: 12.5, marginBottom: 6 }} />
         <p style={{ fontSize: 11, color: COLORS.textMuted, margin: '0 0 20px' }}>Máx. 2MB · imagen o PDF</p>
         {closeFileError && <div style={{ fontSize: 11.5, color: COLORS.danger, fontWeight: 600, marginBottom: 16 }}>{closeFileError}</div>}
 
-        <button type="button" onClick={submitClose} disabled={!closeCanSubmit || closeSubmitting} style={{ width: '100%', textAlign: 'center', background: closeCanSubmit ? COLORS.navy : COLORS.neutralSoft, color: closeCanSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{closeSubmitting ? 'Guardando…' : 'Marcar como resuelta'}</button>
+        <button type="button" onClick={submitClose} disabled={!closeCanSubmit || closeSubmitting} style={{ width: '100%', textAlign: 'center', background: closeCanSubmit ? COLORS.navy : COLORS.neutralSoft, color: closeCanSubmit ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{closeSubmitting ? 'Guardando…' : 'Marcar como resuelta'}</button>
       </Sheet>
 
       <Toast message={toast} />
