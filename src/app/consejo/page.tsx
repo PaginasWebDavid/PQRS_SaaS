@@ -4,8 +4,9 @@ import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { useIsMobile } from '@/components/shell/Sheet';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
-import { COLORS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
+import { ContractedScopeSummary } from '@/components/commercial/ContractedScopeSummary';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
@@ -104,7 +105,7 @@ function VistaConsejoPageContent() {
     { label: 'En espera', value: data.filter((r) => r.estado === 'EN_ESPERA').length, color: COLORS.warning },
     { label: 'En proceso', value: data.filter((r) => r.estado === 'EN_PROGRESO').length, color: COLORS.navy },
     { label: 'Terminadas', value: data.filter((r) => r.estado === 'TERMINADO').length, color: COLORS.success },
-    { label: 'Total', value: data.length, color: '#1D1D1F' },
+    { label: 'Total', value: data.length, color: COLORS.textPrimary },
   ], [data]);
 
   const faseActual = selected?.faseActual || 0;
@@ -140,30 +141,31 @@ function VistaConsejoPageContent() {
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>Panel de supervisión</h1>
         <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes…' : `${data.length} solicitudes · solo lectura`}</p>
       </div>
+      <ContractedScopeSummary />
 
       {error && (
-        <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 14, padding: 16, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
+        <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.stat, padding: 16, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
           <div>{error}</div>
-          <button type="button" onClick={() => setReloadKey((value) => value + 1)} style={{ marginTop: 10, border: 'none', background: COLORS.danger, color: '#FFFFFF', borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)} style={{ marginTop: 10, border: 'none', background: COLORS.danger, color: COLORS.white, borderRadius: RADIUS.pill, padding: '8px 14px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
         {metrics.map((m) => (
-          <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18 }}>
+          <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: 18 }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div>
             <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', color: m.color }}>{m.value}</div>
           </div>
         ))}
       </div>
 
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título, categoría, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 12, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título, categoría, residente o ID…" style={{ width: '100%', maxWidth: 420, height: 42, padding: '0 15px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
         {FILTERS.map((f) => <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={{ ...tabStyle(filter === f.key), border: 'none', fontFamily: 'inherit' }}>{f.label}</button>)}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
-        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
+        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
           {!error && filtered.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
           {filtered.map((p) => (
             <button
@@ -174,7 +176,7 @@ function VistaConsejoPageContent() {
             >
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: isMobile ? 'auto' : 84, flexShrink: 0, order: isMobile ? 1 : 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
               <span style={{ flex: isMobile ? '1 1 100%' : 1, minWidth: isMobile ? 0 : 120, overflow: 'hidden', order: isMobile ? 3 : 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1D1D1F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
               </span>
               <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, width: isMobile ? 'auto' : 100, flexShrink: 0, order: isMobile ? 4 : 0 }}>{p.nombreResidente}</span>
@@ -183,8 +185,8 @@ function VistaConsejoPageContent() {
           ))}
         </div>
 
-        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-          {detailError && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 12 }}>{detailError}</div>}
+        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
+          {detailError && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.control, padding: 10, marginBottom: 12, fontSize: 12 }}>{detailError}</div>}
           {detailLoading && <div style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 12 }}>Cargando detalle...</div>}
           {selected ? (
             <>
@@ -201,7 +203,7 @@ function VistaConsejoPageContent() {
                   const done = i < idx; const current = i === idx;
                   return (
                     <div key={stageLabel} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 999, background: done ? COLORS.success : current ? COLORS.navy : COLORS.neutralSoft, color: done || current ? '#FFFFFF' : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : i + 1}</div>
+                      <div style={{ width: 24, height: 24, borderRadius: RADIUS.pill, background: done ? COLORS.success : current ? COLORS.navy : COLORS.neutralSoft, color: done || current ? COLORS.white : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{done ? '✓' : i + 1}</div>
                       {i < STAGE_LABELS.length - 1 && <div style={{ flex: 1, height: 2, background: i < idx ? COLORS.success : COLORS.neutralSoft, margin: '0 2px' }} />}
                     </div>
                   );
@@ -209,7 +211,7 @@ function VistaConsejoPageContent() {
               </div>
 
               {selected.estado === 'EN_PROGRESO' && (
-                <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 14, marginBottom: 18 }}>
+                <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 14, marginBottom: 18 }}>
                   <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>FASE DE GESTIÓN (SOLO LECTURA)</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? pqrsPhaseDisplayLabel(selected?.workflowType, faseActual) : 'Sin iniciar'}</div>
                   {faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}
@@ -237,7 +239,7 @@ function VistaConsejoPageContent() {
                 {seguimiento.map((s, i) => (
                   <div key={s.label} style={{ display: 'flex', gap: 11 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.navy, marginTop: 5, flexShrink: 0 }} />
+                      <div style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: COLORS.navy, marginTop: 5, flexShrink: 0 }} />
                       {i < seguimiento.length - 1 && <div style={{ width: 1.5, flex: 1, background: COLORS.neutralSoft, margin: '3px 0' }} />}
                     </div>
                     <div style={{ paddingBottom: i < seguimiento.length - 1 ? 16 : 0 }}>
