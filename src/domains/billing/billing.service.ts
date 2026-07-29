@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { AuditAction, BillingOutboxEventType, PaymentStatus, Prisma, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
@@ -142,21 +142,29 @@ export async function createInitialSubscriptionForTenant({
   return subscription;
 }
 
+function resolveBillingOperationId(operationId: string | undefined): string {
+  if (operationId === undefined) return randomUUID();
+  const normalized = operationId.trim();
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(normalized)) {
+    throw new Error("Identificador de operacion invalido");
+  }
+  return normalized;
+}
+
 export async function renewSubscriptionWithSimulatedPayment({
   actorUserId,
   tenantId,
+  operationId,
 }: {
   actorUserId: string;
   tenantId: string;
+  operationId?: string;
 }) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
     include: { tenant: { select: { name: true, units: true } } },
   });
-
-  if (!subscription) {
-    throw new Error("El tenant no tiene suscripción");
-  }
+  if (!subscription) throw new Error("El tenant no tiene suscripcion");
 
   const price = subscription.pendingPriceCents !== null && subscription.pendingUnitsSnapshot !== null
     ? {
@@ -166,16 +174,22 @@ export async function renewSubscriptionWithSimulatedPayment({
       }
     : await calculatePriceForUnits(subscription.tenant.units);
   const now = new Date();
-  // Usa la fuente unica de calculo de periodo (misma que el webhook). El precio ya
-  // se resolvio arriba, asi que aqui solo se comparte la matematica de fechas.
+  const idempotencyKey = resolveBillingOperationId(operationId);
+  const externalReference = `simulated-renewal:${tenantId}:${idempotencyKey}`;
   const { periodStart, periodEnd } = computeNextPeriod({
     currentPeriodEnd: subscription.currentPeriodEnd,
     now,
     periodDays: BILLING_PERIOD_DAYS,
   });
 
-  const [updated] = await prisma.$transaction(async (tx) => {
-    const renewed = await tx.subscription.update({
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${externalReference}, 0))`;
+    const duplicate = await tx.payment.findFirst({ where: { tenantId, externalReference }, select: { id: true } });
+    if (duplicate) {
+      return { applied: false, updated: await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } }) };
+    }
+
+    const updated = await tx.subscription.update({
       where: { id: subscription.id },
       data: {
         status: "ACTIVE",
@@ -189,50 +203,54 @@ export async function renewSubscriptionWithSimulatedPayment({
         pendingPriceCents: null,
         pendingCurrency: null,
         pendingPriceEffectiveAt: null,
-        payments: {
-          create: {
-            tenantId,
-            amountCents: price.priceCents,
-            currency: price.currency,
-            status: "APPROVED",
-            provider: "SIMULATED",
-            dueDate: now,
-            paidAt: now,
-            periodStart,
-            periodEnd,
-            externalReference: `simulated-renewal-${now.toISOString()}`,
-          },
-        },
       },
     });
-
-    await tx.tenant.update({
-      where: { id: tenantId },
-      data: { status: "ACTIVE", cancelledAt: null },
+    const payment = await tx.payment.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        amountCents: price.priceCents,
+        currency: price.currency,
+        status: "APPROVED",
+        provider: "SIMULATED",
+        dueDate: now,
+        paidAt: now,
+        periodStart,
+        periodEnd,
+        externalReference,
+      },
     });
-
-    return [renewed];
-  });
-
-  await registerAuditLog({
-    actorUserId,
-    tenantId,
-    action: AuditAction.SUBSCRIPTION_RENEWED,
-    targetType: "Subscription",
-    targetId: updated.id,
-    metadata: {
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE", cancelledAt: null } });
+    await createBillingOutboxIntentsForTransition(tx, {
       tenantId,
-      name: subscription.tenant.name,
-      units: price.units,
-      priceCents: price.priceCents,
-      currency: price.currency,
-      provider: "SIMULATED",
-    },
+      subscriptionId: subscription.id,
+      eventType: BillingOutboxEventType.SAAS_PAYMENT_APPROVED,
+      boundary: payment.createdAt,
+      periodEndsAt: periodEnd,
+    });
+    return { applied: true, updated };
   });
 
-  return updated;
+  if (outcome.applied) {
+    await registerAuditLog({
+      actorUserId,
+      tenantId,
+      action: AuditAction.SUBSCRIPTION_RENEWED,
+      targetType: "Subscription",
+      targetId: outcome.updated.id,
+      metadata: {
+        tenantId,
+        name: subscription.tenant.name,
+        units: price.units,
+        priceCents: price.priceCents,
+        currency: price.currency,
+        provider: "SIMULATED",
+        operationId: idempotencyKey,
+      },
+    });
+  }
+  return outcome.updated;
 }
-
 // Le da al Super Admin una forma simple de otorgar una cortesia (extender dias sin
 // cobrar) sin tener que fabricar un pago a mano en la base de datos. Util para casos
 // puntuales de atencion al cliente: un reclamo justificado, un error de configuracion,
@@ -242,82 +260,92 @@ export async function grantCourtesyExtension({
   tenantId,
   days,
   reason,
+  operationId,
 }: {
   actorUserId: string;
   tenantId: string;
   days: number;
   reason: string;
+  operationId?: string;
 }) {
   if (!Number.isSafeInteger(days) || days <= 0 || days > 90) {
     throw new Error("Los dias de cortesia deben ser un entero entre 1 y 90");
   }
-  if (!reason.trim()) {
-    throw new Error("Debes indicar un motivo para la cortesia");
-  }
+  if (!reason.trim()) throw new Error("Debes indicar un motivo para la cortesia");
 
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
     include: { tenant: { select: { name: true } } },
   });
-  if (!subscription) {
-    throw new Error("El tenant no tiene suscripción");
-  }
+  if (!subscription) throw new Error("El tenant no tiene suscripcion");
 
   const now = new Date();
+  const idempotencyKey = resolveBillingOperationId(operationId);
+  const externalReference = `courtesy:${tenantId}:${idempotencyKey}`;
   const periodStart = subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
   const periodEnd = addDays(periodStart, days);
 
-  const [updated] = await prisma.$transaction(async (tx) => {
-    const renewed = await tx.subscription.update({
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${externalReference}, 0))`;
+    const duplicate = await tx.payment.findFirst({ where: { tenantId, externalReference }, select: { id: true } });
+    if (duplicate) {
+      return { applied: false, updated: await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } }) };
+    }
+
+    const updated = await tx.subscription.update({
       where: { id: subscription.id },
       data: {
         status: "ACTIVE",
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
         graceEndsAt: null,
-        payments: {
-          create: {
-            tenantId,
-            amountCents: 0,
-            currency: subscription.currency,
-            status: "APPROVED",
-            provider: "SIMULATED",
-            dueDate: now,
-            paidAt: now,
-            periodStart,
-            periodEnd,
-            externalReference: `courtesy-${now.toISOString()}`,
-          },
-        },
       },
     });
-
-    await tx.tenant.update({
-      where: { id: tenantId },
-      data: { status: "ACTIVE", cancelledAt: null },
+    const accessGrant = await tx.payment.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        amountCents: 0,
+        currency: subscription.currency,
+        status: "APPROVED",
+        provider: "COURTESY",
+        dueDate: now,
+        paidAt: now,
+        periodStart,
+        periodEnd,
+        externalReference,
+      },
     });
-
-    return [renewed];
-  });
-
-  await registerAuditLog({
-    actorUserId,
-    tenantId,
-    action: AuditAction.SUBSCRIPTION_RENEWED,
-    targetType: "Subscription",
-    targetId: updated.id,
-    metadata: {
+    await tx.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE", cancelledAt: null } });
+    await createBillingOutboxIntentsForTransition(tx, {
       tenantId,
-      name: subscription.tenant.name,
-      courtesy: true,
-      days,
-      reason,
-    },
+      subscriptionId: subscription.id,
+      eventType: BillingOutboxEventType.COURTESY_EXTENSION_GRANTED,
+      boundary: accessGrant.createdAt,
+      periodEndsAt: periodEnd,
+    });
+    return { applied: true, updated };
   });
 
-  return updated;
+  if (outcome.applied) {
+    await registerAuditLog({
+      actorUserId,
+      tenantId,
+      action: AuditAction.SUBSCRIPTION_RENEWED,
+      targetType: "Subscription",
+      targetId: outcome.updated.id,
+      metadata: {
+        tenantId,
+        name: subscription.tenant.name,
+        courtesy: true,
+        days,
+        reason,
+        operationId: idempotencyKey,
+      },
+    });
+  }
+  return outcome.updated;
 }
-
 export async function getBillingPlatformOverview() {
   const now = new Date();
   const renewalLimit = addDays(now, RENEWAL_WINDOW_DAYS);
@@ -338,6 +366,7 @@ export async function getBillingPlatformOverview() {
     prisma.payment.aggregate({
       where: {
         status: "APPROVED",
+        provider: { not: "COURTESY" },
         paidAt: { gte: thisMonthStart, lt: nextMonthStart },
       },
       _sum: { amountCents: true },
@@ -346,12 +375,13 @@ export async function getBillingPlatformOverview() {
     prisma.payment.aggregate({
       where: {
         status: "APPROVED",
+        provider: { not: "COURTESY" },
         paidAt: { gte: lastMonthStart, lt: thisMonthStart },
       },
       _sum: { amountCents: true },
     }),
     prisma.payment.aggregate({
-      where: { status: "APPROVED" },
+      where: { status: "APPROVED", provider: { not: "COURTESY" } },
       _sum: { amountCents: true },
     }),
     prisma.payment.count({ where: { status: "PENDING" } }),

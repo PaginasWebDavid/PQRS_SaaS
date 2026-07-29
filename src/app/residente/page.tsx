@@ -6,6 +6,7 @@ import { ResidentShell } from '@/components/shell/ResidentShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 
 type State = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Pqrs = {
@@ -45,6 +46,11 @@ function buildTimeline(p: Pqrs, slaDays: number): Step[] {
       done: !!p.fechaPrimerContacto,
       date: p.fechaPrimerContacto ? fmt(p.fechaPrimerContacto) : undefined,
       hint: !p.fechaPrimerContacto ? 'En espera de asignación' : undefined,
+    },
+    {
+      label: 'En gestión',
+      done: p.estado === 'EN_PROGRESO' || resolved,
+      hint: p.estado === 'EN_ESPERA' ? 'Pendiente de iniciar gestión' : undefined,
     },
     {
       label: 'Resuelta',
@@ -142,7 +148,7 @@ export default function VistaResidentePage() {
     if (submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()) return;
     setSubmittingTicket(true);
     try {
-      const res = await fetch('/api/support-tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: ticketSubject.trim(), message: ticketMessage.trim(), category: 'OTRO' }) });
+      const res = await fetch('/api/support-tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: ticketSubject.trim(), message: ticketMessage.trim(), category: 'TECHNICAL' }) });
       const body = await res.json().catch(() => null); if (!res.ok) return showToast(body?.error || 'No se pudo enviar la solicitud');
       setTicketSubject(''); setTicketMessage(''); await loadTickets(); showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
     } finally {
@@ -306,6 +312,9 @@ export default function VistaResidentePage() {
       <div className="apl-up">
         <h1 style={h1}>Ayuda</h1>
         <p style={sub}>¿Tienes un problema con la plataforma? Escríbenos y te responderemos por aquí y por correo.</p>
+        <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, marginBottom: 14 }}>
+          Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
+        </div>
         <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22, marginBottom: 20 }}>
           <Label>Asunto</Label>
           <input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Ej. No puedo subir fotos a mi solicitud" style={inputStyle} />
@@ -320,6 +329,7 @@ export default function VistaResidentePage() {
               <b style={{ fontSize: 13.5 }}>{t.subject}</b>
               <span style={ticketStatusBadge(t.status)}>{TICKET_STATUS_LABEL[t.status]}</span>
             </div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{supportTicketCategoryLabel(t.category)}</div>
             <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
             {t.response && (
               <div style={{ background: COLORS.successSoft, borderRadius: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5 }}>

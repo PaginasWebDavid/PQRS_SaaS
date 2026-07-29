@@ -17,6 +17,10 @@ model Tenant {
   city        String?
   address     String?
   cancelledAt DateTime?
+  // Plantilla de gestion de PQRS de este conjunto. Solo afecta PQRS NUEVAS: cada
+  // PQRS guarda su propio workflowType (snapshot inmutable) al crearse, asi que
+  // cambiar esto nunca altera casos ya en curso ni cerrados. Ver Pqrs.workflowType.
+  pqrsWorkflowType PqrsWorkflowType @default(MAINTENANCE)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -44,6 +48,11 @@ model Tenant {
 
   @@index([slug])
   @@index([status])
+}
+
+enum PqrsWorkflowType {
+  SIMPLE
+  MAINTENANCE
 }
 
 enum TenantStatus {
@@ -244,6 +253,13 @@ enum SupportTicketCategory {
   FACTURACION
   CUENTA
   OTRO
+  // Categorias vigentes (Fase R1): reemplazan las de arriba para tickets nuevos.
+  // Las anteriores se conservan solo por compatibilidad con filas historicas;
+  // Postgres no permite eliminar valores de un enum sin recrearlo.
+  TECHNICAL
+  ACCESS
+  PRIVACY_SECURITY
+  BILLING
 }
 
 model SupportTicket {
@@ -652,6 +668,7 @@ enum PaymentStatus {
 enum PaymentProvider {
   SIMULATED
   MERCADO_PAGO
+  COURTESY
 }
 
 // Ledger de ENTREGAS de webhook (no es la garantia economica). Registra cada
@@ -728,6 +745,11 @@ model Pqrs {
   evidenciaArchivoSize          Int?
   fechaCierre                   DateTime?
   tiempoRespuestaCierre         Int?
+
+  // Snapshot inmutable tomado de Tenant.pqrsWorkflowType al crear esta PQRS.
+  // Nunca se recalcula despues: si el conjunto cambia su plantilla, los casos
+  // ya creados conservan la que tenian, sin importar el nuevo valor del tenant.
+  workflowType                  PqrsWorkflowType @default(MAINTENANCE)
 
   // Fases de gestion (solo admin, no visible para residente)
   faseActual                    Int?            // 1-5, null = sin fase asignada
@@ -968,6 +990,9 @@ enum BillingOutboxChannel {
 enum BillingOutboxEventType {
   BILLING_GRACE_STARTED
   BILLING_SUSPENDED
+  SAAS_PAYMENT_APPROVED
+  SAAS_PAYMENT_REJECTED
+  COURTESY_EXTENSION_GRANTED
 }
 
 enum BillingOutboxStatus {

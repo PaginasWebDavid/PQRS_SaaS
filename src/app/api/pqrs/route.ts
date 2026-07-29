@@ -289,6 +289,14 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: "No se pudieron subir las fotos" }, { status: 500 });
   }
 
+  // Snapshot inmutable: la PQRS nace con la plantilla vigente del tenant en
+  // este instante y la conserva para siempre, sin importar cambios futuros de
+  // Tenant.pqrsWorkflowType (ver pqrs-workflow.service.ts).
+  const tenantForWorkflow = await prisma.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { pqrsWorkflowType: true },
+  });
+
   let pqrs;
   try {
     pqrs = await prisma.$transaction(async (tx) => {
@@ -305,6 +313,7 @@ async function handlePost(req: NextRequest) {
         asunto: typeof asunto === "string" ? asunto : null,
         descripcion: finalDescripcion,
         creadoPorId: session.user.id,
+        workflowType: tenantForWorkflow.pqrsWorkflowType,
       },
     });
 

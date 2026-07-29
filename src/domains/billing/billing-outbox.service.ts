@@ -79,6 +79,7 @@ export async function createBillingOutboxIntentsForTransition(
     eventType: BillingOutboxEventType;
     boundary: Date;
     graceDays?: number | null;
+    periodEndsAt?: Date | null;
   }
 ): Promise<BillingOutboxCreationSummary> {
   const recipients = await tx.tenantMembership.findMany({
@@ -90,7 +91,7 @@ export async function createBillingOutboxIntentsForTransition(
     return { activeRecipients: 0, planned: 0, created: 0, noActiveRecipients: true };
   }
 
-  const payload = sanitizeBillingOutboxPayload({ graceDays: input.graceDays });
+  const payload = sanitizeBillingOutboxPayload({ graceDays: input.graceDays, periodEndsAt: input.periodEndsAt });
   const rows = recipients.flatMap((recipient) =>
     ([BillingOutboxChannel.IN_APP, BillingOutboxChannel.EMAIL] as const).map((channel) => ({
       tenantId: input.tenantId,

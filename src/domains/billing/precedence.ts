@@ -272,7 +272,7 @@ export function hasCurrentRealPaymentCoverage(rows: PaymentCoverageRow[], now: D
 export function isCurrentSimulatedAccessRow(row: PaymentCoverageRow, now: Date, identity: CoverageIdentity): boolean {
   return (
     matchesIdentity(row, identity) &&
-    row.provider === "SIMULATED" &&
+    (row.provider === "SIMULATED" || row.provider === "COURTESY") &&
     row.status === "APPROVED" &&
     row.approvedEffectReconciliationRequired === false &&
     row.periodEnd !== null &&

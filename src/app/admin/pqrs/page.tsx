@@ -6,6 +6,7 @@ import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
+import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
 
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type FaseTipo = 'INSUMOS' | 'PROVEEDOR';
@@ -13,6 +14,7 @@ type Pqrs = {
   id: string; numero: number; titulo?: string | null; asunto?: string | null; descripcion: string; nombreResidente: string;
   bloque: number; apto: number; estado: Estado; fechaRecibido: string; numeroRadicacion?: string | null;
   notaPrimerContacto?: string | null;
+  workflowType?: 'SIMPLE' | 'MAINTENANCE';
   faseActual?: number | null; faseTipo?: FaseTipo | null;
   fase1Nota?: string | null; fase2Nota?: string | null; fase3Nota?: string | null; fase4Nota?: string | null;
   fase1Inicio?: string | null; fase2Inicio?: string | null; fase3Inicio?: string | null; fase4Inicio?: string | null; fase5Inicio?: string | null;
@@ -44,13 +46,6 @@ const ASUNTOS: { value: string; label: string }[] = [
 ];
 const ASUNTO_LABEL: Record<string, string> = Object.fromEntries(ASUNTOS.map((a) => [a.value, a.label]));
 
-const FASE_LABELS: Record<number, string> = {
-  1: 'Inspección de Campo',
-  2: 'Adquisición de insumos',
-  3: 'Firma contrato proveedor',
-  4: 'Ejecución',
-  5: 'Terminado',
-};
 const FASE_TARGET_DAYS: Record<number, number> = { 1: 2, 2: 2, 3: 15, 4: 5, 5: 0 };
 const MAX_EVIDENCE_BYTES = 2 * 1024 * 1024;
 
@@ -205,6 +200,7 @@ function ModuloPqrsPageContent() {
 
   const faseActual = selected?.faseActual || 0;
   const faseTipo = selected?.faseTipo || null;
+  const isSimpleWorkflow = selected?.workflowType === 'SIMPLE';
   const activeFaseNota = faseActual >= 1 && faseActual <= 4 ? (selected?.[`fase${faseActual}Nota` as keyof Pqrs] as string | null | undefined) : null;
   const activeFaseInicio = faseActual >= 1 && faseActual <= 4 ? (selected?.[`fase${faseActual}Inicio` as keyof Pqrs] as string | null | undefined) : null;
   const activeSemaphore = faseActual >= 1 && faseActual <= 4 ? faseSemaphore(faseActual, activeFaseInicio) : null;
@@ -275,7 +271,7 @@ function ModuloPqrsPageContent() {
     if (selected.notaPrimerContacto) entries.push({ label: 'Primer contacto', text: selected.notaPrimerContacto });
     ([1, 2, 3, 4] as const).forEach((n) => {
       const nota = selected[`fase${n}Nota` as keyof Pqrs] as string | null | undefined;
-      if (nota) entries.push({ label: `Fase ${n} · ${FASE_LABELS[n]}`, text: nota });
+      if (nota) entries.push({ label: pqrsPhaseDisplayLabel(selected.workflowType, n), text: nota });
     });
     if (selected.estado === 'TERMINADO') {
       if (selected.accionTomada) entries.push({ label: 'Acción tomada', text: selected.accionTomada });
@@ -377,7 +373,7 @@ function ModuloPqrsPageContent() {
                     <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>FASE DE GESTIÓN</div>
                     {activeSemaphore && <div style={{ width: 9, height: 9, borderRadius: 999, background: activeSemaphore.color }} title={`${activeSemaphore.elapsed}/${activeSemaphore.target} días hábiles`} />}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? `Fase ${faseActual} · ${FASE_LABELS[faseActual]}` : 'Sin iniciar'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? pqrsPhaseDisplayLabel(selected?.workflowType, faseActual) : 'Sin iniciar'}</div>
                   {faseTipo && <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginTop: 2 }}>Ruta: {faseTipo === 'INSUMOS' ? 'Adquisición de insumos' : 'Gestión con proveedor'}</div>}
                   {activeSemaphore && <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{activeSemaphore.elapsed} de {activeSemaphore.target} días hábiles permitidos</div>}
                 </div>
@@ -490,17 +486,17 @@ function ModuloPqrsPageContent() {
           <>
             <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Esta PQRS aún no ha iniciado su gestión por fases. Empieza con la Fase I.</p>
             <div style={{ background: COLORS.bgCard, borderRadius: 14, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Fase I · Inspección de Campo</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>{isSimpleWorkflow ? 'En gestión' : 'Fase I · Inspección de Campo'}</div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Plazo: 2 días hábiles</div>
             </div>
-            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : 'Iniciar Fase I'}</button>
+            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: '#FFFFFF', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : isSimpleWorkflow ? 'Iniciar gestión' : 'Iniciar Fase I'}</button>
           </>
         )}
 
         {faseActual >= 1 && faseActual <= 4 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 800 }}>Fase {faseActual} · {FASE_LABELS[faseActual]}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 800 }}>{pqrsPhaseDisplayLabel(selected?.workflowType, faseActual)}</div>
               {activeSemaphore && <div style={{ width: 10, height: 10, borderRadius: 999, background: activeSemaphore.color }} />}
             </div>
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, margin: '0 0 18px' }}>
@@ -511,7 +507,10 @@ function ModuloPqrsPageContent() {
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de esta fase (obligatoria para avanzar)</label>
             <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder="¿Qué pasó en esta fase?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
 
-            {faseActual === 1 && (
+            {faseActual === 1 && isSimpleWorkflow && (
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Marcar gestión como completa'}</button>
+            )}
+            {faseActual === 1 && !isSimpleWorkflow && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" onClick={() => submitFaseAction({ faseActual: 2, faseTipo: 'INSUMOS', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>Fase II — Insumos</button>
                 <button type="button" onClick={() => submitFaseAction({ faseActual: 3, faseTipo: 'PROVEEDOR', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? '#FFFFFF' : COLORS.textMuted }}>Fase III — Proveedor</button>

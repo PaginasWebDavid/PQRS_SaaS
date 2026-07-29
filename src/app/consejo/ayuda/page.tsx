@@ -4,6 +4,7 @@ import { AdminShell } from '@/components/shell/AdminShell';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
+import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 
 const FAQS = [
   { q: '¿Puedo gestionar o cerrar una PQRS desde aquí?', a: 'No. El rol Consejo es de solo lectura — puedes ver el estado, historial y reportes de todas las PQRS del conjunto, pero la gestión (primer contacto, fases, cierre) la realiza la administración.' },
@@ -12,11 +13,11 @@ const FAQS = [
   { q: '¿Cómo cambio mi contraseña?', a: 'Ve a Mi cuenta → Seguridad → Cambiar contraseña.' },
 ];
 
-type Category = 'TECNICO' | 'FACTURACION' | 'CUENTA' | 'OTRO';
+type Category = 'TECHNICAL' | 'ACCESS' | 'PRIVACY_SECURITY';
 const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
-  { value: 'TECNICO', label: 'Problema técnico' },
-  { value: 'CUENTA', label: 'Mi cuenta' },
-  { value: 'OTRO', label: 'Otro' },
+  { value: 'TECHNICAL', label: 'Problema técnico' },
+  { value: 'ACCESS', label: 'Acceso a la plataforma' },
+  { value: 'PRIVACY_SECURITY', label: 'Privacidad / seguridad' },
 ];
 
 type Ticket = {
@@ -37,7 +38,7 @@ export default function ConsejoAyudaPage() {
   const [open, setOpen] = useState(0);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [category, setCategory] = useState<Category>('OTRO');
+  const [category, setCategory] = useState<Category>('TECHNICAL');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -74,7 +75,7 @@ export default function ConsejoAyudaPage() {
       }
       setSubject('');
       setMessage('');
-      setCategory('OTRO');
+      setCategory('TECHNICAL');
       fetchTickets();
       showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
     } finally {
@@ -102,7 +103,10 @@ export default function ConsejoAyudaPage() {
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Contactar soporte</div>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, margin: '0 0 18px' }}>
+            Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
+          </div>
 
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Tipo de solicitud</label>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -142,6 +146,7 @@ export default function ConsejoAyudaPage() {
                 <span style={{ fontSize: 13.5, fontWeight: 700 }}>{t.subject}</span>
                 <span style={statusBadge(t.status)}>{STATUS_LABEL[t.status]}</span>
               </div>
+              <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{supportTicketCategoryLabel(t.category)}</div>
               <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 8px', lineHeight: 1.5 }}>{t.message}</p>
               {t.response && (
                 <div style={{ background: COLORS.successSoft, borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#1D1D1F', lineHeight: 1.5 }}>

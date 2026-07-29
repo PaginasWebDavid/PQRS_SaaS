@@ -47,6 +47,7 @@ const tenantStatusSchema = z.object({
 const tenantIdSchema = z.object({
   action: z.literal("renewSubscription"),
   tenantId: identifierSchema,
+  idempotencyKey: z.string().uuid(),
 });
 
 const courtesyExtensionSchema = z.object({
@@ -54,6 +55,7 @@ const courtesyExtensionSchema = z.object({
   tenantId: identifierSchema,
   days: z.coerce.number().int().min(1).max(90),
   reason: z.string().trim().min(1).max(250),
+  idempotencyKey: z.string().uuid(),
 });
 
 const updateTenantSchema = z
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
     }
     if (action === "renewSubscription") {
       const input = tenantIdSchema.parse(body);
-      const result = await renewSubscriptionWithSimulatedPayment({ actorUserId: superAdmin.userId, tenantId: input.tenantId });
+      const result = await renewSubscriptionWithSimulatedPayment({ actorUserId: superAdmin.userId, tenantId: input.tenantId, operationId: input.idempotencyKey });
       return NextResponse.json(result);
     }
     if (action === "grantCourtesyExtension") {
@@ -175,6 +177,7 @@ export async function POST(req: NextRequest) {
         tenantId: input.tenantId,
         days: input.days,
         reason: input.reason,
+        operationId: input.idempotencyKey,
       });
       return NextResponse.json(result);
     }

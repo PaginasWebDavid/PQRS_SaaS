@@ -8,8 +8,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
   const status = req.nextUrl.searchParams.get("status") || "all";
+  const tenantId = req.nextUrl.searchParams.get("tenantId") || undefined;
   const [tickets, counts] = await Promise.all([
-    listSupportTicketsForSuperAdmin({ status }),
+    listSupportTicketsForSuperAdmin({ status, tenantId }),
     getSupportTicketCounts(),
   ]);
   return NextResponse.json({ tickets, counts });
@@ -37,7 +38,9 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo completar la acción";
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error("[platform/support-tickets] Unexpected action failure", {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return NextResponse.json({ error: "No se pudo completar la accion" }, { status: 500 });
   }
 }

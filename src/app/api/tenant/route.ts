@@ -17,7 +17,7 @@ export async function GET() {
   const [tenant, generalSettings, integrations] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true, slug: true, city: true, address: true, units: true, status: true, createdAt: true },
+      select: { id: true, name: true, slug: true, city: true, address: true, units: true, status: true, createdAt: true, pqrsWorkflowType: true },
     }),
     getGeneralSettings(),
     getIntegrationStatus(),

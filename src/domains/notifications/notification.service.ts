@@ -20,6 +20,11 @@ export const NotificationTypes = {
   PAYMENT_RECEIPT_APPROVED: "PAYMENT_RECEIPT_APPROVED",
   PAYMENT_RECEIPT_REJECTED: "PAYMENT_RECEIPT_REJECTED",
   PAYMENT_IMPORT_COMPLETED: "PAYMENT_IMPORT_COMPLETED",
+  // Pago de la LICENCIA del SaaS (el tenant pagandole a la plataforma). No
+  // confundir con PAYMENT_RECEIPT_APPROVED/REJECTED, que son comprobantes de
+  // pago de un RESIDENTE hacia su conjunto (dominio distinto).
+  SAAS_PAYMENT_APPROVED: "SAAS_PAYMENT_APPROVED",
+  SAAS_PAYMENT_REJECTED: "SAAS_PAYMENT_REJECTED",
 } as const;
 
 export type NotificationType = (typeof NotificationTypes)[keyof typeof NotificationTypes];

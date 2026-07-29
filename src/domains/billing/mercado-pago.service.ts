@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import { AuditAction, PaymentStatus, Prisma, SubscriptionStatus, WebhookEventResult } from "@prisma/client";
+import { AuditAction, BillingOutboxEventType, PaymentStatus, Prisma, SubscriptionStatus, WebhookEventResult } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculatePriceForUnits, getGracePeriodDays } from "./billing.service";
+import { createBillingOutboxIntentsForTransition } from "./billing-outbox.service";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { addDays, BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
 import { buildPaymentEffectKey, sanitizeWebhookMetadata } from "./webhook-metadata";
@@ -908,6 +909,14 @@ async function upsertMercadoPagoPayment({
 
     await runBillingStep("AFTER_PAYMENT_UPSERT");
 
+    // Gate de notificacion de rechazo: solo la PRIMERA vez que esta fila Payment
+    // (identificada por mercadoPagoPaymentId, unico) queda persistida como
+    // REJECTED. Un reintento del mismo webhook relee `existing.status` ya en
+    // REJECTED y no vuelve a notificar. PENDING nunca dispara este aviso (no es
+    // un rechazo definitivo, ver KnownPaymentStatus).
+    const isNewlyRejectedPayment =
+      incoming === "REJECTED" && persistedStatus === "REJECTED" && existing?.status !== "REJECTED";
+
     if (incoming === "APPROVED") {
       // CUARENTENA: un pago historico (previo a la migracion de idempotencia) tiene
       // approvedEffectReconciliationRequired=true. NUNCA se reclama su efecto (no puede
@@ -1075,6 +1084,19 @@ async function upsertMercadoPagoPayment({
           tx
         );
 
+        // Notificacion de pago aprobado: solo cuando el efecto economico realmente
+        // se aplico en ESTE intento (gate `effectApplied`), nunca en el reintento
+        // "APPROVED repetido" de mas abajo. boundary = payment.createdAt: estable
+        // para el mismo Payment (mismo mercadoPagoPaymentId) a traves de reintentos
+        // del webhook, por lo que el dedupeKey del outbox nunca duplica el aviso.
+        await createBillingOutboxIntentsForTransition(tx, {
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          eventType: BillingOutboxEventType.SAAS_PAYMENT_APPROVED,
+          boundary: payment.createdAt,
+          periodEndsAt: next.periodEnd,
+        });
+
         await runBillingStep("BEFORE_WEBHOOK_RESULT");
         await markWebhookResult(tx, eventId, {
           result: WebhookEventResult.PROCESSED,
@@ -1239,6 +1261,19 @@ async function upsertMercadoPagoPayment({
           rawStatus: rawStatusForStore,
           metadata,
         });      }
+
+      // Notificacion de pago rechazado: independiente de si este webhook logro
+      // o no mover la suscripcion a GRACE_PERIOD (puede haber cobertura vigente
+      // por otro lado). Se dispara una sola vez por Payment (ver
+      // isNewlyRejectedPayment), nunca para PENDING.
+      if (isNewlyRejectedPayment) {
+        await createBillingOutboxIntentsForTransition(tx, {
+          tenantId: current.tenantId,
+          subscriptionId: current.id,
+          eventType: BillingOutboxEventType.SAAS_PAYMENT_REJECTED,
+          boundary: payment.createdAt,
+        });
+      }
     }
 
     return { payment };

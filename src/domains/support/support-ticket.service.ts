@@ -1,8 +1,36 @@
-import { AuditAction, SupportTicketCategory } from "@prisma/client";
+import { AuditAction, Role, SupportTicketCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification } from "@/domains/notifications/notification.service";
 import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
+
+function escapeSupportHtml(value: string | null | undefined): string {
+  return (value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizeEmailSubject(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim().slice(0, 160);
+}
+
+// Categorias vigentes para tickets nuevos (Fase R1). TECNICO/FACTURACION/CUENTA/OTRO
+// siguen existiendo en el enum solo por filas historicas; el codigo nuevo nunca
+// las asigna. BILLING es exclusiva de ADMIN (categoria administrativa/comercial);
+// RESIDENTE y CONSEJO solo ven problemas tecnicos de la plataforma.
+export const RESIDENT_SUPPORT_CATEGORIES: SupportTicketCategory[] = ["TECHNICAL", "ACCESS", "PRIVACY_SECURITY"];
+export const ADMIN_SUPPORT_CATEGORIES: SupportTicketCategory[] = ["TECHNICAL", "ACCESS", "PRIVACY_SECURITY", "BILLING"];
+
+export function allowedSupportCategoriesForRole(role: Role | null | undefined): SupportTicketCategory[] {
+  return role === "ADMIN" ? ADMIN_SUPPORT_CATEGORIES : RESIDENT_SUPPORT_CATEGORIES;
+}
+
+export function isAllowedSupportCategory(role: Role | null | undefined, category: unknown): category is SupportTicketCategory {
+  return typeof category === "string" && allowedSupportCategoriesForRole(role).includes(category as SupportTicketCategory);
+}
 
 export async function createSupportTicket({
   actorUserId,
@@ -40,12 +68,23 @@ export async function listSupportTicketsForUser({ tenantId, userId }: { tenantId
   });
 }
 
+// ADMIN ve todos los tickets de SU tenant (propios y de otros miembros), nunca
+// de otro conjunto. Sigue siendo solo lectura: responder/cerrar sigue siendo
+// exclusivo de SUPER_ADMIN via listSupportTicketsForSuperAdmin/respondToSupportTicket.
+export async function listSupportTicketsForTenantAdmin({ tenantId }: { tenantId: string }) {
+  return prisma.supportTicket.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+    include: { createdBy: { select: { name: true } } },
+  });
+}
+
 const VALID_STATUSES = ["ABIERTA", "RESPONDIDA", "CERRADA"] as const;
 
-export async function listSupportTicketsForSuperAdmin({ status }: { status?: string }) {
+export async function listSupportTicketsForSuperAdmin({ status, tenantId }: { status?: string; tenantId?: string }) {
   const validStatus = (VALID_STATUSES as readonly string[]).includes(status || "") ? (status as (typeof VALID_STATUSES)[number]) : undefined;
   return prisma.supportTicket.findMany({
-    where: validStatus ? { status: validStatus } : {},
+    where: { ...(validStatus ? { status: validStatus } : {}), ...(tenantId ? { tenantId } : {}) },
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {
@@ -110,17 +149,21 @@ export async function respondToSupportTicket({
     resourceId: ticket.id,
   });
 
+  const safeName = escapeSupportHtml(ticket.createdBy.name);
+  const safeSubject = escapeSupportHtml(ticket.subject);
+  const safeResponse = escapeSupportHtml(response).replace(/\r?\n/g, "<br />");
+
   await sendEmailSafe({
     to: ticket.createdBy.email,
-    subject: `Respuesta a tu solicitud: ${ticket.subject}`,
+    subject: `Respuesta a tu solicitud: ${sanitizeEmailSubject(ticket.subject)}`,
     html: renderEmailLayout({
       accent: close ? "success" : "navy",
       eyebrow: "Soporte",
       heading: "Respondimos tu solicitud",
       bodyHtml: `
-        <p>Hola <strong>${ticket.createdBy.name}</strong>,</p>
-        <p>Tu solicitud de soporte <strong>${ticket.subject}</strong> fue respondida${close ? " y quedó cerrada" : ""}:</p>
-        <div style="background:#F5F5F7;border-radius:12px;padding:16px 18px;margin:16px 0;color:#1D1D1F;">${response}</div>
+        <p>Hola <strong>${safeName}</strong>,</p>
+        <p>Tu solicitud de soporte <strong>${safeSubject}</strong> fue respondida${close ? " y quedó cerrada" : ""}:</p>
+        <div style="background:#F5F5F7;border-radius:12px;padding:16px 18px;margin:16px 0;color:#1D1D1F;">${safeResponse}</div>
       `,
       footerNote: "Puedes ver el historial completo de tus solicitudes en el Centro de ayuda dentro de la plataforma.",
     }),
