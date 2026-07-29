@@ -78,6 +78,7 @@ export default function VistaResidentePage() {
   const [profileName, setProfileName] = useState(''); const [profilePhone, setProfilePhone] = useState('');
   const [profileBloque, setProfileBloque] = useState(''); const [profileApto, setProfileApto] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [confirmLocationChange, setConfirmLocationChange] = useState<{ bloque: number; apto: number } | null>(null);
   const [editing, setEditing] = useState(false); const [editDescription, setEditDescription] = useState('');
   const fileRef = useRef<HTMLInputElement>(null); const { toast, showToast } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -228,18 +229,7 @@ export default function VistaResidentePage() {
     } catch { showToast('No se pudo conectar para actualizar las notificaciones'); }
   }
   const bloqueAptoLocked = Boolean(me?.user?.bloqueAptoEditado);
-  async function saveProfile() {
-    if (savingProfile) return;
-    const bloque = Number(profileBloque); const apto = Number(profileApto);
-    if (!Number.isInteger(bloque) || bloque < 1 || !Number.isInteger(apto) || apto < 1) return showToast('Bloque y apartamento deben ser números válidos');
-
-    const bloqueAptoChanged = bloque !== (me?.user?.bloque ?? null) || apto !== (me?.user?.apto ?? null);
-    if (bloqueAptoChanged) {
-      if (bloqueAptoLocked) return showToast('Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio');
-      const confirmed = window.confirm(`Vas a cambiar tu ubicación a Bloque ${bloque}, Apto ${apto}. Solo puedes hacer esta corrección una vez — después no podrás editarla de nuevo. ¿Confirmas que es correcto?`);
-      if (!confirmed) return;
-    }
-
+  async function applyProfileSave(bloque: number, apto: number) {
     setSavingProfile(true);
     try {
       const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: profileName, phone: profilePhone, bloque, apto }) });
@@ -248,6 +238,20 @@ export default function VistaResidentePage() {
     } finally {
       setSavingProfile(false);
     }
+  }
+  async function saveProfile() {
+    if (savingProfile) return;
+    const bloque = Number(profileBloque); const apto = Number(profileApto);
+    if (!Number.isInteger(bloque) || bloque < 1 || !Number.isInteger(apto) || apto < 1) return showToast('Bloque y apartamento deben ser números válidos');
+
+    const bloqueAptoChanged = bloque !== (me?.user?.bloque ?? null) || apto !== (me?.user?.apto ?? null);
+    if (bloqueAptoChanged) {
+      if (bloqueAptoLocked) return showToast('Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio');
+      setConfirmLocationChange({ bloque, apto });
+      return;
+    }
+
+    await applyProfileSave(bloque, apto);
   }
 
   const bottomNav = [
@@ -352,6 +356,27 @@ export default function VistaResidentePage() {
         ))}
       </div>
     )}
+
+    <Sheet open={confirmLocationChange !== null} onClose={() => setConfirmLocationChange(null)} maxWidth={420}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>Confirmar cambio de ubicación</h2><CloseButton onClick={() => setConfirmLocationChange(null)} /></div>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.5, margin: '14px 0 20px' }}>
+        Vas a cambiar tu ubicación a <b>Bloque {confirmLocationChange?.bloque}, Apto {confirmLocationChange?.apto}</b>. Solo puedes hacer esta corrección una vez, después no podrás editarla de nuevo. ¿Confirmas que es correcto?
+      </p>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={() => setConfirmLocationChange(null)} style={{ ...secondary, marginTop: 0 }}>Cancelar</button>
+        <button
+          onClick={async () => {
+            if (!confirmLocationChange) return;
+            const { bloque, apto } = confirmLocationChange;
+            setConfirmLocationChange(null);
+            await applyProfileSave(bloque, apto);
+          }}
+          style={{ ...primary, marginTop: 0 }}
+        >
+          Confirmar
+        </button>
+      </div>
+    </Sheet>
 
     <Sheet open={createOpen} onClose={() => setCreateOpen(false)} maxWidth={520}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>Nueva solicitud</h2><CloseButton onClick={() => setCreateOpen(false)} /></div>
