@@ -53,6 +53,7 @@ export function SuperAdminShell({
             key={n.key}
             type="button"
             onClick={() => { n.onClick?.(); onNavigate?.(); }}
+            aria-current={n.key === activeKey ? 'page' : undefined}
             style={{
               padding: '7px 10px', borderRadius: 9, fontSize: 13.25, cursor: 'pointer',
               fontWeight: n.key === activeKey ? 700 : 600,
@@ -109,7 +110,7 @@ export function SuperAdminShell({
                 <LogoMark size={21} color="#FFFFFF" check="#122545" />
                 <span style={{ fontWeight: 800, fontSize: 14, color: '#FFFFFF' }}>{brandFirst} {brandRestText && <span style={{ fontWeight: 500, color: '#8FA1BF' }}>{brandRestText}</span>}</span>
               </div>
-              <button type="button" onClick={() => setDrawerOpen(false)} style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', cursor: 'pointer', fontSize: 13, border: 'none', font: 'inherit' }}>✕</button>
+              <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', cursor: 'pointer', fontSize: 13, border: 'none', font: 'inherit' }}>✕</button>
             </div>
             <NavLinks onNavigate={() => setDrawerOpen(false)} />
             <MrrCard />
@@ -126,7 +127,7 @@ export function SuperAdminShell({
         {isMobile && (
           <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px) saturate(1.8)', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
             <div style={{ padding: '0 20px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button type="button" onClick={() => setDrawerOpen(true)} style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.bgCard, border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>☰</button>
+              <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Abrir menú" style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.bgCard, border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>☰</button>
               <span style={{ fontWeight: 800, fontSize: 15 }}>{mobileTitle}</span>
               <div style={{ width: 32, height: 32, borderRadius: 999, background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>{initials}</div>
             </div>
