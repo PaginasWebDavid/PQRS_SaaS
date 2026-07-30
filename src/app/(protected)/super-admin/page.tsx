@@ -1905,7 +1905,19 @@ export default function DashboardSuperAdminPage() {
             {!supportLoading && supportTicketsFiltered.length === 0 && (
               <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes en esta categoría.</div>
             )}
-            {!supportLoading && supportTicketsFiltered.map((tk) => (
+            {!supportLoading && supportTicketsFiltered.map((tk) => isMobile ? (
+              <div key={tk.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 3 }}>{tk.subject}</div>
+                <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 10 }}>{tk.tenant.name} · {tk.createdBy.name} · {formatRelativeTime(tk.createdAt)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={badgeStyle(COLORS.neutralSoft, COLORS.textPrimary)}>{supportTicketCategoryLabel(tk.category)}</span>
+                    <span style={supportStatusBadge(tk.status)}>{SUPPORT_STATUS_LABEL[tk.status]}</span>
+                  </div>
+                  <button type="button" onClick={() => openRespond(tk)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>{tk.status === 'ABIERTA' ? 'Responder' : 'Ver'}</button>
+                </div>
+              </div>
+            ) : (
               <div key={tk.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                 <span style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700 }}>{tk.subject}</div>
