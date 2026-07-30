@@ -22,10 +22,29 @@ export function Sheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const [rendered, setRendered] = useState(open);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  // Anima la salida antes de desmontar en vez de desaparecer de golpe
+  // (AUDIT.md categoria 4/8: entrada y salida deben ser simetricas).
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (!rendered) return;
+    setClosing(true);
+    const timer = window.setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [open, rendered]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,10 +79,10 @@ export function Sheet({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!rendered) return null;
   return (
     <div
-      className="apl-fade"
+      className={closing ? 'apl-fade-out' : 'apl-fade'}
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: COLORS.overlay, backdropFilter: 'blur(4px)',
@@ -72,7 +91,7 @@ export function Sheet({
     >
       <div
         ref={panelRef}
-        className="apl-sheet"
+        className={closing ? 'apl-sheet-out' : 'apl-sheet'}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}

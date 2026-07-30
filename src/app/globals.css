@@ -216,36 +216,46 @@
   }
 }
 
-@keyframes pqrs-up {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes pqrs-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes pqrs-pop {
-  0% { transform: scale(.92); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.pqrs-animate-up {
-  animation: pqrs-up 620ms cubic-bezier(.2,.7,.2,1) both;
-}
-
 @keyframes apl-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes apl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes apl-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes apl-sheet { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes apl-sheet-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(26px); } }
 @keyframes apl-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes apl-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
-@keyframes apl-float { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(16px,-20px) scale(1.05); } }
 @keyframes apl-spin { to { transform: rotate(360deg); } }
 
 .apl-up { animation: apl-up 600ms cubic-bezier(.2,.7,.2,1) both; }
 .apl-fade { animation: apl-fade 250ms ease both; }
+.apl-fade-out { animation: apl-fade-out 200ms ease both; }
 .apl-sheet { animation: apl-sheet 300ms cubic-bezier(.2,.7,.2,1) both; }
+.apl-sheet-out { animation: apl-sheet-out 220ms cubic-bezier(.2,.7,.2,1) both; }
+
+/* Feedback tactil: todo boton real de la app se comprime levemente al
+   presionar (AUDIT.md categoria 3). Una sola regla global en vez de tocar
+   cada archivo de forma individual. */
+button:not(:disabled) {
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apl-up, .apl-sheet, .apl-pop {
+    animation: apl-fade 150ms ease both;
+  }
+  .apl-sheet-out {
+    animation: apl-fade-out 150ms ease both;
+  }
+  .apl-bar {
+    animation: none;
+    transform: scaleY(1);
+  }
+  button:not(:disabled):active {
+    transform: none;
+  }
+}
 
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
