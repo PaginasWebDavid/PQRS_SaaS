@@ -1357,7 +1357,22 @@ export default function DashboardSuperAdminPage() {
               </div>
 
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-                {tenants.map((t) => (
+                {tenants.map((t) => isMobile ? (
+                  <div key={t.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
+                      <span style={{ ...TENANT_BADGE[t.group], flexShrink: 0 }}>{TENANT_LABEL[t.group]}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>Vence {t.licenseEnd}</span>
+                      {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.white, background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
+                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                    </div>
+                  </div>
+                ) : (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                     <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
                     <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
@@ -1408,7 +1423,18 @@ export default function DashboardSuperAdminPage() {
                 ) : (
                   payments
                     .filter((p) => paymentFilter === 'all' || p.status === paymentFilter)
-                    .map((tx) => (
+                    .map((tx) => isMobile ? (
+                      <div key={tx.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+                          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 700 }}>{tx.tenantName}</span>
+                          <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 700, flexShrink: 0 }}>{formatMoney(tx.amountCents, tx.currency)}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                          <span style={{ fontSize: 11.5, color: COLORS.textMuted }}>{paymentProviderLabel(tx.provider)} · {new Date(tx.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
+                          <span style={paymentBadge(tx.status)}>{PAYMENT_STATUS_LABEL[tx.status] || tx.status}</span>
+                        </div>
+                      </div>
+                    ) : (
                       <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
                         <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{tx.tenantName}</span>
                         <span style={{ fontSize: 12, color: COLORS.textSecondary, width: 100 }}>{paymentProviderLabel(tx.provider)}</span>
