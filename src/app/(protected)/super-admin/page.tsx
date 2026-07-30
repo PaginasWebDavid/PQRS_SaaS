@@ -1457,13 +1457,31 @@ export default function DashboardSuperAdminPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
             <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', padding: '14px 22px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span><span style={{ width: 140 }} />
-              </div>
+              {!isMobile && (
+                <div style={{ display: 'flex', padding: '14px 22px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                  <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span><span style={{ width: 140 }} />
+                </div>
+              )}
               {tiers.length === 0 && (
                 <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: 12.5, color: COLORS.textMuted }}>No hay reglas de precio configuradas</div>
               )}
-              {[...tiers].sort((a, b) => a.minUnits - b.minUnits).map((p) => (
+              {[...tiers].sort((a, b) => a.minUnits - b.minUnits).map((p) => isMobile ? (
+                <div key={p.id} style={{ padding: '16px 18px', borderBottom: `1px solid ${COLORS.borderSoft}`, opacity: p.isActive ? 1 : 0.55 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: p.type === 'PILOT' ? COLORS.warning : COLORS.navy }}>{p.type === 'PILOT' ? 'PILOTO 45 DÍAS' : 'MENSUAL'}</span>
+                    {!p.isActive && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}>· inactiva</span>}
+                  </div>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>
+                    {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>{p.type === 'PILOT' ? ' / piloto' : '/mes'}</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 14 }}>De {p.minUnits} a {p.maxUnits ? p.maxUnits : 'sin límite'} unidades</div>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: p.isActive ? COLORS.warning : COLORS.success, cursor: 'pointer' }}>{p.isActive ? 'Desactivar' : 'Activar'}</button>
+                    <button type="button" onClick={() => openEditRule(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                    <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
+                  </div>
+                </div>
+              ) : (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, opacity: p.isActive ? 1 : 0.55 }}>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.minUnits}</span>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.maxUnits ? p.maxUnits : 'Sin límite'}</span>
