@@ -142,25 +142,26 @@ El alta comercial muestra los cuatro pasos y no afirma que el correo fue enviado
 
 Se declararon 73 pruebas PostgreSQL de la fase. Cubren ficha/piloto, pagos/precios/conversion, fundadores/implementacion/referidos, entitlements y dos smoke tests multi-tenant.
 
-Evidencia acumulada:
+Evidencia final:
 
-- 70/70 pruebas comerciales verdes.
-- 40/40 pruebas historicas de Pagos verdes con entitlement explicito en fixtures.
-- 43/43 pruebas historicas de Reservas verdes con entitlement explicito en fixtures.
-- 16/16 escenarios focalizados de concurrencia y proteccion verdes.
-- En la suite integral, 71 de las 73 comerciales pasaron; las dos restantes eran aserciones globales sensibles a fixtures concurrentes y pasaron 2/2 tras acotarlas a su contrato real.
+- `npm test -- tests/commercial-layer-integration.test.ts`: 73/73, sin fallos, omisiones ni cancelaciones.
+- La ejecucion aislada duro 673.875 ms e incluyo concurrencia real sobre pago, conversion, ultimo cupo fundador, conversion contra cancelacion y entitlements.
+- 40/40 pruebas historicas de Pagos permanecen verdes con entitlement explicito en fixtures.
+- 43/43 pruebas historicas de Reservas permanecen verdes con entitlement explicito en fixtures.
 
-Resultado combinado final de las 73: `73/73 VERIFICADAS`.
+Resultado final de la fase: `73/73 VERIFICADAS EN UNA SOLA EJECUCION AISLADA`.
 
 ## 19. Suite integral
 
-Una ejecucion completa anterior al ajuste de proteccion termino con 803/803 pruebas verdes. La ejecucion integral posterior cubrio 806 pruebas: 803 pasaron y tres fallaron por contratos de prueba, no por fallos productivos:
+La validacion definitiva se ejecuto una sola vez con los archivos serializados y sin procesos concurrentes:
 
-1. un conteo global de backfill incluia tenants temporales creados en paralelo sin ficha;
-2. una limpieza de otra ejecucion retiro el tenant del ultimo escenario de referido;
-3. una prueba historica elegia cualquier regla activa mientras el servicio usa reglas `MONTHLY`.
+- `npm test`: 806/806.
+- Fallos: 0.
+- Canceladas: 0.
+- Omitidas: 0.
+- Duracion: 1.897.251 ms.
 
-Se corrigieron unicamente las pruebas despues de esa ejecucion. Las repeticiones cerraron 5/5 en Super Admin y 2/2 en los dos escenarios comerciales fallidos. No se modifico codigo productivo despues de la integral, por lo que no se lanzo una tercera suite completa, de acuerdo con la regla de la seccion 28 del prompt.
+El runner usa la URL directa protegida de pruebas, serializa archivos y mantiene las carreras internas de cada suite. Tambien adquiere un lock exclusivo por workspace para impedir que dos ejecuciones del mismo repositorio muten simultaneamente la base de pruebas.
 
 Validaciones ya verdes:
 
@@ -179,8 +180,7 @@ Validaciones ya verdes:
 4. La operacion comercial depende de latencia de base remota; existe timeout explicito y reintento acotado para conflictos serializables, pero debe monitorearse en pilotos.
 5. Los conjuntos migrados quedan en `LEGACY_REVIEW` y requieren clasificacion humana.
 6. La cotizacion de mas de 600 unidades y la comision anual permanecen en revision manual deliberada.
-7. No existe una unica ejecucion final 806/806: la evidencia final combina la integral 803/806 con repeticiones focalizadas 7/7 despues de correcciones exclusivamente de pruebas.
-8. Otra sesion avanzo `HEAD` de `3f7bd45` a `3bd44a0` y modifico archivos durante esta fase. El commit externo `3bd44a0` toca `src/app/(protected)/super-admin/page.tsx`, archivo tambien usado por C7B, por lo que su revision debe considerar posible mezcla de ambos trabajos. `master` quedo un commit por delante de `origin/master`.
+7. Otra sesion creo durante la validacion el commit `31a34c4 feat(commercial): add pilot commercial layer with entitlements and pricing`. Esta sesion no hizo commit, amend, push ni tag y no altero ese commit externo.
 
 Ninguno de estos riesgos bloquea el piloto controlado una vez completado el runbook y la validacion final.
 
@@ -254,6 +254,6 @@ Ninguno de estos riesgos bloquea el piloto controlado una vez completado el runb
 
 ## 22. Estado final
 
-`IMPLEMENTADO CON RIESGOS`
+`IMPLEMENTADO`
 
-Esta sesion no hizo commit, push ni tag. Los commits visibles en `HEAD`, incluido `3bd44a0`, fueron creados por la otra sesion concurrente. No se inicio otra fase.
+Esta sesion no hizo commit, amend, push ni tag. El commit visible en `HEAD` (`31a34c4`) fue creado por otra sesion concurrente durante la validacion. No se inicio otra fase.
