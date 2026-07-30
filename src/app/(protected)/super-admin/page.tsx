@@ -1237,20 +1237,38 @@ export default function DashboardSuperAdminPage() {
 
       {nav === 'conjuntos' && (
         <div className="apl-up">
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 20 }}>
             <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit' }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
-              <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8 }}>
+              <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit', order: isMobile ? 0 : 1 }}>+ Crear conjunto</button>
+              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit', order: isMobile ? 1 : 0 }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
             </div>
           </div>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administrador…" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
             {(['all', 'active', 'trial', 'pending_payment', 'grace', 'suspended', 'cancelled'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} style={{ ...tabStyle(filter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</button>)}
           </div>
-          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflowX: 'auto', overflowY: 'hidden' }}>
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflowX: isMobile ? 'hidden' : 'auto', overflowY: 'hidden' }}>
             {filteredTenants.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>
+            ) : isMobile ? (
+              filteredTenants.slice(0, conjuntosVisible).map((t) => (
+                <div key={t.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                      <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{t.city} · {t.units} unidades</div>
+                    </div>
+                    <span style={{ ...TENANT_BADGE[t.group], flexShrink: 0 }}>{TENANT_LABEL[t.group]}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.adminName} · Plan {t.plan}</div>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
+                    <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                    <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                  </div>
+                </div>
+              ))
             ) : (
               <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse' }}>
                 <thead>
