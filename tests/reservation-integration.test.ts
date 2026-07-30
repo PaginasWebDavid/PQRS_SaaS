@@ -31,7 +31,13 @@ function nextSeq() {
 async function createTenant(prefix: string) {
   const n = nextSeq();
   return prisma.tenant.create({
-    data: { name: `${prefix} ${n}`, slug: `${RUN}-${prefix.toLowerCase()}-${n}` },
+    data: {
+      name: `${prefix} ${n}`,
+      slug: `${RUN}-${prefix.toLowerCase()}-${n}`,
+      featureEntitlements: {
+        create: { feature: "RESERVATIONS", status: "ACTIVE", reason: "Fixture de reservas" },
+      },
+    },
   });
 }
 

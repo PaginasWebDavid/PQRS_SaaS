@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { getSuperAdminOverview } from "@/domains/platform/super-admin.service";
-import { createTenantWithAdmin, updateTenantStatusForSuperAdmin, updateTenantDetails } from "@/domains/platform/tenant-admin.service";
+import { updateTenantStatusForSuperAdmin, updateTenantDetails } from "@/domains/platform/tenant-admin.service";
 import { resendInvitation } from "@/domains/organizations/invitation.service";
 import {
   renewSubscriptionWithSimulatedPayment,
@@ -17,6 +17,22 @@ import { upsertPlatformSetting } from "@/domains/platform/platform-setting.servi
 import { requireSuperAdmin, requireSuperAdminTenantTarget } from "@/lib/authorization";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { mapInvitationError, publicInvitationEmailResult } from "@/domains/organizations/invitation-security";
+import {
+  cancelCommercialProcess,
+  confirmPilotPayment,
+  convertPilot,
+  correctCommercialProfile,
+  createPaidPilotTenant,
+  extendPilotExceptionally,
+  markPilotNotConverted,
+  markReferralCommissionPaid,
+  startPilot,
+  startPilotEvaluation,
+  updateImplementationStatus,
+  updatePilotChecklist,
+  validateCommercialPricingPolicy,
+} from "@/domains/commercial/commercial.service";
+import { setTenantFeatureEntitlement } from "@/domains/commercial/entitlement.service";
 
 const identifierSchema = z.string().trim().min(1).max(128);
 const positiveIntegerSchema = z.coerce.number().int().positive();
@@ -28,6 +44,7 @@ const nullablePositiveIntegerSchema = z
 
 const createTenantSchema = z.object({
   action: z.literal("createTenant"),
+  operationId: identifierSchema,
   name: z.string().trim().min(1).max(160),
   slug: z.string().trim().max(160).optional(),
   city: optionalTextSchema,
@@ -36,6 +53,17 @@ const createTenantSchema = z.object({
   adminName: z.string().trim().min(1).max(120),
   adminEmail: z.string().trim().email().max(320),
   adminPhone: z.string().trim().max(30).optional(),
+  implementationType: z.enum(["STANDARD", "ASSISTED"]).default("STANDARD"),
+  referralName: z.string().trim().max(160).optional(),
+  referralContact: z.string().trim().max(200).optional(),
+  referralAgreementType: z.enum(["NONE", "GENERAL", "FOUNDER_EXCEPTION"]).default("NONE"),
+  reservationsEnabled: z.boolean().default(false),
+  residentPaymentsEnabled: z.boolean().default(false),
+  pilotPriceCents: optionalPositiveIntegerSchema,
+  monthlyPriceCents: optionalPositiveIntegerSchema,
+  manualQuoteReason: z.string().trim().max(500).optional(),
+  nextAction: z.string().trim().max(250).optional(),
+  nextActionDueAt: z.coerce.date().optional(),
 });
 
 const tenantStatusSchema = z.object({
@@ -72,10 +100,32 @@ const updateTenantSchema = z
 
 const createPricingRuleSchema = z.object({
   action: z.literal("createPricingRule"),
+  type: z.enum(["MONTHLY", "PILOT"]).default("MONTHLY"),
   minUnits: positiveIntegerSchema,
   maxUnits: nullablePositiveIntegerSchema,
   priceCents: positiveIntegerSchema,
   currency: z.string().trim().length(3).optional(),
+});
+
+const commercialBaseSchema = z.object({ tenantId: identifierSchema, operationId: identifierSchema });
+const confirmPilotPaymentSchema = commercialBaseSchema.extend({ action: z.literal("confirmPilotPayment"), amountCents: positiveIntegerSchema, paidAt: z.coerce.date().optional(), manualReference: z.string().trim().min(1).max(160) });
+const checklistSchema = commercialBaseSchema.extend({ action: z.literal("updatePilotChecklist"), field: z.enum(["documentsAcceptedAt", "residentBaseReceivedAt", "categoriesConfiguredAt", "trainingCompletedAt", "smokeTestApprovedAt", "launchCommunicationSentAt"]), completed: z.boolean() });
+const startPilotSchema = commercialBaseSchema.extend({ action: z.literal("startPilot"), realUseStartsAt: z.coerce.date().optional(), exceptionReason: z.string().trim().max(500).optional() });
+const evaluationSchema = commercialBaseSchema.extend({ action: z.literal("startPilotEvaluation"), notes: z.string().trim().max(2000).optional(), supportMinutes: z.coerce.number().int().min(0).optional(), outsideRequests: z.coerce.number().int().min(0).optional(), meetings: z.coerce.number().int().min(0).optional() });
+const convertSchema = commercialBaseSchema.extend({ action: z.literal("convertPilot"), billingMode: z.enum(["MONTHLY", "ANNUAL"]), amountCents: positiveIntegerSchema, paidAt: z.coerce.date().optional(), manualReference: z.string().trim().min(1).max(160), discountBps: z.coerce.number().int().min(0).max(500).optional(), discountReason: z.string().trim().max(500).optional(), discountStartsAt: z.coerce.date().optional(), discountEndsAt: z.coerce.date().optional() });
+const reasonSchema = commercialBaseSchema.extend({ reason: z.string().trim().min(1).max(500) });
+const notConvertedSchema = reasonSchema.extend({ action: z.literal("markPilotNotConverted") });
+const cancelCommercialSchema = reasonSchema.extend({ action: z.literal("cancelCommercialProcess") });
+const extendPilotSchema = reasonSchema.extend({ action: z.literal("extendPilot"), days: z.coerce.number().int().min(1).max(30) });
+const entitlementSchema = reasonSchema.extend({ action: z.literal("setTenantFeature"), feature: z.enum(["RESERVATIONS", "RESIDENT_PAYMENTS"]), status: z.enum(["DISABLED", "SETUP", "ACTIVE", "SUSPENDED"]), priceCents: z.union([z.coerce.number().int().min(0), z.null()]).optional() });
+const implementationSchema = reasonSchema.extend({ action: z.literal("updateImplementationStatus"), status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]) });
+const referralPaidSchema = commercialBaseSchema.extend({ action: z.literal("markReferralCommissionPaid"), reference: z.string().trim().min(1).max(160), paidAt: z.coerce.date().optional() });
+const correctionSchema = reasonSchema.extend({
+  action: z.literal("correctCommercialProfile"),
+  changes: z.record(
+    z.string(),
+    z.union([z.string().max(2000), z.coerce.date(), z.coerce.number().int().positive(), z.null()])
+  ),
 });
 
 const updatePricingRuleSchema = z
@@ -147,18 +197,8 @@ export async function POST(req: NextRequest) {
 
     if (action === "createTenant") {
       const input = createTenantSchema.parse(body);
-      try {
-        const result = await createTenantWithAdmin(superAdmin.userId, {
-          ...input,
-          slug: input.slug || input.name,
-        });
-        return NextResponse.json(result, { status: 201 });
-      } catch {
-        return NextResponse.json(
-          { error: "No se pudo crear el conjunto" },
-          { status: 400 }
-        );
-      }
+      const result = await createPaidPilotTenant(superAdmin.userId, { ...input, slug: input.slug || input.name });
+      return NextResponse.json(result, { status: 201 });
     }
     if (action === "updateTenantStatus") {
       const input = tenantStatusSchema.parse(body);
@@ -201,6 +241,57 @@ export async function POST(req: NextRequest) {
         currency: input.currency?.toUpperCase(),
       });
       return NextResponse.json(result, { status: 201 });
+    }
+    if (action === "confirmPilotPayment") {
+      const input = confirmPilotPaymentSchema.parse(body);
+      return NextResponse.json(await confirmPilotPayment(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "updatePilotChecklist") {
+      const input = checklistSchema.parse(body);
+      return NextResponse.json(await updatePilotChecklist(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "startPilot") {
+      const input = startPilotSchema.parse(body);
+      return NextResponse.json(await startPilot(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "startPilotEvaluation") {
+      const input = evaluationSchema.parse(body);
+      return NextResponse.json(await startPilotEvaluation(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "convertPilot") {
+      const input = convertSchema.parse(body);
+      return NextResponse.json(await convertPilot(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "markPilotNotConverted") {
+      const input = notConvertedSchema.parse(body);
+      return NextResponse.json(await markPilotNotConverted(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "extendPilot") {
+      const input = extendPilotSchema.parse(body);
+      return NextResponse.json(await extendPilotExceptionally(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "cancelCommercialProcess") {
+      const input = cancelCommercialSchema.parse(body);
+      return NextResponse.json(await cancelCommercialProcess(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "setTenantFeature") {
+      const input = entitlementSchema.parse(body);
+      return NextResponse.json(await setTenantFeatureEntitlement({ actorUserId: superAdmin.userId, ...input }));
+    }
+    if (action === "updateImplementationStatus") {
+      const input = implementationSchema.parse(body);
+      return NextResponse.json(await updateImplementationStatus(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "markReferralCommissionPaid") {
+      const input = referralPaidSchema.parse(body);
+      return NextResponse.json(await markReferralCommissionPaid(superAdmin.userId, input.tenantId, input));
+    }
+    if (action === "correctCommercialProfile") {
+      const input = correctionSchema.parse(body);
+      return NextResponse.json(await correctCommercialProfile(superAdmin.userId, input.tenantId, input as Parameters<typeof correctCommercialProfile>[2]));
+    }
+    if (action === "validateCommercialPricingPolicy") {
+      return NextResponse.json(await validateCommercialPricingPolicy());
     }
     if (action === "updatePricingRule") {
       const input = updatePricingRuleSchema.parse(body);

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { requireActiveTenantUser } from "@/lib/authorization";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { getAggregateSummaryForTenant } from "@/domains/payments/payment.service";
+import { mapPaymentError } from "@/domains/payments/payment-security";
 
 export async function GET() {
   const session = await auth();
@@ -20,7 +21,8 @@ export async function GET() {
   try {
     const summary = await getAggregateSummaryForTenant({ tenantId: identity.tenantId });
     return NextResponse.json(summary);
-  } catch {
-    return NextResponse.json({ error: "No se pudo cargar el resumen" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapPaymentError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }

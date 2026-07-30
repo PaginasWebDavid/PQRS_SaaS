@@ -1,4 +1,5 @@
 import type { Role } from "@prisma/client";
+import { FeatureUnavailableError } from "@/domains/commercial/entitlement.service";
 import { parseTimeOfDay, minutesOfDay, formatTimeOfDay } from "@/domains/reservations/reservation-time";
 
 export const RESERVATION_ADMIN_ROLES: Role[] = ["ADMIN"];
@@ -128,6 +129,7 @@ export class ReservationDomainError extends Error {
 }
 
 export function mapReservationError(error: unknown) {
+  if (error instanceof FeatureUnavailableError) return { status: 403, message: error.message, code: "FEATURE_UNAVAILABLE" as const };
   if (error instanceof ReservationDomainError) {
     return { status: PUBLIC_STATUSES[error.code], message: PUBLIC_MESSAGES[error.code], code: error.code };
   }

@@ -35,11 +35,18 @@ export async function getPlatformAnalytics() {
     pqrsByTypeRaw,
     graceTenants,
     topSubscriptions,
-    trialEndedSubs,
+    decidedCommercialProfiles,
   ] = await Promise.all([
     prisma.payment.findMany({
-      where: { status: "APPROVED", paidAt: { gte: rangeStart } },
-      select: { amountCents: true, paidAt: true },
+      where: {
+        status: "APPROVED",
+        concept: { in: ["SUBSCRIPTION_MONTHLY", "SUBSCRIPTION_ANNUAL"] },
+        OR: [
+          { concept: "SUBSCRIPTION_MONTHLY", paidAt: { gte: rangeStart } },
+          { concept: "SUBSCRIPTION_ANNUAL", periodEnd: { gt: rangeStart } },
+        ],
+      },
+      select: { amountCents: true, concept: true, paidAt: true, periodStart: true, periodEnd: true },
     }),
     prisma.tenant.findMany({
       where: { createdAt: { gte: rangeStart } },
@@ -76,22 +83,24 @@ export async function getPlatformAnalytics() {
         tenant: { select: { name: true } },
       },
     }),
-    prisma.subscription.findMany({
-      where: { status: { in: ["ACTIVE", "GRACE_PERIOD", "TRIAL"] } },
-      select: { priceCents: true, currency: true, unitsSnapshot: true, tenant: { select: { name: true } } },
-      orderBy: { priceCents: "desc" },
+    prisma.tenantCommercialProfile.findMany({
+      where: { commercialStatus: { in: ["CONVERTED_MONTHLY", "CONVERTED_ANNUAL"] } },
+      select: { postPilotContractPriceCents: true, currency: true, tenant: { select: { name: true, units: true } } },
+      orderBy: { postPilotContractPriceCents: "desc" },
       take: 5,
     }),
-    prisma.subscription.findMany({
-      where: { trialEndsAt: { lt: now } },
-      select: { status: true },
+    prisma.tenantCommercialProfile.findMany({
+      where: { commercialStatus: { in: ["CONVERTED_MONTHLY", "CONVERTED_ANNUAL", "NOT_CONVERTED", "CANCELLED"] } },
+      select: { commercialStatus: true },
     }),
   ]);
 
   const mrrTrend = months.map((m) => {
     const sum = payments
-      .filter((p) => p.paidAt && p.paidAt >= m.start && p.paidAt < m.end)
-      .reduce((acc, p) => acc + p.amountCents, 0);
+      .reduce((acc, p) => {
+        if (p.concept === "SUBSCRIPTION_MONTHLY") return acc + (p.paidAt && p.paidAt >= m.start && p.paidAt < m.end ? p.amountCents : 0);
+        return acc + (p.periodStart < m.end && p.periodEnd > m.start ? Math.round(p.amountCents / 12) : 0);
+      }, 0);
     return { month: m.label, revenueCents: sum };
   });
 
@@ -137,13 +146,13 @@ export async function getPlatformAnalytics() {
 
   const topTenantsByRevenue = topSubscriptions.map((s) => ({
     name: s.tenant.name,
-    units: s.unitsSnapshot,
-    priceCents: s.priceCents,
+    units: s.tenant.units,
+    priceCents: s.postPilotContractPriceCents || 0,
     currency: s.currency,
   }));
 
-  const convertedTrials = trialEndedSubs.filter((s) => s.status === "ACTIVE" || s.status === "GRACE_PERIOD").length;
-  const lostTrials = trialEndedSubs.filter((s) => s.status === "SUSPENDED" || s.status === "CANCELLED").length;
+  const convertedTrials = decidedCommercialProfiles.filter((profile) => profile.commercialStatus === "CONVERTED_MONTHLY" || profile.commercialStatus === "CONVERTED_ANNUAL").length;
+  const lostTrials = decidedCommercialProfiles.filter((profile) => profile.commercialStatus === "NOT_CONVERTED" || profile.commercialStatus === "CANCELLED").length;
   const trialConversionDenominator = convertedTrials + lostTrials;
   const trialConversionRatePercent = trialConversionDenominator > 0 ? Math.round((convertedTrials / trialConversionDenominator) * 100) : null;
 

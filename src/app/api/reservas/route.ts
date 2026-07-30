@@ -50,8 +50,9 @@ export async function GET(req: NextRequest) {
       data: result.data,
       pagination: { page, pageSize, total: result.total, totalPages: Math.ceil(result.total / pageSize) },
     });
-  } catch {
-    return NextResponse.json({ error: "No se pudieron cargar las reservas" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapReservationError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }
 

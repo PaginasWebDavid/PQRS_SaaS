@@ -13,7 +13,8 @@ type LicenseSummary = {
   status: string; autoRenew: boolean; currentPeriodEnd: string; nextPaymentDueDate: string;
   priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot?: number | null; pendingPriceCents?: number | null; pendingCurrency?: string | null; pendingPriceEffectiveAt?: string | null; recentPayments: Payment[];
 };
-type MeData = { tenant?: { name?: string | null; units?: number | null } | null; licenseSummary?: LicenseSummary | null };
+type CommercialSummary = { status: string; pilotAccessEndsAt?: string | null; postPilotPriceCents?: number | null; currency?: string; billingMode?: string | null; contractedPeriodEndsAt?: string | null; implementationType?: string | null; nextAction?: string | null; nextActionDueAt?: string | null };
+type MeData = { tenant?: { name?: string | null; units?: number | null } | null; licenseSummary?: LicenseSummary | null; commercial?: CommercialSummary | null; entitlements?: { reservations: boolean; residentPayments: boolean } | null };
 
 function money(cents = 0, currency = 'COP') { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(cents / 100); }
 function shortDate(value?: string | null) { return value ? new Date(value).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
@@ -101,7 +102,10 @@ export default function ModuloLicenciasPage() {
 
   const statusLabel = license ? (STATUS_LABEL[license.status] || license.status) : 'Sin licencia';
   const statusDot = license ? (STATUS_DOT[license.status] || COLORS.textMuted) : COLORS.textMuted;
-  const needsPayment = license ? NEEDS_PAYMENT.has(license.status) : false;
+  const isPaidPilot = ['PILOT_PREPARATION', 'PILOT_ACTIVE', 'PILOT_EVALUATION'].includes(me?.commercial?.status || '');
+  const needsPayment = license ? NEEDS_PAYMENT.has(license.status) && !isPaidPilot : false;
+  const visibleStatusLabel = isPaidPilot ? 'Piloto guiado' : statusLabel;
+  const activeAddOns = [me?.entitlements?.reservations ? 'Reservas' : null, me?.entitlements?.residentPayments ? 'Pagos de residentes' : null].filter(Boolean) as string[];
 
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="licencias" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Licencias">
@@ -114,13 +118,17 @@ export default function ModuloLicenciasPage() {
             <div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 700, marginBottom: 10 }}>ESTADO DE LICENCIA</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 9, height: 9, borderRadius: 999, background: statusDot }} />
-              <span style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.015em' }}>{statusLabel}</span>
+              <span style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.015em' }}>{visibleStatusLabel}</span>
             </div>
             <div style={{ fontSize: 13, color: COLORS.navyMuted }}>{me?.tenant?.name || 'Conjunto'}</div>
           </div>
           <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Plan de unidades</div><div style={{ fontSize: 16, fontWeight: 800 }}>{license ? `${license.unitsSnapshot} unidades` : '—'}</div></div>
           <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Unidades contratadas</div><div style={{ fontSize: 16, fontWeight: 800 }}>{me?.tenant?.units || license?.unitsSnapshot || '—'}</div></div>
-          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>Próxima renovación</div><div style={{ fontSize: 16, fontWeight: 800 }}>{shortDate(license?.currentPeriodEnd)}</div></div>
+          <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>{isPaidPilot ? 'Finaliza el piloto' : 'Próxima renovación'}</div><div style={{ fontSize: 16, fontWeight: 800 }}>{shortDate(isPaidPilot ? me?.commercial?.pilotAccessEndsAt : license?.currentPeriodEnd)}</div></div>
+        </div>
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.14)', fontSize: 12.5, color: COLORS.navyText, fontWeight: 600 }}>
+          Plan Gestión · {activeAddOns.length ? `Add-ons: ${activeAddOns.join(', ')}` : 'sin add-ons contratados'}
+          {isPaidPilot && me?.commercial?.postPilotPriceCents ? ` · Precio posterior: ${money(me.commercial.postPilotPriceCents, me.commercial.currency || license?.currency)}` : ''}
         </div>
       </div>
 
@@ -157,11 +165,11 @@ export default function ModuloLicenciasPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
-            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(license?.priceCents || 0, license?.currency)}</div>
-            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{isPaidPilot ? 'Precio posterior al piloto' : needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(isPaidPilot ? (me?.commercial?.postPilotPriceCents || 0) : (license?.priceCents || 0), me?.commercial?.currency || license?.currency)}</div>
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
             <button type="button" onClick={() => setDetailOpen((v) => !v)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}>{detailOpen ? 'Ocultar detalle' : 'Ver detalle de factura'}</button>
-            {needsPayment ? (
+            {isPaidPilot ? null : needsPayment ? (
               <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Pagar mensualidad'}</button>
             ) : (
               <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Renovar o actualizar el pago'}</button>
@@ -169,7 +177,7 @@ export default function ModuloLicenciasPage() {
             {detailOpen && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.08)', fontSize: 12.5, color: COLORS.textSecondaryAlt, lineHeight: 1.8 }}>
                 Plan actual — {license ? `${license.unitsSnapshot} unidades` : '—'}<br />
-                Estado — {statusLabel}<br />
+                Estado — {visibleStatusLabel}<br />
                 <strong style={{ color: '#1D1D1F' }}>Total: {money(license?.priceCents || 0, license?.currency)}</strong>
                 {license?.pendingPriceCents != null && license.pendingUnitsSnapshot != null && (
                   <><br />Nueva tarifa desde la proxima renovacion: {money(license.pendingPriceCents, license.pendingCurrency || license.currency)} por {license.pendingUnitsSnapshot} unidades.</>
@@ -178,7 +186,7 @@ export default function ModuloLicenciasPage() {
             )}
           </div>
 
-          <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
+          {!isPaidPilot && <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>Renovación automática</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ width: 8, height: 8, borderRadius: 999, background: license?.autoRenew ? COLORS.success : COLORS.textMuted }} />
@@ -192,7 +200,7 @@ export default function ModuloLicenciasPage() {
             {license?.autoRenew && (
               <button type="button" onClick={disableAutoRenew} disabled={autoRenewLoading} style={{ border: 0, background: 'none', color: COLORS.danger, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{autoRenewLoading ? 'Desactivando…' : 'Desactivar renovación automática'}</button>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 

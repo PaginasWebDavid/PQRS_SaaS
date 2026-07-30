@@ -121,18 +121,14 @@ test("suspending and reactivating a tenant keeps subscription state synchronized
 });
 
 test("renewal activates both the subscription and the previously blocked tenant", async () => {
-  const rule = await prisma.pricingRule.findFirst({
-    where: { isActive: true },
-    orderBy: { minUnits: "asc" },
-  });
-  assert.ok(rule, "Se requiere al menos una regla de precio activa para probar la renovacion");
+  const price = await calculatePriceForUnits(1, "MONTHLY");
 
   const actor = await createActor();
   const tenant = await createTenantWithSubscription({
-    units: rule.minUnits,
+    units: price.units,
     tenantStatus: "PENDING_PAYMENT",
     subscriptionStatus: "PENDING_PAYMENT",
-    priceCents: rule.priceCents,
+    priceCents: price.priceCents,
   });
 
   await renewSubscriptionWithSimulatedPayment({ actorUserId: actor.id, tenantId: tenant.id });
@@ -150,38 +146,36 @@ test("renewal activates both the subscription and the previously blocked tenant"
   );
 });
 test("unit changes schedule the next terms without changing the current charge", async (t) => {
-  const rule = await prisma.pricingRule.findFirst({
-    where: { isActive: true, maxUnits: { not: null } },
-    orderBy: { minUnits: "asc" },
-  });
-  if (!rule || rule.maxUnits === null || rule.maxUnits <= rule.minUnits) {
-    t.skip("Se requiere una regla activa con al menos dos unidades en su rango");
+  const currentPrice = await calculatePriceForUnits(1, "MONTHLY");
+  const nextPrice = await calculatePriceForUnits(2, "MONTHLY");
+  if (!currentPrice || !nextPrice) {
+    t.skip("Se requieren reglas mensuales activas para una y dos unidades");
     return;
   }
 
   const actor = await createActor();
   const tenant = await createTenantWithSubscription({
-    units: rule.minUnits,
+    units: currentPrice.units,
     tenantStatus: "ACTIVE",
     subscriptionStatus: "ACTIVE",
-    priceCents: rule.priceCents,
+    priceCents: currentPrice.priceCents,
   });
   assert.ok(tenant.subscription);
   const currentPeriodEnd = tenant.subscription.currentPeriodEnd;
 
-  await updateTenantDetails(actor.id, tenant.id, { units: rule.minUnits + 1 });
+  await updateTenantDetails(actor.id, tenant.id, { units: nextPrice.units });
   let stored = await prisma.tenant.findUniqueOrThrow({ where: { id: tenant.id }, include: { subscription: true } });
-  assert.equal(stored.units, rule.minUnits + 1);
-  assert.equal(stored.subscription?.unitsSnapshot, rule.minUnits);
-  assert.equal(stored.subscription?.priceCents, rule.priceCents);
-  assert.equal(stored.subscription?.pendingUnitsSnapshot, rule.minUnits + 1);
-  assert.equal(stored.subscription?.pendingPriceCents, rule.priceCents);
+  assert.equal(stored.units, nextPrice.units);
+  assert.equal(stored.subscription?.unitsSnapshot, currentPrice.units);
+  assert.equal(stored.subscription?.priceCents, currentPrice.priceCents);
+  assert.equal(stored.subscription?.pendingUnitsSnapshot, nextPrice.units);
+  assert.equal(stored.subscription?.pendingPriceCents, nextPrice.priceCents);
   assert.equal(stored.subscription?.pendingPriceEffectiveAt?.toISOString(), currentPeriodEnd.toISOString());
 
   await renewSubscriptionWithSimulatedPayment({ actorUserId: actor.id, tenantId: tenant.id });
   stored = await prisma.tenant.findUniqueOrThrow({ where: { id: tenant.id }, include: { subscription: true } });
-  assert.equal(stored.subscription?.unitsSnapshot, rule.minUnits + 1);
-  assert.equal(stored.subscription?.priceCents, rule.priceCents);
+  assert.equal(stored.subscription?.unitsSnapshot, nextPrice.units);
+  assert.equal(stored.subscription?.priceCents, nextPrice.priceCents);
   assert.equal(stored.subscription?.pendingUnitsSnapshot, null);
   assert.equal(stored.subscription?.pendingPriceCents, null);
   assert.equal(stored.subscription?.pendingPriceEffectiveAt, null);
@@ -190,5 +184,5 @@ test("unit changes schedule the next terms without changing the current charge",
     where: { tenantId: tenant.id, actorUserId: actor.id, action: "TENANT_UPDATED" },
     orderBy: { createdAt: "desc" },
   });
-  assert.equal((audit?.metadata as { billingChange?: { nextUnits?: number } } | null)?.billingChange?.nextUnits, rule.minUnits + 1);
+  assert.equal((audit?.metadata as { billingChange?: { nextUnits?: number } } | null)?.billingChange?.nextUnits, nextPrice.units);
 });

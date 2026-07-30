@@ -5,6 +5,7 @@ import { createNotificationIdempotent, NotificationTypes } from "@/domains/notif
 import { getOrCreateUnit, lockChargeIdentity } from "@/domains/payments/payment.service";
 import { hasXlsxSignature, parseChargeImportWorkbook, type ParsedChargeRow } from "@/domains/payments/payment-excel";
 import { MAX_IMPORT_FILE_BYTES, PaymentDomainError } from "@/domains/payments/payment-security";
+import { assertTenantFeatureActive } from "@/domains/commercial/entitlement.service";
 
 const MAX_ERROR_SUMMARY_ENTRIES = 50;
 
@@ -31,6 +32,7 @@ export async function processChargeImportFile({
   buffer: Buffer;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   if (!fileName.toLowerCase().endsWith(".xlsx")) throw new PaymentDomainError("INVALID_FILE_EXTENSION");
   if (buffer.length === 0) throw new PaymentDomainError("FILE_EMPTY");
   if (buffer.length > MAX_IMPORT_FILE_BYTES) throw new PaymentDomainError("FILE_TOO_LARGE");
@@ -158,12 +160,14 @@ async function upsertChargeFromImportRow(
 }
 
 export async function getImportBatchForTenant({ tenantId, batchId }: { tenantId: string; batchId: string }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const batch = await prisma.paymentImportBatch.findFirst({ where: { id: batchId, tenantId } });
   if (!batch) throw new PaymentDomainError("IMPORT_BATCH_NOT_FOUND");
   return batch;
 }
 
 export async function listImportBatchesForTenant({ tenantId }: { tenantId: string }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   return prisma.paymentImportBatch.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 50 });
 }
 

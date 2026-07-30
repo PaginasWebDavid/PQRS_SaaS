@@ -28,6 +28,7 @@ import {
   minutesOfDay,
   parseTimeOfDay,
 } from "@/domains/reservations/reservation-time";
+import { assertTenantFeatureActive } from "@/domains/commercial/entitlement.service";
 
 const OCCUPYING_STATUSES: ReservationStatus[] = ["PENDING", "APPROVED"];
 
@@ -111,6 +112,7 @@ export async function listCommonAreasForTenant({
   tenantId: string;
   includeInactive?: boolean;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   return prisma.commonArea.findMany({
     where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
     orderBy: { name: "asc" },
@@ -124,6 +126,7 @@ export async function getCommonAreaForTenant({
   tenantId: string;
   commonAreaId: string;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   return getCommonAreaOrThrow(tenantId, commonAreaId);
 }
 
@@ -158,6 +161,7 @@ export async function createCommonArea({
   rules?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const normalizedName = normalizeName(name);
   const normalizedDescription = normalizeDescription(description);
   const normalizedRules = normalizeRules(rules);
@@ -239,6 +243,7 @@ export async function updateCommonArea({
   patch: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   assertAllowedKeys(patch, COMMON_AREA_PATCH_KEYS);
   const record = patch as Record<string, unknown>;
 
@@ -325,6 +330,7 @@ export async function getAvailability({
   from: unknown;
   to: unknown;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const area = await getCommonAreaOrThrow(tenantId, commonAreaId);
   const fromDate = parseIsoInstant(from, "INVALID_RANGE");
   const toDate = parseIsoInstant(to, "INVALID_RANGE");
@@ -391,6 +397,7 @@ export async function createReservation({
   notes?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const start = parseIsoInstant(startAt, "INVALID_TIME_WINDOW");
   const end = parseIsoInstant(endAt, "INVALID_TIME_WINDOW");
   if (start.getTime() >= end.getTime()) throw new ReservationDomainError("INVALID_TIME_WINDOW");
@@ -515,6 +522,7 @@ export async function reviewReservation({
   rejectionReason?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const normalizedRejectionReason = decision === "REJECTED" ? normalizeRejectionReason(rejectionReason) : null;
 
   const existing = await prisma.reservation.findFirst({
@@ -615,6 +623,7 @@ export async function cancelReservation({
   reservationId: string;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const isAdmin = actorRole === "ADMIN";
   const scope: Prisma.ReservationWhereInput = isAdmin
     ? { id: reservationId, tenantId }
@@ -672,6 +681,7 @@ export async function listReservationsForTenant({
   page?: number;
   pageSize?: number;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const where: Prisma.ReservationWhereInput = {
     tenantId,
     ...(membershipId ? { membershipId } : {}),
@@ -700,6 +710,7 @@ export async function getReservationForActor({
   membershipId: string | null;
   reservationId: string;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const where: Prisma.ReservationWhereInput = membershipId
     ? { id: reservationId, tenantId, membershipId }
     : { id: reservationId, tenantId };
@@ -730,6 +741,7 @@ export async function createCommonAreaBlock({
   reason: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   const start = parseIsoInstant(startAt, "INVALID_BLOCK_RANGE");
   const end = parseIsoInstant(endAt, "INVALID_BLOCK_RANGE");
   if (start.getTime() >= end.getTime()) throw new ReservationDomainError("INVALID_BLOCK_RANGE");
@@ -775,6 +787,7 @@ export async function createCommonAreaBlock({
 }
 
 export async function listCommonAreaBlocks({ tenantId, commonAreaId }: { tenantId: string; commonAreaId: string }) {
+  await assertTenantFeatureActive(tenantId, "RESERVATIONS");
   await getCommonAreaOrThrow(tenantId, commonAreaId);
   return prisma.commonAreaBlock.findMany({
     where: { tenantId, commonAreaId },

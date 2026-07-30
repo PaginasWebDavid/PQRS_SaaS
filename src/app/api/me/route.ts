@@ -13,6 +13,7 @@ import {
   parseGlobalProfilePatch,
 } from "@/domains/account/account-security";
 import { GLOBAL_USER_PUBLIC_SELECT } from "@/domains/account/account.service";
+import { tenantFeatureMap } from "@/domains/commercial/entitlement.service";
 
 function genericError() {
   return NextResponse.json({ error: "No se pudo procesar la solicitud" }, { status: 500 });
@@ -33,14 +34,32 @@ export async function GET() {
       where: { id: selected.tenantId },
       select: { id: true, name: true, slug: true, city: true, address: true, units: true, status: true },
     }) : null;
-    const [licenseSummary, generalSettings] = await Promise.all([
+    const [licenseSummary, generalSettings, entitlements, commercialProfile] = await Promise.all([
       selected ? getTenantLicenseSummary(selected.tenantId) : Promise.resolve(null),
       getGeneralSettings(),
+      selected ? tenantFeatureMap(selected.tenantId) : Promise.resolve(null),
+      selected ? prisma.tenantCommercialProfile.findUnique({ where: { tenantId: selected.tenantId } }) : Promise.resolve(null),
     ]);
+    const role = context.isSuperAdmin ? "SUPER_ADMIN" : selected?.role ?? null;
+    const commercial = commercialProfile ? role === "ADMIN" || role === "SUPER_ADMIN" ? {
+      status: commercialProfile.commercialStatus,
+      pilotAccessEndsAt: commercialProfile.pilotAccessEndsAt,
+      postPilotPriceCents: commercialProfile.postPilotContractPriceCents || commercialProfile.postPilotListPriceCents,
+      currency: commercialProfile.currency,
+      billingMode: commercialProfile.billingMode,
+      contractedPeriodEndsAt: commercialProfile.contractedPeriodEndsAt,
+      implementationType: commercialProfile.implementationType,
+      nextAction: commercialProfile.nextAction,
+      nextActionDueAt: commercialProfile.nextActionDueAt,
+    } : role === "CONSEJO" ? {
+      status: commercialProfile.commercialStatus,
+      pilotAccessEndsAt: commercialProfile.pilotAccessEndsAt,
+      contractedPeriodEndsAt: commercialProfile.contractedPeriodEndsAt,
+    } : { status: commercialProfile.commercialStatus } : null;
     return NextResponse.json({
       user: {
         ...globalUser,
-        role: context.isSuperAdmin ? "SUPER_ADMIN" : selected?.role ?? null,
+        role,
         tenantId: selected?.tenantId ?? null,
         bloque: selected?.bloque ?? null,
         apto: selected?.apto ?? null,
@@ -53,6 +72,8 @@ export async function GET() {
       selectedTenantId: selected?.tenantId ?? null,
       selectedMembershipId: selected?.id ?? null,
       licenseSummary,
+      commercial,
+      entitlements,
       pqrsCloseSlaDays: generalSettings.pqrsCloseSlaDays,
     });
   } catch {

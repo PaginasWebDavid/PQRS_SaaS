@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { requireActiveTenantUser } from "@/lib/authorization";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { listReceiptsForActor } from "@/domains/payments/payment.service";
+import { mapPaymentError } from "@/domains/payments/payment-security";
 
 const VALID_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"]);
 
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
       status: (statusParam as ReceiptStatus) || undefined,
     });
     return NextResponse.json(receipts);
-  } catch {
-    return NextResponse.json({ error: "No se pudieron cargar los comprobantes" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapPaymentError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }
