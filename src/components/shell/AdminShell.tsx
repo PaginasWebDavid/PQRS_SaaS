@@ -13,17 +13,25 @@ function logout() {
 
 export type NavItem = { href: string; label: string; key: string };
 
+export type AdminProfile = {
+  user?: { name?: string | null; role?: string | null } | null;
+  tenant?: { name?: string | null; status?: string | null; units?: number | null } | null;
+  licenseSummary?: { status?: string | null; currentPeriodEnd?: string | null; priceCents?: number | null; unitsSnapshot?: number | null; nextPaymentDueDate?: string | null } | null;
+  entitlements?: { reservations?: boolean; residentPayments?: boolean } | null;
+};
+
 const BLOCKING_STATUSES = ['PENDING_PAYMENT', 'SUSPENDED', 'CANCELLED'];
 
 export function AdminShell({
-  navItems, activeKey, mobileTitle, children,
+  navItems, activeKey, mobileTitle, children, onProfile,
 }: {
   navItems: NavItem[]; activeKey: string; conjuntoName?: string; licenseActive?: boolean;
-  userName: string; userRole: string; initials: string; mobileTitle: string; children: ReactNode;
+  userName?: string; userRole?: string; initials?: string; mobileTitle: string; children: ReactNode;
+  onProfile?: (profile: AdminProfile | null) => void;
 }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [profile, setProfile] = useState<{ user?: { name?: string | null; role?: string | null }; tenant?: { name?: string | null; status?: string | null }; licenseSummary?: { status?: string | null } | null; entitlements?: { reservations?: boolean; residentPayments?: boolean } | null } | null>(null);
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
@@ -34,8 +42,9 @@ export function AdminShell({
       if (res.status === 401) { logout(); return null; }
       if (!res.ok) throw new Error('profile');
       return res.json();
-    }).then((data) => { if (alive && data) setProfile(data); }).catch(() => { if (alive) setProfileError(true); });
+    }).then((data) => { if (alive && data) { setProfile(data); onProfile?.(data); } }).catch(() => { if (alive) setProfileError(true); });
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const displayName = profile?.user?.name || (profileError ? 'Cuenta no disponible' : 'Cargando…');
