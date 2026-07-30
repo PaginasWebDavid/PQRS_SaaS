@@ -20,6 +20,12 @@ type RevealId =
   | 'faq'
   | 'cta';
 
+const ALL_REVEAL_IDS: RevealId[] = [
+  'heroVisual', 'problem', 'problemCards', 'product',
+  'story1', 'story2', 'story3', 'story4', 'story5',
+  'steps', 'stepsCards', 'pricing', 'pricingCards', 'faq', 'cta',
+];
+
 function Logo({ size = 23 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 128 128" style={{ display: 'block' }} aria-hidden="true">
@@ -56,25 +62,15 @@ function useReveal() {
   const [revealed, setRevealed] = useState<Partial<Record<RevealId, boolean>>>({});
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  const revealAll = useCallback(() => {
+    setRevealed(Object.fromEntries(ALL_REVEAL_IDS.map(id => [id, true])));
+  }, []);
+
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') {
-      setRevealed({
-        heroVisual: true,
-        problem: true,
-        problemCards: true,
-        product: true,
-        story1: true,
-        story2: true,
-        story3: true,
-        story4: true,
-        story5: true,
-        steps: true,
-        stepsCards: true,
-        pricing: true,
-        pricingCards: true,
-        faq: true,
-        cta: true,
-      });
+    const reducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof IntersectionObserver === 'undefined' || reducedMotion) {
+      revealAll();
       return;
     }
 
@@ -91,8 +87,17 @@ function useReveal() {
       { threshold: 0.15 },
     );
 
-    return () => observerRef.current?.disconnect();
-  }, []);
+    // Red de seguridad: si por lo que sea (captura automatizada sin scroll
+    // real, un observer que nunca dispara, etc.) el contenido nunca se
+    // revela por scroll, se muestra de todas formas en vez de quedar
+    // invisible para siempre.
+    const safetyTimer = window.setTimeout(revealAll, 2500);
+
+    return () => {
+      observerRef.current?.disconnect();
+      window.clearTimeout(safetyTimer);
+    };
+  }, [revealAll]);
 
   const revealRef = useCallback(
     (id: RevealId) => (element: HTMLDivElement | null) => {
