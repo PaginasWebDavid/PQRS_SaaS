@@ -27,6 +27,7 @@ import {
   parseIsoDate,
   type ReceiptMimeType,
 } from "@/domains/payments/payment-security";
+import { assertTenantFeatureActive } from "@/domains/commercial/entitlement.service";
 
 const OPEN_RECEIPT_STATUSES: ReceiptStatus[] = ["PENDING"];
 
@@ -109,6 +110,7 @@ export async function createManualCharge({
   dueDate: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const unitInput = normalizeUnit(bloque, apto);
   const normalizedPeriod = normalizePeriod(period);
   const normalizedConcept = normalizeConcept(concept);
@@ -167,6 +169,7 @@ export async function cancelCharge({
   chargeId: string;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   return prisma.$transaction(async (tx) => {
     await lockCharge(tx, tenantId, chargeId);
     const charge = await tx.residentCharge.findFirst({ where: { id: chargeId, tenantId } });
@@ -212,6 +215,7 @@ export async function listChargesForTenant({
   page?: number;
   pageSize?: number;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   let unitId: string | undefined;
   if (membershipId) {
     const unit = await getMembershipUnitOrThrow(tenantId, membershipId);
@@ -253,6 +257,7 @@ export async function getChargeForActor({
   membershipId: string | null;
   chargeId: string;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const residentView = Boolean(membershipId);
   const charge = await prisma.residentCharge.findFirst({
     where: { id: chargeId, tenantId },
@@ -312,6 +317,7 @@ export async function recordManualPayment({
   reference?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const normalizedAmount = normalizeAmountCents(amountCents);
   const normalizedPaidAt = parseIsoDate(paidAt, "INVALID_PAID_AT");
   const normalizedReference = normalizeReference(reference);
@@ -362,6 +368,7 @@ export async function reversePayment({
   reason: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const normalizedReason = normalizeReversalReason(reason);
   const existing = await prisma.residentPayment.findFirst({ where: { id: paymentId, tenantId } });
   if (!existing) throw new PaymentDomainError("CHARGE_NOT_FOUND");
@@ -424,6 +431,7 @@ export async function uploadReceipt({
   declaredAmountCents?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const safeFileName = assertOriginalFileName(fileName);
   const safeMimeType = assertReceiptMimeType(mimeType);
   assertReceiptExtensionMatches(safeFileName, safeMimeType);
@@ -516,6 +524,7 @@ export async function reviewReceipt({
   rejectionReason?: unknown;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const normalizedRejectionReason = decision === "REJECTED" ? normalizeRejectionReason(rejectionReason) : null;
   const normalizedAmount = decision === "APPROVED" ? normalizeAmountCents(amountCents) : null;
   const normalizedPaidAt = decision === "APPROVED" ? parseIsoDate(paidAt, "INVALID_PAID_AT") : null;
@@ -604,6 +613,7 @@ export async function withdrawReceipt({
   receiptId: string;
   origin?: string | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const withdrawn = await prisma.$transaction(async (tx) => {
     const candidate = await tx.paymentReceipt.findFirst({
       where: { id: receiptId, tenantId, membershipId },
@@ -656,6 +666,7 @@ export async function listReceiptsForActor({
   chargeId?: string | null;
   status?: ReceiptStatus | null;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const where: Prisma.PaymentReceiptWhereInput = {
     tenantId,
     ...(membershipId ? { membershipId } : {}),
@@ -680,6 +691,7 @@ export async function getReceiptFileForActor({
   membershipId: string | null;
   receiptId: string;
 }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const scope: Prisma.PaymentReceiptWhereInput =
     actorRole === "ADMIN"
       ? { id: receiptId, tenantId, status: { not: "WITHDRAWN" } }
@@ -785,6 +797,7 @@ async function notifyReceiptReviewed(receipt: {
 // saldos ni comprobantes individuales en este modulo.
 
 export async function getAggregateSummaryForTenant({ tenantId }: { tenantId: string }) {
+  await assertTenantFeatureActive(tenantId, "RESIDENT_PAYMENTS");
   const [byStatus, pendingReceipts] = await Promise.all([
     prisma.residentCharge.groupBy({
       by: ["status"],

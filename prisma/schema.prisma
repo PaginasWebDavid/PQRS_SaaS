@@ -46,6 +46,9 @@ model Tenant {
   residentPayments     ResidentPayment[]
   paymentReceipts      PaymentReceipt[]
   paymentImportBatches PaymentImportBatch[]
+  commercialProfile    TenantCommercialProfile?
+  featureEntitlements  TenantFeatureEntitlement[]
+  commercialOperations CommercialOperation[]
 
   @@index([slug])
   @@index([status])
@@ -245,6 +248,12 @@ enum AuditAction {
   PAYMENT_RECEIPT_WITHDRAWN
   RESIDENT_PAYMENT_RECORDED
   RESIDENT_PAYMENT_REVERSED
+  COMMERCIAL_PROFILE_CHANGED
+  PILOT_PAYMENT_CONFIRMED
+  PILOT_STARTED
+  PILOT_EVALUATION_STARTED
+  PILOT_CONVERTED
+  TENANT_FEATURE_CHANGED
 }
 
 enum SupportTicketStatus {
@@ -574,6 +583,7 @@ model PaymentImportBatch {
 
 model PricingRule {
   id        String   @id @default(cuid())
+  type      PricingRuleType @default(MONTHLY)
   minUnits  Int
   maxUnits  Int?
   priceCents Int
@@ -582,8 +592,13 @@ model PricingRule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([isActive])
-  @@index([minUnits, maxUnits])
+  @@index([type, isActive])
+  @@index([type, minUnits, maxUnits])
+}
+
+enum PricingRuleType {
+  MONTHLY
+  PILOT
 }
 
 model Subscription {
@@ -632,6 +647,9 @@ model Payment {
   subscriptionId    String
   subscription      Subscription    @relation(fields: [subscriptionId], references: [id])
   amountCents       Int
+  concept           PaymentConcept  @default(SUBSCRIPTION_MONTHLY)
+  listAmountCents   Int?
+  discountBps       Int             @default(0)
   currency          String          @default("COP")
   status            PaymentStatus   @default(PENDING)
   provider          PaymentProvider @default(SIMULATED)
@@ -642,6 +660,10 @@ model Payment {
   externalReference    String?
   mercadoPagoPaymentId String?         @unique
   rawStatus            String?
+  operationId          String?
+  requestHash          String?
+  recordedByUserId     String?
+  manualReference      String?
   // Marcador atomico de idempotencia del efecto economico: se fija (via update
   // condicional WHERE approvedEffectAppliedAt IS NULL) la primera vez que un pago
   // APPROVED extiende el periodo. Un APPROVED repetido lo encuentra ya fijado y
@@ -659,6 +681,8 @@ model Payment {
 
   @@index([tenantId])
   @@index([subscriptionId])
+  @@unique([tenantId, operationId])
+  @@index([tenantId, concept, status])
   @@index([status, dueDate])
   @@index([tenantId, status, dueDate])
   @@index([createdAt])
@@ -674,6 +698,184 @@ enum PaymentProvider {
   SIMULATED
   MERCADO_PAGO
   COURTESY
+  MANUAL_TRANSFER
+}
+
+enum PaymentConcept {
+  PILOT
+  SUBSCRIPTION_MONTHLY
+  SUBSCRIPTION_ANNUAL
+  IMPLEMENTATION
+  COURTESY
+}
+
+model TenantCommercialProfile {
+  id                              String                         @id @default(cuid())
+  tenantId                        String                         @unique
+  creationOperationId             String?                        @unique
+  creationRequestHash             String?                        @db.VarChar(64)
+  tenant                          Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  commercialStatus                CommercialStatus               @default(LEGACY_REVIEW)
+  pilotPreparationStartsAt        DateTime?
+  pilotLaunchAt                   DateTime?
+  pilotRealUseStartsAt            DateTime?
+  pilotEvaluationAt               DateTime?
+  decisionDueAt                   DateTime?
+  pilotAccessEndsAt               DateTime?
+  pilotPriceCents                 Int?
+  postPilotListPriceCents         Int?
+  postPilotContractPriceCents     Int?
+  currency                        String                         @default("COP")
+  nextAction                      String?                        @db.VarChar(250)
+  nextActionDueAt                 DateTime?
+  billingMode                     CommercialBillingMode?
+  convertedAt                     DateTime?
+  contractedPeriodEndsAt          DateTime?
+  isFounderCustomer               Boolean                        @default(false)
+  founderNumber                   Int?                           @unique
+  founderGrantedAt                DateTime?
+  priceProtectedUntil             DateTime?
+  implementationFeeWaived         Boolean                        @default(false)
+  discountBps                     Int                            @default(0)
+  discountListPriceCents          Int?
+  discountEffectivePriceCents     Int?
+  discountReason                  String?                        @db.VarChar(500)
+  discountStartsAt                DateTime?
+  discountEndsAt                  DateTime?
+  discountApprovedById            String?
+  implementationType              CommercialImplementationType   @default(STANDARD)
+  implementationListFeeCents      Int                            @default(0)
+  implementationEffectiveFeeCents Int                            @default(0)
+  implementationStatus            CommercialImplementationStatus @default(PENDING)
+  implementationStartsAt          DateTime?
+  implementationCompletedAt       DateTime?
+  referralName                    String?                        @db.VarChar(160)
+  referralContact                 String?                        @db.VarChar(200)
+  referralAgreementType           ReferralAgreementType          @default(NONE)
+  commissionStatus                ReferralCommissionStatus       @default(NOT_APPLICABLE)
+  commissionEligibleCents         Int?
+  commissionEligibleAt            DateTime?
+  commissionPaidAt                DateTime?
+  commissionPaymentReference      String?                        @db.VarChar(160)
+  documentsAcceptedAt             DateTime?
+  pilotPaymentConfirmedAt         DateTime?
+  residentBaseReceivedAt          DateTime?
+  categoriesConfiguredAt          DateTime?
+  administratorInvitedAt          DateTime?
+  trainingCompletedAt             DateTime?
+  smokeTestApprovedAt             DateTime?
+  launchCommunicationSentAt       DateTime?
+  launchExceptionReason           String?                        @db.VarChar(500)
+  manualSupportMinutes            Int                            @default(0)
+  manualOutsideRequests           Int                            @default(0)
+  manualMeetings                  Int                            @default(0)
+  manualObjections                String?                        @db.VarChar(1000)
+  qualitativeFeedback             String?                        @db.VarChar(2000)
+  manualQuoteReason               String?                        @db.VarChar(500)
+  manualQuoteApprovedById         String?
+  manualQuoteApprovedAt           DateTime?
+  commercialNotes                 String?                        @db.VarChar(2000)
+  primaryAdminName                String?                        @db.VarChar(120)
+  primaryAdminEmail               String?                        @db.VarChar(320)
+  primaryAdminPhone               String?                        @db.VarChar(30)
+  createdAt                       DateTime                       @default(now())
+  updatedAt                       DateTime                       @updatedAt
+
+  @@index([commercialStatus])
+  @@index([decisionDueAt])
+  @@index([commissionStatus])
+}
+
+enum CommercialStatus {
+  LEGACY_REVIEW
+  PILOT_PENDING_PAYMENT
+  PILOT_PREPARATION
+  PILOT_ACTIVE
+  PILOT_EVALUATION
+  CONVERTED_MONTHLY
+  CONVERTED_ANNUAL
+  NOT_CONVERTED
+  CANCELLED
+}
+
+enum CommercialBillingMode {
+  MONTHLY
+  ANNUAL
+}
+
+enum CommercialImplementationType {
+  STANDARD
+  ASSISTED
+  FOUNDER_WAIVED
+}
+
+enum CommercialImplementationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  WAIVED
+}
+
+enum ReferralAgreementType {
+  NONE
+  GENERAL
+  FOUNDER_EXCEPTION
+}
+
+enum ReferralCommissionStatus {
+  NOT_APPLICABLE
+  PENDING_CONVERSION
+  PENDING_PAYMENTS
+  ELIGIBLE
+  PAID
+  MANUAL_REVIEW
+  CANCELLED
+}
+
+model TenantFeatureEntitlement {
+  id          String              @id @default(cuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feature     TenantFeature
+  status      TenantFeatureStatus @default(DISABLED)
+  priceCents  Int?
+  currency    String              @default("COP")
+  effectiveAt DateTime?
+  updatedById String?
+  reason      String?             @db.VarChar(500)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([tenantId, feature])
+  @@index([tenantId, status])
+  @@index([feature, status])
+}
+
+enum TenantFeature {
+  RESERVATIONS
+  RESIDENT_PAYMENTS
+}
+
+enum TenantFeatureStatus {
+  DISABLED
+  SETUP
+  ACTIVE
+  SUSPENDED
+}
+
+model CommercialOperation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operationId String
+  action      String   @db.VarChar(80)
+  requestHash String   @db.VarChar(64)
+  result      Json?
+  actorUserId String?
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, operationId])
+  @@index([tenantId, action, createdAt])
 }
 
 // Ledger de ENTREGAS de webhook (no es la garantia economica). Registra cada
@@ -1125,4 +1327,3 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
-

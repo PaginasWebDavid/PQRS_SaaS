@@ -6,7 +6,7 @@ export async function getPlatformStats() {
       prisma.tenant.count(),
       prisma.tenant.count({ where: { status: "ACTIVE" } }),
       prisma.tenant.count({ where: { status: "SUSPENDED" } }),
-      prisma.tenant.count({ where: { status: "TRIAL" } }),
+      prisma.tenantCommercialProfile.count({ where: { commercialStatus: { in: ["PILOT_PENDING_PAYMENT", "PILOT_PREPARATION", "PILOT_ACTIVE", "PILOT_EVALUATION"] } } }),
       prisma.user.count(),
       prisma.pqrs.count(),
       prisma.pqrs.count({ where: { estado: "TERMINADO" } }),

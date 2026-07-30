@@ -42,8 +42,9 @@ export async function GET(req: NextRequest) {
       apto: identity.role === "ADMIN" && aptoParam ? Number(aptoParam) : undefined,
     });
     return NextResponse.json({ data: result.data, total: result.total });
-  } catch {
-    return NextResponse.json({ error: "No se pudieron cargar las obligaciones" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapPaymentError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }
 

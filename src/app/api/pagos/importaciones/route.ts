@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { requireTenantRole } from "@/lib/authorization";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { listImportBatchesForTenant } from "@/domains/payments/payment-import.service";
+import { mapPaymentError } from "@/domains/payments/payment-security";
 
 export async function GET() {
   const session = await auth();
@@ -17,7 +18,8 @@ export async function GET() {
   try {
     const batches = await listImportBatchesForTenant({ tenantId: identity.tenantId });
     return NextResponse.json(batches);
-  } catch {
-    return NextResponse.json({ error: "No se pudieron cargar las importaciones" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapPaymentError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }

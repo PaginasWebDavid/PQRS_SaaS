@@ -21,8 +21,9 @@ export async function GET() {
       includeInactive: identity.role === "ADMIN",
     });
     return NextResponse.json(areas);
-  } catch {
-    return NextResponse.json({ error: "No se pudieron cargar las zonas comunes" }, { status: 500 });
+  } catch (error) {
+    const mapped = mapReservationError(error);
+    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
   }
 }
 

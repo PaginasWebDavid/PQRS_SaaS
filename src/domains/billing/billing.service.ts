@@ -1,5 +1,5 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
-import { AuditAction, BillingOutboxEventType, PaymentStatus, Prisma, SubscriptionStatus } from "@prisma/client";
+import { AuditAction, BillingOutboxEventType, PaymentStatus, Prisma, PricingRuleType, SubscriptionStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { upsertPlatformSetting } from "@/domains/platform/platform-setting.service";
@@ -56,13 +56,14 @@ export async function updatePricingRuleCaps(actorUserId: string, input: { minCen
   return getPricingRuleCaps();
 }
 
-export async function calculatePriceForUnits(units: number) {
+export async function calculatePriceForUnits(units: number, type: PricingRuleType = "MONTHLY") {
   if (!Number.isSafeInteger(units) || units <= 0) {
     throw new Error("Las unidades deben ser un entero positivo");
   }
   const normalizedUnits = units;
   const rule = await prisma.pricingRule.findFirst({
     where: {
+      type,
       isActive: true,
       minUnits: { lte: normalizedUnits },
       OR: [{ maxUnits: null }, { maxUnits: { gte: normalizedUnits } }],
@@ -71,7 +72,7 @@ export async function calculatePriceForUnits(units: number) {
   });
 
   if (!rule) {
-    throw new Error(`No hay regla de precio activa para ${normalizedUnits} unidades`);
+    throw new Error(`No hay regla de precio ${type === "PILOT" ? "de piloto" : "mensual"} activa para ${normalizedUnits} unidades`);
   }
 
   return {
@@ -218,6 +219,7 @@ export async function renewSubscriptionWithSimulatedPayment({
         periodStart,
         periodEnd,
         externalReference,
+        operationId: idempotencyKey,
       },
     });
     await tx.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE", cancelledAt: null } });
@@ -248,6 +250,9 @@ export async function renewSubscriptionWithSimulatedPayment({
         operationId: idempotencyKey,
       },
     });
+    await import("@/domains/commercial/commercial.service")
+      .then(({ refreshReferralCommission }) => refreshReferralCommission(tenantId))
+      .catch(() => undefined);
   }
   return outcome.updated;
 }
@@ -305,7 +310,9 @@ export async function grantCourtesyExtension({
       data: {
         tenantId,
         subscriptionId: subscription.id,
-        amountCents: 0,
+          amountCents: 0,
+          concept: "COURTESY",
+          listAmountCents: 0,
         currency: subscription.currency,
         status: "APPROVED",
         provider: "COURTESY",
@@ -354,8 +361,7 @@ export async function getBillingPlatformOverview() {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const [
-    approvedPayments,
-    lastMonthApprovedPayments,
+    recurringPayments,
     totalApprovedPayments,
     pendingPayments,
     upcomingRenewals,
@@ -363,25 +369,19 @@ export async function getBillingPlatformOverview() {
     churnThisMonth,
     avgCloseTime,
   ] = await Promise.all([
-    prisma.payment.aggregate({
+    prisma.payment.findMany({
       where: {
         status: "APPROVED",
-        provider: { not: "COURTESY" },
-        paidAt: { gte: thisMonthStart, lt: nextMonthStart },
+        concept: { in: ["SUBSCRIPTION_MONTHLY", "SUBSCRIPTION_ANNUAL"] },
+        OR: [
+          { concept: "SUBSCRIPTION_MONTHLY", paidAt: { gte: lastMonthStart, lt: nextMonthStart } },
+          { concept: "SUBSCRIPTION_ANNUAL", periodEnd: { gt: lastMonthStart }, periodStart: { lt: nextMonthStart } },
+        ],
       },
-      _sum: { amountCents: true },
-      _count: true,
+      select: { amountCents: true, concept: true, paidAt: true, periodStart: true, periodEnd: true },
     }),
     prisma.payment.aggregate({
-      where: {
-        status: "APPROVED",
-        provider: { not: "COURTESY" },
-        paidAt: { gte: lastMonthStart, lt: thisMonthStart },
-      },
-      _sum: { amountCents: true },
-    }),
-    prisma.payment.aggregate({
-      where: { status: "APPROVED", provider: { not: "COURTESY" } },
+      where: { status: "APPROVED", concept: { not: "COURTESY" }, provider: { not: "COURTESY" } },
       _sum: { amountCents: true },
     }),
     prisma.payment.count({ where: { status: "PENDING" } }),
@@ -401,8 +401,12 @@ export async function getBillingPlatformOverview() {
     }),
   ]);
 
-  const monthlyRevenueCents = approvedPayments._sum.amountCents || 0;
-  const lastMonthRevenueCents = lastMonthApprovedPayments._sum.amountCents || 0;
+  const recurringRevenueFor = (start: Date, end: Date) => recurringPayments.reduce((sum, payment) => {
+    if (payment.concept === "SUBSCRIPTION_MONTHLY") return sum + (payment.paidAt && payment.paidAt >= start && payment.paidAt < end ? payment.amountCents : 0);
+    return sum + (payment.periodStart < end && payment.periodEnd > start ? Math.round(payment.amountCents / 12) : 0);
+  }, 0);
+  const monthlyRevenueCents = recurringRevenueFor(thisMonthStart, nextMonthStart);
+  const lastMonthRevenueCents = recurringRevenueFor(lastMonthStart, thisMonthStart);
   const mrrGrowthPercent =
     lastMonthRevenueCents > 0
       ? ((monthlyRevenueCents - lastMonthRevenueCents) / lastMonthRevenueCents) * 100
@@ -411,7 +415,7 @@ export async function getBillingPlatformOverview() {
   return {
     monthlyRevenueCents,
     totalRevenueCents: totalApprovedPayments._sum.amountCents || 0,
-    monthlyApprovedPayments: approvedPayments._count,
+    monthlyApprovedPayments: recurringPayments.filter((payment) => payment.concept === "SUBSCRIPTION_MONTHLY" && payment.paidAt && payment.paidAt >= thisMonthStart && payment.paidAt < nextMonthStart).length,
     pendingPayments,
     upcomingRenewals,
     activeLicenses,
@@ -1023,6 +1027,9 @@ export async function getTenantLicenseSummary(tenantId: string) {
       currency: payment.currency,
       status: payment.status,
       provider: payment.provider,
+      concept: payment.concept,
+      listAmountCents: payment.listAmountCents,
+      discountBps: payment.discountBps,
       dueDate: payment.dueDate,
       paidAt: payment.paidAt,
       createdAt: payment.createdAt,
@@ -1040,7 +1047,7 @@ export function pricingRangesOverlap(
 }
 
 async function assertValidPricingRule(
-  candidate: { id?: string; minUnits: number; maxUnits: number | null; priceCents: number },
+  candidate: { id?: string; type: PricingRuleType; minUnits: number; maxUnits: number | null; priceCents: number },
   options: { willBeActive?: boolean } = {}
 ) {
   if (!Number.isSafeInteger(candidate.minUnits) || candidate.minUnits <= 0) {
@@ -1060,7 +1067,7 @@ async function assertValidPricingRule(
   if (options.willBeActive === false) return;
 
   const otherRules = await prisma.pricingRule.findMany({
-    where: candidate.id ? { id: { not: candidate.id }, isActive: true } : { isActive: true },
+    where: candidate.id ? { id: { not: candidate.id }, type: candidate.type, isActive: true } : { type: candidate.type, isActive: true },
   });
 
   for (const other of otherRules) {
@@ -1078,12 +1085,14 @@ async function assertValidPricingRule(
 
 export async function createPricingRule(
   actorUserId: string,
-  input: { minUnits: number; maxUnits: number | null; priceCents: number; currency?: string }
+  input: { type?: PricingRuleType; minUnits: number; maxUnits: number | null; priceCents: number; currency?: string }
 ) {
-  await assertValidPricingRule({ minUnits: input.minUnits, maxUnits: input.maxUnits, priceCents: input.priceCents });
+  const type = input.type || "MONTHLY";
+  await assertValidPricingRule({ type, minUnits: input.minUnits, maxUnits: input.maxUnits, priceCents: input.priceCents });
 
   const rule = await prisma.pricingRule.create({
     data: {
+      type,
       minUnits: input.minUnits,
       maxUnits: input.maxUnits,
       priceCents: input.priceCents,
@@ -1096,7 +1105,7 @@ export async function createPricingRule(
     action: AuditAction.PRICING_RULE_CHANGED,
     targetType: "PricingRule",
     targetId: rule.id,
-    metadata: { change: "created", minUnits: rule.minUnits, maxUnits: rule.maxUnits, priceCents: rule.priceCents },
+    metadata: { change: "created", type: rule.type, minUnits: rule.minUnits, maxUnits: rule.maxUnits, priceCents: rule.priceCents },
   });
 
   return rule;
@@ -1117,6 +1126,7 @@ export async function updatePricingRule(
 
   await assertValidPricingRule({
     id: ruleId,
+    type: existing.type,
     minUnits: data.minUnits ?? existing.minUnits,
     maxUnits: data.maxUnits !== undefined ? data.maxUnits : existing.maxUnits,
     priceCents: data.priceCents ?? existing.priceCents,

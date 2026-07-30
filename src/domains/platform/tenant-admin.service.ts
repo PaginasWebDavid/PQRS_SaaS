@@ -41,6 +41,8 @@ export async function listTenantsForSuperAdmin() {
     orderBy: { createdAt: "desc" },
     include: {
       subscription: true,
+      commercialProfile: true,
+      featureEntitlements: { orderBy: { feature: "asc" } },
       memberships: {
         where: { role: "ADMIN" },
         select: { user: { select: { id: true, name: true, email: true } } },
@@ -75,6 +77,8 @@ export async function getTenantDetailForSuperAdmin(tenantId?: string | null) {
         orderBy: { createdAt: "desc" },
       },
       subscription: { include: { payments: { orderBy: { createdAt: "desc" }, take: 5 } } },
+      commercialProfile: true,
+      featureEntitlements: { orderBy: { feature: "asc" } },
       pqrs: {
         select: { id: true, numero: true, asunto: true, estado: true, nombreResidente: true, createdAt: true },
         orderBy: { createdAt: "desc" }, take: 8,
@@ -350,7 +354,7 @@ export async function updateTenantDetails(
 ) {
   const existing = await prisma.tenant.findUniqueOrThrow({
     where: { id: tenantId },
-    include: { subscription: true },
+    include: { subscription: true, commercialProfile: true },
   });
   const data: { name?: string; city?: string | null; units?: number } = {};
   if (input.name !== undefined) {
@@ -369,11 +373,19 @@ export async function updateTenantDetails(
   }
 
   const subscription = existing.subscription;
+  const priceProtectionActive = Boolean(
+    unitsChanged &&
+    existing.commercialProfile?.isFounderCustomer &&
+    existing.commercialProfile.priceProtectedUntil &&
+    existing.commercialProfile.priceProtectedUntil > new Date()
+  );
   if (unitsChanged && !subscription) {
     throw new Error("El conjunto no tiene una suscripcion para programar la nueva tarifa");
   }
 
-  const calculatedTerms = unitsChanged ? await calculatePriceForUnits(input.units as number) : null;
+  const calculatedTerms = unitsChanged && !priceProtectionActive
+    ? await calculatePriceForUnits(input.units as number)
+    : null;
   const currentTerms = subscription
     ? { units: subscription.unitsSnapshot, priceCents: subscription.priceCents, currency: subscription.currency }
     : null;
@@ -383,7 +395,9 @@ export async function updateTenantDetails(
     calculatedTerms.currency !== currentTerms.currency
   ) ? calculatedTerms : null;
   const providerTerms = scheduledTerms || currentTerms;
-  const shouldSyncProvider = Boolean(unitsChanged && subscription?.mercadoPagoPreapprovalId && providerTerms);
+  const shouldSyncProvider = Boolean(
+    unitsChanged && !priceProtectionActive && subscription?.mercadoPagoPreapprovalId && providerTerms
+  );
 
   if (shouldSyncProvider && subscription?.mercadoPagoPreapprovalId && providerTerms) {
     await updateMercadoPagoPreapprovalAmount({
@@ -397,7 +411,7 @@ export async function updateTenantDetails(
     const tenant = await prisma.$transaction(async (tx) => {
       const updatedTenant = await tx.tenant.update({ where: { id: tenantId }, data });
 
-      if (unitsChanged && subscription) {
+      if (unitsChanged && subscription && !priceProtectionActive) {
         await tx.subscription.update({
           where: { id: subscription.id },
           data: scheduledTerms
@@ -413,6 +427,16 @@ export async function updateTenantDetails(
                 pendingCurrency: null,
                 pendingPriceEffectiveAt: null,
               },
+        });
+      }
+
+      if (priceProtectionActive && existing.commercialProfile) {
+        await tx.tenantCommercialProfile.update({
+          where: { tenantId },
+          data: {
+            nextAction: "Revisar cambio de unidades durante proteccion de precio",
+            nextActionDueAt: new Date(),
+          },
         });
       }
 
@@ -435,6 +459,8 @@ export async function updateTenantDetails(
                   scheduledPriceCents: scheduledTerms?.priceCents || null,
                   effectiveAt: subscription?.currentPeriodEnd.toISOString() || null,
                   mercadoPagoSynchronized: shouldSyncProvider,
+                  priceProtectionActive,
+                  requiresCommercialReview: priceProtectionActive,
                 }
               : null,
           },

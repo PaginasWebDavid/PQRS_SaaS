@@ -1286,6 +1286,11 @@ async function upsertMercadoPagoPayment({
         }
   );
 
+  if (payment.status === PaymentStatus.APPROVED && payment.concept === "SUBSCRIPTION_MONTHLY") {
+    await import("@/domains/commercial/commercial.service")
+      .then(({ refreshReferralCommission }) => refreshReferralCommission(payment.tenantId))
+      .catch(() => undefined);
+  }
   return payment;
 }
 

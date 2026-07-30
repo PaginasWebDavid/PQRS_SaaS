@@ -1,4 +1,5 @@
 import type { Role } from "@prisma/client";
+import { FeatureUnavailableError } from "@/domains/commercial/entitlement.service";
 
 export const PAYMENT_ADMIN_ROLES: Role[] = ["ADMIN"];
 export const PAYMENT_READ_ROLES: Role[] = ["ADMIN", "RESIDENTE"];
@@ -130,6 +131,7 @@ export class PaymentDomainError extends Error {
 }
 
 export function mapPaymentError(error: unknown) {
+  if (error instanceof FeatureUnavailableError) return { status: 403, message: error.message, code: "FEATURE_UNAVAILABLE" as const };
   if (error instanceof PaymentDomainError) {
     return { status: PUBLIC_STATUSES[error.code], message: PUBLIC_MESSAGES[error.code], code: error.code };
   }

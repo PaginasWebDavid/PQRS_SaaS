@@ -32,7 +32,15 @@ const NOT_PDF_BUFFER = Buffer.from("this is not a pdf at all, just plain text");
 
 async function createTenant(prefix: string) {
   const n = nextSeq();
-  return prisma.tenant.create({ data: { name: `${prefix} ${n}`, slug: `${RUN}-${prefix.toLowerCase()}-${n}` } });
+  return prisma.tenant.create({
+    data: {
+      name: `${prefix} ${n}`,
+      slug: `${RUN}-${prefix.toLowerCase()}-${n}`,
+      featureEntitlements: {
+        create: { feature: "RESIDENT_PAYMENTS", status: "ACTIVE", reason: "Fixture de pagos" },
+      },
+    },
+  });
 }
 
 async function createMember(
