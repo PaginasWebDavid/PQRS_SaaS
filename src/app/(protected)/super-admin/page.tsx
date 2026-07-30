@@ -321,8 +321,48 @@ export default function DashboardSuperAdminPage() {
         return { text: `Solicitud de soporte respondida — ${tenantName}`, color: COLORS.success };
       case 'SUPPORT_TICKET_CLOSED':
         return { text: `Solicitud de soporte cerrada — ${tenantName}`, color: COLORS.textSecondaryAlt };
-      default:
-        return { text: `${entry.action.replaceAll('_', ' ').toLowerCase()}${entry.targetType ? ` · ${entry.targetType}` : ''}`, color: COLORS.textMuted };
+      case 'REPORT_GENERATED':
+        return { text: `Se generó un reporte — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'REPORT_EXPORTED':
+        return { text: `Se exportó un reporte — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'EMAIL_SENT':
+        return { text: `Correo enviado — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'EMAIL_FAILED':
+        return { text: `Falló el envío de un correo — ${tenantName}`, color: COLORS.danger };
+      case 'NOTIFICATION_CREATED':
+        return { text: `Nueva notificación generada — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'PQRS_CREATED':
+        return { text: `Nueva PQRS radicada — ${tenantName}`, color: COLORS.navy };
+      case 'PQRS_UPDATED':
+        return { text: `PQRS actualizada — ${tenantName}`, color: COLORS.navy };
+      case 'PQRS_CLOSED':
+        return { text: `PQRS cerrada — ${tenantName}`, color: COLORS.success };
+      case 'USER_UPDATED':
+        return { text: `Usuario editado — ${tenantName}`, color: COLORS.navy };
+      case 'USER_DEACTIVATED':
+        return { text: `Usuario desactivado — ${tenantName}`, color: COLORS.warning };
+      case 'USER_REACTIVATED':
+        return { text: `Usuario reactivado — ${tenantName}`, color: COLORS.success };
+      case 'PAYMENT_SIMULATED':
+        return { text: `Pago simulado — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'PAYMENT_RECONCILED':
+        return { text: `Pago reconciliado — ${tenantName}`, color: COLORS.success };
+      case 'SUBSCRIPTION_PAYMENT_FAILED':
+        return { text: `Falló un pago de licencia — ${tenantName}`, color: COLORS.danger };
+      case 'COMMERCIAL_PROFILE_CHANGED':
+        return { text: `Se actualizó el perfil comercial — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'INVITATION_CREATED':
+        return { text: `Invitación enviada — ${tenantName}`, color: COLORS.navy };
+      case 'INVITATION_RESENT':
+        return { text: `Invitación reenviada — ${tenantName}`, color: COLORS.navy };
+      case 'INVITATION_CANCELLED':
+        return { text: `Invitación cancelada — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'INVITATION_EXPIRED':
+        return { text: `Invitación expirada — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      default: {
+        const readable = entry.action.split('_').map((w) => w[0] + w.slice(1).toLowerCase()).join(' ');
+        return { text: `${readable}${entry.targetType ? ` · ${entry.targetType}` : ''}`, color: COLORS.textMuted };
+      }
     }
   };
 
@@ -944,19 +984,36 @@ export default function DashboardSuperAdminPage() {
   const quotedPilotRule = tiers.find((rule) => rule.type === 'PILOT' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
   const quotedMonthlyRule = tiers.find((rule) => rule.type === 'MONTHLY' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
   const alertTenants = tenants.filter((t) => t.group === 'grace' || t.group === 'trial' || t.group === 'pending_payment');
-  const kpis = [
-    { label: 'Total conjuntos', value: String(stats.totalTenants), color: COLORS.textPrimary },
-    { label: 'Activos', value: String(stats.activeTenants), color: COLORS.success },
-    { label: 'Suspendidos', value: String(stats.suspendedTenants), color: COLORS.textSecondaryAlt },
-    { label: 'En prueba', value: String(stats.trialTenants), color: COLORS.navy },
-    { label: 'Usuarios registrados', value: String(stats.totalUsers), color: COLORS.navy },
-    { label: 'PQRS abiertas', value: String(Math.max(0, stats.totalPqrs - stats.closedPqrs)), color: COLORS.warning },
-    { label: 'PQRS cerradas', value: String(stats.closedPqrs), color: COLORS.success },
-    { label: 'Ingresos MRR', value: billing ? formatMoney(billing.monthlyRevenueCents) : '', color: COLORS.success },
-    { label: 'Pagos recibidos (mes)', value: billing ? formatMoney(billing.monthlyRevenueCents) : '', color: COLORS.success },
-    { label: 'Pagos pendientes', value: String(billing?.pendingPayments ?? 0), color: COLORS.warning },
-    { label: 'Renovaciones próx.', value: String(billing?.upcomingRenewals ?? 0), color: COLORS.navy },
-    { label: 'Alertas', value: String(alertTenants.length), color: alertTenants.length > 0 ? COLORS.warning : COLORS.textPrimary },
+  const primaryKpis = [
+    { label: 'Total conjuntos', value: String(stats.totalTenants), color: COLORS.textPrimary, href: 'conjuntos' as const },
+    { label: 'Ingresos MRR', value: billing ? formatMoney(billing.monthlyRevenueCents) : '—', color: COLORS.success, href: 'financiero' as const },
+    { label: 'Alertas activas', value: String(alertTenants.length), color: alertTenants.length > 0 ? COLORS.warning : COLORS.textPrimary, href: null },
+  ];
+  const kpiGroups: { title: string; items: { label: string; value: string; color: string }[] }[] = [
+    {
+      title: 'Conjuntos',
+      items: [
+        { label: 'Activos', value: String(stats.activeTenants), color: COLORS.success },
+        { label: 'En prueba', value: String(stats.trialTenants), color: COLORS.navy },
+        { label: 'Suspendidos', value: String(stats.suspendedTenants), color: COLORS.textSecondaryAlt },
+      ],
+    },
+    {
+      title: 'Personas y PQRS',
+      items: [
+        { label: 'Usuarios registrados', value: String(stats.totalUsers), color: COLORS.navy },
+        { label: 'PQRS abiertas', value: String(Math.max(0, stats.totalPqrs - stats.closedPqrs)), color: COLORS.warning },
+        { label: 'PQRS cerradas', value: String(stats.closedPqrs), color: COLORS.success },
+      ],
+    },
+    {
+      title: 'Facturación',
+      items: [
+        { label: 'Pagos aprobados (mes)', value: String(billing?.monthlyApprovedPayments ?? 0), color: COLORS.success },
+        { label: 'Pagos pendientes', value: String(billing?.pendingPayments ?? 0), color: COLORS.warning },
+        { label: 'Renovaciones próx.', value: String(billing?.upcomingRenewals ?? 0), color: COLORS.navy },
+      ],
+    },
   ];
   const q = search.trim().toLowerCase();
   const filteredTenants = tenants.filter((t) => (filter === 'all' || t.group === filter) && (!q || t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q)));
@@ -1032,11 +1089,33 @@ export default function DashboardSuperAdminPage() {
         <div className="apl-up">
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Resumen de la plataforma</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>{loading ? 'Cargando datos reales...' : stats.totalTenants + ' conjuntos administrados'}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
-            {kpis.map((k) => (
-              <div key={k.label} style={{ background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: 15 }}>
-                <div style={{ fontSize: 10.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
-                <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.015em', color: k.color }}>{k.value}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+            {primaryKpis.map((k) => (
+              <button
+                key={k.label}
+                type="button"
+                onClick={k.href ? () => setNav(k.href as string) : undefined}
+                disabled={!k.href}
+                style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: '18px 20px', textAlign: 'left', border: 'none', font: 'inherit', cursor: k.href ? 'pointer' : 'default' }}
+              >
+                <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', color: k.color }}>{k.value}</div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+            {kpiGroups.map((group) => (
+              <div key={group.title} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 10 }}>{group.title}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {group.items.map((item) => (
+                    <div key={item.label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                      <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500 }}>{item.label}</span>
+                      <span style={{ fontSize: 14.5, fontWeight: 800, color: item.color, flexShrink: 0 }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -1068,14 +1147,31 @@ export default function DashboardSuperAdminPage() {
                   <span style={{ fontSize: 15, fontWeight: 800 }}>Conjuntos recientes</span>
                   <button type="button" onClick={() => setNav('conjuntos')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver todos ›</button>
                 </div>
+                {!isMobile && tenants.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 140px', gap: 14, padding: '10px 22px', fontSize: 10.5, fontWeight: 700, color: COLORS.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                    <span>Conjunto</span>
+                    <span style={{ textAlign: 'right' }}>Unidades</span>
+                    <span style={{ textAlign: 'right' }}>Estado</span>
+                  </div>
+                )}
                 {tenants.length === 0 ? (
                   <div style={{ padding: '40px 22px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>{loading ? 'Cargando conjuntos…' : 'Aún no hay conjuntos registrados.'}</div>
+                ) : isMobile ? (
+                  tenants.slice(0, 5).map((t) => (
+                    <button key={t.id} type="button" onClick={() => setSelectedId(t.id)} style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', cursor: 'pointer', background: 'none', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, borderRadius: 0, font: 'inherit', textAlign: 'left' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                        <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{t.units} unidades</div>
+                      </div>
+                      <span style={{ ...TENANT_BADGE[t.group], flexShrink: 0 }}>{TENANT_LABEL[t.group]}</span>
+                    </button>
+                  ))
                 ) : (
                   tenants.slice(0, 5).map((t) => (
-                    <button key={t.id} type="button" onClick={() => setSelectedId(t.id)} style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 14, padding: '14px 22px', cursor: 'pointer', background: 'none', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, borderRadius: 0, font: 'inherit', textAlign: 'left' }}>
-                      <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 56 }}>{t.units}</span>
-                      <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
+                    <button key={t.id} type="button" onClick={() => setSelectedId(t.id)} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 140px', width: '100%', alignItems: 'center', gap: 14, padding: '14px 22px', cursor: 'pointer', background: 'none', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, borderRadius: 0, font: 'inherit', textAlign: 'left' }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, textAlign: 'right' }}>{t.units}</span>
+                      <span style={{ textAlign: 'right' }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></span>
                     </button>
                   ))
                 )}
