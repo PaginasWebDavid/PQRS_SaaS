@@ -299,9 +299,9 @@ export default function PqrsLandingPage() {
   ];
 
   const pricingTiers = [
-    { label: 'Conjuntos pequeños', range: '50–100', popular: false },
-    { label: 'El más común', range: '101–300', popular: true },
-    { label: 'Alto volumen', range: '301–500', popular: false },
+    { label: 'Conjuntos pequeños', range: '50-100', popular: false },
+    { label: 'El más común', range: '101-300', popular: true },
+    { label: 'Alto volumen', range: '301-500', popular: false },
     { label: 'Gran escala', range: '501+', popular: false },
   ].map(tier => ({
     ...tier,
@@ -381,14 +381,19 @@ export default function PqrsLandingPage() {
         ::selection { background: #EAEEF6; color: #122545; }
         a { color: #122545; }
         a:hover { color: #0B1A33; }
-        @keyframes apl-up { from { opacity:0; transform: translateY(28px); } to { opacity:1; transform: translateY(0); } }
-        @keyframes apl-feed { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes landing-reveal { from { opacity:0; transform: translateY(28px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes landing-feed { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
         .nav-link:hover { color:#1D1D1F !important; }
         .primary-pill:hover { background:#0B1A33 !important; transform:scale(1.03); }
         .soft-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,0.08) !important; }
         .pricing-card:hover { transform:translateY(-4px); box-shadow:0 14px 36px rgba(0,0,0,0.1) !important; }
         .opacity-hover:hover { opacity:0.85; }
         .arrow-link:hover { gap:9px !important; }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes landing-reveal { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes landing-feed { from { opacity: 0; } to { opacity: 1; } }
+          .primary-pill:hover, .soft-card:hover, .pricing-card:hover { transform: none !important; }
+        }
       `}</style>
 
       <div
@@ -563,7 +568,7 @@ export default function PqrsLandingPage() {
                 justifyContent: 'center',
                 gap: 9,
                 marginBottom: 18,
-                animation: 'apl-up 800ms cubic-bezier(.2,.7,.2,1) both',
+                animation: 'landing-reveal 800ms cubic-bezier(.2,.7,.2,1) both',
               }}
             >
               <Logo size={26} />
@@ -577,7 +582,7 @@ export default function PqrsLandingPage() {
                 letterSpacing: '-0.03em',
                 margin: '0 0 22px',
                 color: '#1D1D1F',
-                animation: 'apl-up 800ms 80ms cubic-bezier(.2,.7,.2,1) both',
+                animation: 'landing-reveal 800ms 80ms cubic-bezier(.2,.7,.2,1) both',
               }}
             >
               La gestión de tu conjunto,
@@ -592,7 +597,7 @@ export default function PqrsLandingPage() {
                 color: '#6E6E73',
                 margin: '0 auto 30px',
                 maxWidth: 560,
-                animation: 'apl-up 800ms 160ms cubic-bezier(.2,.7,.2,1) both',
+                animation: 'landing-reveal 800ms 160ms cubic-bezier(.2,.7,.2,1) both',
               }}
             >
               Toda solicitud queda radicada, asignada y cerrada con evidencia. Sin WhatsApp. Sin Excel. Sin correos perdidos.
@@ -603,7 +608,7 @@ export default function PqrsLandingPage() {
                 gap: 14,
                 justifyContent: 'center',
                 flexWrap: 'wrap',
-                animation: 'apl-up 800ms 240ms cubic-bezier(.2,.7,.2,1) both',
+                animation: 'landing-reveal 800ms 240ms cubic-bezier(.2,.7,.2,1) both',
               }}
             >
               <a
@@ -762,7 +767,7 @@ export default function PqrsLandingPage() {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                         {appTimeline.map(item => (
-                          <div key={item.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', animation: 'apl-feed 400ms ease both' }}>
+                          <div key={item.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', animation: 'landing-feed 400ms ease both' }}>
                             <div style={{ width: 5, height: 5, borderRadius: 999, background: '#C7C7CC', marginTop: 5, flexShrink: 0 }} />
                             <div>
                               <div style={{ fontSize: 11, color: '#1D1D1F', lineHeight: 1.4 }}>{item.text}</div>
@@ -860,7 +865,7 @@ export default function PqrsLandingPage() {
                   Ninguna zona gris.
                 </h3>
                 <p style={{ fontSize: 15, color: '#B7C1D6', fontWeight: 500, lineHeight: 1.6, margin: 0 }}>
-                  Radicada, recibida, en revisión, en proceso, terminada. Todos —administración, consejo y residente— ven el mismo estado, al mismo tiempo.
+                  Radicada, recibida, en revisión, en proceso, terminada. Todos (administración, consejo y residente) ven el mismo estado, al mismo tiempo.
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', paddingBottom: 6 }}>
@@ -1050,7 +1055,6 @@ export default function PqrsLandingPage() {
         <section id="como-funciona" style={{ background: '#F5F5F7' }}>
           <div style={{ maxWidth: 800, margin: '0 auto', padding: sizes.sectionPadding, textAlign: 'center' }}>
             <div ref={revealRef('steps')} style={revealStyle('steps')}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#122545', marginBottom: 14 }}>Cómo empieza</div>
               <h2 style={{ fontSize: sizes.h2Size, fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.025em', margin: '0 0 18px' }}>
                 Operando en menos
                 <br />
@@ -1077,7 +1081,6 @@ export default function PqrsLandingPage() {
         <section id="precios">
           <div style={{ maxWidth: 800, margin: '0 auto', padding: sizes.sectionPadding, textAlign: 'center' }}>
             <div ref={revealRef('pricing')} style={revealStyle('pricing')}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#122545', marginBottom: 14 }}>Precios</div>
               <h2 style={{ fontSize: sizes.h2Size, fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.025em', margin: '0 0 18px' }}>
                 Un precio por conjunto.
                 <br />
@@ -1144,7 +1147,6 @@ export default function PqrsLandingPage() {
         <section id="faq" style={{ background: '#F5F5F7' }}>
           <div style={{ maxWidth: 680, margin: '0 auto', padding: isMobile ? '72px 22px 72px' : '110px 22px 110px' }}>
             <div ref={revealRef('faq')} style={{ textAlign: 'center', marginBottom: sizes.blockGap, ...revealStyle('faq') }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#122545', marginBottom: 14 }}>Preguntas frecuentes</div>
               <h2 style={{ fontSize: sizes.h2Size, fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.025em', margin: 0 }}>
                 Lo que siempre
                 <br />
