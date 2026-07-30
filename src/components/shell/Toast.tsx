@@ -18,10 +18,32 @@ export function useToast() {
 }
 
 export function Toast({ message, bottom = 24 }: { message: string; bottom?: number }) {
-  if (!message) return null;
+  const [rendered, setRendered] = useState(Boolean(message));
+  const [closing, setClosing] = useState(false);
+  const lastMessage = useRef(message);
+  if (message) lastMessage.current = message;
+
+  // Anima la salida antes de desmontar en vez de desaparecer de golpe
+  // (AUDIT.md categoria 4/8: entrada y salida deben ser simetricas).
+  useEffect(() => {
+    if (message) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (!rendered) return;
+    setClosing(true);
+    const timer = window.setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [message, rendered]);
+
+  if (!rendered) return null;
   return (
     <div
-      className="apl-sheet"
+      className={closing ? 'apl-fade-out' : 'apl-sheet'}
       style={{
         position: 'fixed', bottom, left: '50%', transform: 'translateX(-50%)',
         background: COLORS.toastBg, color: '#FFFFFF', fontSize: 13.5, fontWeight: 600,
@@ -29,7 +51,7 @@ export function Toast({ message, bottom = 24 }: { message: string; bottom?: numb
         boxShadow: '0 12px 32px rgba(0,0,0,0.25)', whiteSpace: 'nowrap',
       }}
     >
-      {message}
+      {lastMessage.current}
     </div>
   );
 }
