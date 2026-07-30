@@ -394,13 +394,14 @@ function ModuloPqrsPageContent() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
           {data.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
-          {data.map((p) => (
+          {data.map((p, i) => (
             isMobile ? (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setSelectedId(p.id)}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 18px', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
+                className="apl-up"
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 18px', border: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit', animationDelay: `${Math.min(i, 9) * 30}ms` }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.titulo || 'Solicitud'}</div>
@@ -417,7 +418,8 @@ function ModuloPqrsPageContent() {
                 key={p.id}
                 type="button"
                 onClick={() => setSelectedId(p.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
+                className="apl-up"
+                style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit', animationDelay: `${Math.min(i, 9) * 30}ms` }}
               >
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Pendiente'}</span>
                 <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>

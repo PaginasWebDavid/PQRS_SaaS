@@ -276,7 +276,7 @@ export default function VistaResidentePage() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
           {[['all', 'Todas'], ['abiertas', 'Recibidas'], ['gestion', 'En gestión'], ['resuelta', 'Resueltas']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
-        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row) => <PqrsCard key={row.id} row={row} onClick={() => openDetail(row.id)} />)}
+        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row, i) => <PqrsCard key={row.id} row={row} index={i} onClick={() => openDetail(row.id)} />)}
         {!loading && !loadError && pqrsTotal > PQRS_PAGE_SIZE && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
             <button type='button' disabled={pqrsPage <= 1} onClick={() => void loadPqrs(pqrsPage - 1, filter, search)} style={{ ...secondary, width: 'auto', minWidth: 100, opacity: pqrsPage <= 1 ? 0.5 : 1 }}>Anterior</button>
@@ -444,10 +444,10 @@ function Timeline({ steps }: { steps: Step[] }) {
     </div>
   );
 }
-function PqrsCard({ row, onClick }: { row: Pqrs; onClick: () => void }) {
+function PqrsCard({ row, index = 0, onClick }: { row: Pqrs; index?: number; onClick: () => void }) {
   const titulo = row.titulo || row.descripcion.slice(0, 60) || 'Solicitud';
   return (
-    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: COLORS.bg, borderRadius: RADIUS.cardSm, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>
+    <button onClick={onClick} className="apl-up" style={{ width: '100%', textAlign: 'left', border: '1px solid ' + COLORS.border, background: COLORS.bg, borderRadius: RADIUS.cardSm, padding: '16px 18px', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit', animationDelay: `${Math.min(index, 9) * 30}ms` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
         <b style={{ fontSize: 14 }}>{titulo}</b>
         <span style={{ ...badgeOf(row.estado), flexShrink: 0 }}>{label(row.estado)}</span>

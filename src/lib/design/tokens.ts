@@ -67,19 +67,20 @@ export function badgeStyle(bg: string, color: string): React.CSSProperties {
     borderRadius: RADIUS.pill,
     whiteSpace: 'nowrap',
     display: 'inline-block',
+    transition: 'background 200ms ease, color 200ms ease',
   };
 }
 
 export function tabStyle(active: boolean): React.CSSProperties {
   return active
-    ? { fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: '#1D1D1F', padding: '7px 14px', borderRadius: RADIUS.pill, cursor: 'pointer' }
-    : { fontSize: 12.5, fontWeight: 600, color: COLORS.textSecondary, background: COLORS.bgCard, padding: '7px 14px', borderRadius: RADIUS.pill, cursor: 'pointer' };
+    ? { fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: '#1D1D1F', padding: '7px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', transition: 'background 200ms ease, color 200ms ease' }
+    : { fontSize: 12.5, fontWeight: 600, color: COLORS.textSecondary, background: COLORS.bgCard, padding: '7px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', transition: 'background 200ms ease, color 200ms ease' };
 }
 
 export function chipStyle(active: boolean): React.CSSProperties {
   return active
-    ? { fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: COLORS.navy, padding: '9px 15px', borderRadius: RADIUS.pill, cursor: 'pointer' }
-    : { fontSize: 12.5, fontWeight: 600, color: COLORS.textPrimary, background: COLORS.bgCard, padding: '9px 15px', borderRadius: RADIUS.pill, cursor: 'pointer' };
+    ? { fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', background: COLORS.navy, padding: '9px 15px', borderRadius: RADIUS.pill, cursor: 'pointer', transition: 'background 200ms ease, color 200ms ease' }
+    : { fontSize: 12.5, fontWeight: 600, color: COLORS.textPrimary, background: COLORS.bgCard, padding: '9px 15px', borderRadius: RADIUS.pill, cursor: 'pointer', transition: 'background 200ms ease, color 200ms ease' };
 }
 
 export function toggleTrackStyle(on: boolean): React.CSSProperties {
