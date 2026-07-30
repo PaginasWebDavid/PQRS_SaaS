@@ -1,6 +1,7 @@
 "use client";
 
-import React, { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 type RevealId =
   | 'heroVisual'
@@ -18,20 +19,6 @@ type RevealId =
   | 'pricingCards'
   | 'faq'
   | 'cta';
-
-type AppRow = {
-  subject: string;
-  meta: string;
-  status: string;
-  dot: string;
-  badgeStyle: CSSProperties;
-};
-
-type TimelineItem = {
-  text: string;
-  time: string;
-  key: string;
-};
 
 function Logo({ size = 23 }: { size?: number }) {
   return (
@@ -133,94 +120,10 @@ export default function PqrsLandingPage() {
   const { revealRef, revealStyle } = useReveal();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
-  const [feedTick, setFeedTick] = useState(0);
 
   useEffect(() => {
     if (!isMobile) setMenuOpen(false);
   }, [isMobile]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setFeedTick(value => value + 1), 3600);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const badge = (background: string, color: string): CSSProperties => ({
-    background,
-    color,
-    fontSize: 9.5,
-    fontWeight: 700,
-    padding: '3px 9px',
-    borderRadius: 999,
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  });
-
-  const appRows: AppRow[] = useMemo(
-    () => [
-      {
-        subject: 'Ruido excesivo torre 3',
-        meta: 'C. Ramírez · hoy',
-        status: 'Abierta',
-        dot: '#E8A13A',
-        badgeStyle: badge('#FBF3DF', '#8A5A00'),
-      },
-      {
-        subject: 'Fuga de agua zona común',
-        meta: 'M. Torres · ayer',
-        status: 'En proceso',
-        dot: '#122545',
-        badgeStyle: badge('#EAEEF6', '#122545'),
-      },
-      {
-        subject: 'Solicitud de certificado',
-        meta: 'A. Gómez · 2 días',
-        status: 'Terminada',
-        dot: '#1A6B3A',
-        badgeStyle: badge('#ECF6EF', '#1A6B3A'),
-      },
-      {
-        subject: 'Daño en parqueadero',
-        meta: 'J. Pardo · 3 días',
-        status: 'Terminada',
-        dot: '#1A6B3A',
-        badgeStyle: badge('#ECF6EF', '#1A6B3A'),
-      },
-      {
-        subject: 'Poda de zonas verdes',
-        meta: 'L. Higuera · 4 días',
-        status: 'En proceso',
-        dot: '#122545',
-        badgeStyle: badge('#EAEEF6', '#122545'),
-      },
-    ],
-    [],
-  );
-
-  const miniSteps = [0, 1, 2, 3, 4].map(index => {
-    const stage = 3;
-    const done = index < stage;
-    const current = index === stage;
-    return {
-      mark: done ? '✓' : String(index + 1),
-      bg: done ? '#1A6B3A' : current ? '#122545' : '#E8E8ED',
-      color: done || current ? '#FFFFFF' : '#8E8E93',
-      line: index < 4,
-      lineColor: index < stage ? '#1A6B3A' : '#E8E8ED',
-    };
-  });
-
-  const timelinePool = [
-    { text: 'Radicada por el residente', time: '06 jul · 14:02' },
-    { text: 'Asignada a J. Pardo', time: '06 jul · 15:10' },
-    { text: 'Visita técnica programada', time: '07 jul · 08:00' },
-    { text: 'Evidencia adjunta (2 fotos)', time: '07 jul · 10:22' },
-    { text: 'Nota: se requiere repuesto', time: '07 jul · 10:30' },
-  ];
-
-  const appTimeline: TimelineItem[] = [0, 1, 2].map(index => {
-    const poolIndex = (feedTick + index) % timelinePool.length;
-    return { ...timelinePool[poolIndex], key: `tl-${feedTick}-${index}` };
-  });
 
   const scenes = [
     {
@@ -664,121 +567,15 @@ export default function PqrsLandingPage() {
                 textAlign: 'left',
               }}
             >
-              <div style={{ background: '#FFFFFF', borderRadius: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: sizes.appBarPad,
-                    borderBottom: '1px solid #F0F0F2',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Logo size={17} />
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>Parque Residencial Calle 100</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    {!isMobile && (
-                      <>
-                        <span style={{ fontSize: 11, color: '#6E6E73', fontWeight: 500 }}>PQRS</span>
-                        <span style={{ fontSize: 11, color: '#6E6E73', fontWeight: 500 }}>Usuarios</span>
-                        <span style={{ fontSize: 11, color: '#6E6E73', fontWeight: 500 }}>Reportes</span>
-                      </>
-                    )}
-                    <div
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 999,
-                        background: '#EAEEF6',
-                        color: '#122545',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: 9,
-                      }}
-                    >
-                      AR
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: sizes.appCols, gap: 0 }}>
-                  <div style={{ padding: sizes.appPad, borderRight: sizes.appDivider }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>PQRS · Julio</span>
-                      <span style={{ background: '#122545', color: '#FFF', fontSize: 10, fontWeight: 600, padding: '5px 12px', borderRadius: 999 }}>
-                        + Crear
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      {appRows.map(row => (
-                        <div
-                          key={row.subject}
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderBottom: '1px solid #F0F0F2' }}
-                        >
-                          <div style={{ width: 7, height: 7, borderRadius: 999, background: row.dot, flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {row.subject}
-                            </div>
-                            <div style={{ fontSize: 10.5, color: '#6E6E73', marginTop: 1 }}>{row.meta}</div>
-                          </div>
-                          <span style={row.badgeStyle}>{row.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {!isMobile && (
-                    <div style={{ padding: sizes.appPad }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#6E6E73' }}>PQ-0231</span>
-                        <span style={{ background: '#EAEEF6', color: '#122545', fontSize: 9.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999 }}>
-                          En proceso
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Fuga de agua en zona común</div>
-                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                        {miniSteps.map((step, index) => (
-                          <div key={index} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                            <div
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: 999,
-                                background: step.bg,
-                                color: step.color,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 8.5,
-                                fontWeight: 700,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {step.mark}
-                            </div>
-                            {step.line && <div style={{ flex: 1, height: 2, background: step.lineColor, margin: '0 3px' }} />}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                        {appTimeline.map(item => (
-                          <div key={item.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', animation: 'landing-feed 400ms ease both' }}>
-                            <div style={{ width: 5, height: 5, borderRadius: 999, background: '#C7C7CC', marginTop: 5, flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 11, color: '#1D1D1F', lineHeight: 1.4 }}>{item.text}</div>
-                              <div style={{ fontSize: 9.5, color: '#8E8E93', fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>{item.time}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div style={{ borderRadius: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', lineHeight: 0 }}>
+                <Image
+                  src="/marketing/hero-product-preview.png"
+                  alt="Panel de administración de PQRS Services mostrando la lista de solicitudes de un conjunto y el detalle de una de ellas"
+                  width={1280}
+                  height={860}
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                  priority
+                />
               </div>
             </div>
           </div>

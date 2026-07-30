@@ -27,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={cn("font-sans", manrope.variable, jetbrainsMono.variable)}>
-      <body className="antialiased" suppressHydrationWarning>
+    <html lang="es" className={cn("font-sans", manrope.variable, jetbrainsMono.variable)} suppressHydrationWarning>
+      <body className="antialiased">
         <ThemeProvider>
           <SessionProvider>{children}</SessionProvider>
         </ThemeProvider>
