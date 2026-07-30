@@ -154,7 +154,16 @@ export default function DashboardAdminPage() {
             <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[0, 1, 2].map((i) => <span key={i} className="skeleton" style={{ width: '100%', height: 18 }} />)}
             </div>
-          ) : rows.length ? rows.map((r) => (
+          ) : rows.length ? rows.map((r) => isMobile ? (
+            <Link key={r.id} href={`/admin/pqrs?id=${r.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '14px 20px', borderBottom: `1px solid ${COLORS.borderSoft}`, color: '#1D1D1F' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{r.code}</span>
+                <span style={BADGE_BY_ESTADO[r.estado]}>{ESTADO_LABEL[r.estado]}</span>
+              </div>
+              <span style={{ fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.subject}</span>
+              <span style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500 }}>{r.resident} · {r.date}</span>
+            </Link>
+          ) : (
             <Link key={r.id} href={`/admin/pqrs?id=${r.id}`} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, color: '#1D1D1F' }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 66, flexShrink: 0 }}>{r.code}</span>
               <span style={{ flex: 1, minWidth: 120, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.subject}</span>
