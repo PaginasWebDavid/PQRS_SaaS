@@ -1066,6 +1066,8 @@ export default function PqrsLandingPage() {
                     links: [
                       ['#demo', 'Agendar demo'],
                       ['mailto:hola@pqrsservices.com', 'Soporte'],
+                      ['mailto:davidhernandezasaf@hotmail.com', 'davidhernandezasaf@hotmail.com'],
+                      ['tel:+573185356362', '+57 318 535 6362'],
                     ],
                   },
                   {
