@@ -166,7 +166,9 @@ function MiniBarChart({ data, color, formatValue }: { data: { label: string; val
       {data.map((d, i) => (
         <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
           <div style={{ fontSize: 10, fontWeight: 700 }}>{d.value != null ? formatValue(d.value) : '—'}</div>
-          <div style={{ width: '100%', maxWidth: 28, height: `${d.value != null ? Math.max(6, (d.value / max) * 100) : 3}%`, background: d.value != null ? color : COLORS.neutralSoft, borderRadius: '5px 5px 0 0' }} />
+          {/* Cada barra entra un poco despues que la anterior: se lee la
+              serie de izquierda a derecha en vez de aparecer toda de golpe. */}
+          <div className="apl-bar" style={{ width: '100%', maxWidth: 28, height: `${d.value != null ? Math.max(6, (d.value / max) * 100) : 3}%`, background: d.value != null ? color : COLORS.neutralSoft, borderRadius: '5px 5px 0 0', animationDelay: `${i * 60}ms` }} />
           <div style={{ fontSize: 9.5, color: COLORS.textMuted }}>{d.label}</div>
         </div>
       ))}
@@ -419,6 +421,19 @@ export default function DashboardSuperAdminPage() {
         return { text: `Invitación cancelada — ${tenantName}`, color: COLORS.textSecondaryAlt };
       case 'INVITATION_EXPIRED':
         return { text: `Invitación expirada — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'ONBOARDING_COMPLETED':
+        return { text: `Un usuario terminó su registro — ${tenantName}`, color: COLORS.success };
+      case 'PROFILE_UPDATED':
+        return { text: `Un usuario actualizó su perfil — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'PASSWORD_CHANGED':
+        return { text: `Cambio de contraseña — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'PASSWORD_RESET_REQUESTED':
+        return { text: `Se pidió restablecer contraseña — ${tenantName}`, color: COLORS.textSecondaryAlt };
+      case 'PASSWORD_RESET_COMPLETED':
+        return { text: `Contraseña restablecida — ${tenantName}`, color: COLORS.success };
+      case 'AVATAR_UPDATED':
+      case 'AVATAR_REMOVED':
+        return { text: `Un usuario cambió su foto — ${tenantName}`, color: COLORS.textMuted };
       default: {
         const readable = entry.action.split('_').map((w) => w[0] + w.slice(1).toLowerCase()).join(' ');
         return { text: `${readable}${entry.targetType ? ` · ${entry.targetType}` : ''}`, color: COLORS.textMuted };
@@ -1989,44 +2004,49 @@ export default function DashboardSuperAdminPage() {
       </Sheet>
 
       {nav === 'analytics' && (() => {
-        const churnRatePercent = billing ? Math.round((billing.churnThisMonth / Math.max(1, stats.totalTenants)) * 1000) / 10 : null;
         const arpuCents = billing && billing.activeLicenses > 0 ? Math.round(billing.monthlyRevenueCents / billing.activeLicenses) : 0;
-        const mrrUp = (billing?.mrrGrowthPercent ?? 0) >= 0;
+        const churnCount = billing?.churnThisMonth ?? 0;
+        // Con pocos conjuntos un porcentaje se dispara (1 de 7 = 14 %), asi que
+        // por debajo de este umbral se muestran conteos, no tasas.
+        const smallPortfolio = stats.totalTenants < 20;
+        const topTenant = analytics?.topTenantsByRevenue?.[0] || null;
+        const totalTopRevenue = (analytics?.topTenantsByRevenue || []).reduce((sum, t) => sum + t.priceCents, 0);
+        const concentrationPct = topTenant && totalTopRevenue > 0 ? Math.round((topTenant.priceCents / totalTopRevenue) * 100) : null;
+        const trialHasData = (analytics?.trialConversion.converted ?? 0) + (analytics?.trialConversion.lost ?? 0) > 0;
         const insightCards = [
           {
-            label: 'Crecimiento MRR',
-            value: billing?.mrrGrowthPercent != null ? `${mrrUp ? '+' : ''}${billing.mrrGrowthPercent.toFixed(1)}%` : '—',
-            color: billing?.mrrGrowthPercent == null ? COLORS.textMuted : mrrUp ? COLORS.success : COLORS.danger,
-            note: billing?.mrrGrowthPercent == null
-              ? 'Aún no hay suficiente historial para comparar meses.'
-              : mrrUp
-                ? 'Los ingresos crecen mes a mes: la base de clientes se está expandiendo.'
-                : 'Los ingresos cayeron vs. el mes pasado. Revisa renovaciones y cancelaciones.',
+            label: 'Conjuntos pagando',
+            value: String(billing?.activeLicenses ?? 0),
+            color: COLORS.navy,
+            note: `De ${stats.totalTenants} conjuntos registrados en total. Es la base sobre la que se sostiene el negocio.`,
           },
           {
-            label: 'Churn del mes',
-            value: churnRatePercent != null ? `${churnRatePercent}%` : '—',
-            color: churnRatePercent == null ? COLORS.textMuted : churnRatePercent > 5 ? COLORS.danger : churnRatePercent > 0 ? COLORS.warning : COLORS.success,
-            note: churnRatePercent && churnRatePercent > 5
-              ? 'Churn alto: varios conjuntos se están yendo. Revisa la sección de riesgo abajo.'
-              : churnRatePercent && churnRatePercent > 0
-                ? 'Churn moderado, vale la pena entender por qué se fueron.'
-                : 'Sin cancelaciones este mes — buena señal de retención.',
+            label: 'Cancelaciones este mes',
+            value: String(churnCount),
+            color: churnCount === 0 ? COLORS.success : COLORS.danger,
+            note: churnCount === 0
+              ? 'Nadie se fue este mes.'
+              : `Se fueron ${churnCount} conjunto${churnCount === 1 ? '' : 's'}. Con una base pequeña cada salida pesa mucho: entiende por qué pasó.`,
           },
           {
-            label: 'Ingreso promedio por conjunto',
+            label: 'Pago promedio por conjunto',
             value: formatMoney(arpuCents),
             color: COLORS.textPrimary,
-            note: 'Cuánto paga en promedio cada licencia activa por mes. Útil para negociar precios y medir el impacto de subir tarifas.',
+            note: 'Cuánto aporta en promedio cada licencia activa al mes. Incluye los registros manuales, no solo lo cobrado por pasarela.',
           },
-          {
-            label: 'Conversión de trial',
-            value: analytics?.trialConversion.ratePercent != null ? `${analytics.trialConversion.ratePercent}%` : '—',
-            color: analytics?.trialConversion.ratePercent == null ? COLORS.textMuted : analytics.trialConversion.ratePercent >= 60 ? COLORS.success : COLORS.warning,
-            note: analytics
-              ? `De los trials que ya vencieron, ${analytics.trialConversion.converted} se quedaron pagando y ${analytics.trialConversion.lost} se fueron.`
-              : 'Cargando…',
-          },
+          concentrationPct != null && topTenant
+            ? {
+                label: 'Riesgo de concentración',
+                value: `${concentrationPct}%`,
+                color: concentrationPct >= 40 ? COLORS.danger : concentrationPct >= 25 ? COLORS.warning : COLORS.success,
+                note: `"${topTenant.name}" aporta el ${concentrationPct} % de tus ingresos. Si se va, eso es lo que dejas de recibir de un solo golpe.`,
+              }
+            : {
+                label: 'Riesgo de concentración',
+                value: '—',
+                color: COLORS.textMuted,
+                note: 'Todavía no hay ingresos suficientes para medir qué tan dependiente eres de un solo conjunto.',
+              },
         ];
 
         return (
@@ -2040,9 +2060,16 @@ export default function DashboardSuperAdminPage() {
 
             {analytics && (
               <>
+                {smallPortfolio && (
+                  <div style={{ background: COLORS.navySoft, borderRadius: RADIUS.cardSm, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: COLORS.navy, fontWeight: 600, lineHeight: 1.5 }}>
+                    Con {stats.totalTenants} conjunto{stats.totalTenants === 1 ? '' : 's'}, los porcentajes se mueven muchísimo con un solo cambio. Por eso aquí se muestran conteos donde una tasa engañaría.
+                  </div>
+                )}
+
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 800, letterSpacing: '0.05em', marginBottom: 10 }}>TU NEGOCIO</div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
-                  {insightCards.map((c) => (
-                    <div key={c.label} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: 16 }}>
+                  {insightCards.map((c, i) => (
+                    <div key={c.label} className="apl-up" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: 16, animationDelay: `${i * 60}ms` }}>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{c.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: c.color, marginBottom: 8 }}>{c.value}</div>
                       <div style={{ fontSize: 11, color: COLORS.textSecondary, lineHeight: 1.4 }}>{c.note}</div>
@@ -2064,6 +2091,11 @@ export default function DashboardSuperAdminPage() {
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Conjuntos nuevos por mes, últimos 6 meses</div>
                     <MiniBarChart data={analytics.newTenantsTrend.map((m) => ({ label: m.month, value: m.count }))} color={COLORS.navy} formatValue={(v) => String(v)} />
                   </div>
+                </div>
+
+                <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 800, letterSpacing: '0.05em', margin: '26px 0 10px' }}>
+                  TU SERVICIO
+                  <InfoTip text="Qué tan bien está funcionando el producto para los conjuntos. Son los números que puedes mostrarle a un prospecto: si resuelves rápido y no dejas casos colgados, eso es tu argumento de venta." />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
@@ -2115,7 +2147,9 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Concentración de ingresos</div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>Conjuntos que más aportan — si uno se va, esto es lo que se pierde</div>
-                    {analytics.topTenantsByRevenue.map((t) => (
+                    {analytics.topTenantsByRevenue.length === 0 ? (
+                      <div style={{ fontSize: 12.5, color: COLORS.textMuted, padding: '12px 0', lineHeight: 1.5 }}>Todavía no hay conjuntos con licencia pagada, así que no hay ingresos que repartir. Aparecerá cuando el primero empiece a pagar.</div>
+                    ) : analytics.topTenantsByRevenue.map((t) => (
                       <div key={t.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                         <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
                         <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 600 }}>{formatMoney(t.priceCents, t.currency)}/mes</span>
@@ -2127,7 +2161,7 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>De qué se quejan los residentes</div>
                   <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 }}>Distribución de PQRS por tipo, en toda la plataforma</div>
-                  {analytics.pqrsByType.map((t) => {
+                  {analytics.pqrsByType.map((t, i) => {
                     const totalTypeCount = analytics.pqrsByType.reduce((acc, x) => acc + x.count, 0);
                     const pct = totalTypeCount > 0 ? Math.round((t.count / totalTypeCount) * 100) : 0;
                     return (
@@ -2137,12 +2171,25 @@ export default function DashboardSuperAdminPage() {
                           <span style={{ color: COLORS.textMuted }}>{t.count} ({pct}%)</span>
                         </div>
                         <div style={{ height: 8, borderRadius: RADIUS.pill, background: COLORS.bgCard, overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: COLORS.navy, borderRadius: RADIUS.pill }} />
+                          <div className="apl-grow" style={{ width: `${pct}%`, height: '100%', background: COLORS.navy, borderRadius: RADIUS.pill, animationDelay: `${i * 70}ms` }} />
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* La conversion de trial solo se muestra si de verdad hubo
+                    trials; si no, es una tarjeta permanentemente en "—". */}
+                {trialHasData && (
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22, marginTop: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Conversión de prueba</div>
+                    <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 12 }}>De las pruebas que ya terminaron, cuántas se quedaron pagando.</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                      <span style={{ fontSize: 26, fontWeight: 800, color: (analytics.trialConversion.ratePercent ?? 0) >= 60 ? COLORS.success : COLORS.warning }}>{analytics.trialConversion.ratePercent ?? 0}%</span>
+                      <span style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 600 }}>{analytics.trialConversion.converted} se quedaron · {analytics.trialConversion.lost} se fueron</span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -2158,7 +2205,10 @@ export default function DashboardSuperAdminPage() {
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elige un conjunto para ver quién tiene acceso y con qué rol</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 20, alignItems: 'flex-start' }}>
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
+              {/* En celular el selector ocupa toda la pantalla, asi que el
+                  resultado va primero: si no, tras elegir un conjunto habria
+                  que bajar toda la lista para ver sus usuarios. */}
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden', order: isMobile ? 1 : 0 }}>
                 <div style={{ padding: 14, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                   <input
                     value={usersSearch}
@@ -2190,7 +2240,7 @@ export default function DashboardSuperAdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, minHeight: 300 }}>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, minHeight: isMobile && !usersTenantId ? 0 : 300, order: isMobile ? 0 : 1, display: isMobile && !usersTenantId ? 'none' : 'block' }}>
                 {!usersTenantId && (
                   <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Selecciona un conjunto de la lista para ver sus usuarios.</div>
                 )}

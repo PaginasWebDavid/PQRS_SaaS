@@ -222,6 +222,7 @@
 @keyframes apl-sheet { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes apl-sheet-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(26px); } }
 @keyframes apl-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes apl-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes apl-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
 @keyframes apl-spin { to { transform: rotate(360deg); } }
 
@@ -230,6 +231,10 @@
 .apl-fade-out { animation: apl-fade-out 200ms ease both; }
 .apl-sheet { animation: apl-sheet 300ms cubic-bezier(.2,.7,.2,1) both; }
 .apl-sheet-out { animation: apl-sheet-out 220ms cubic-bezier(.2,.7,.2,1) both; }
+/* Barras de grafica: crecen desde su base en vez de aparecer de golpe.
+   El keyframe existia desde antes pero nadie habia definido la clase. */
+.apl-bar { animation: apl-bar 650ms cubic-bezier(.2,.7,.2,1) both; transform-origin: bottom; }
+.apl-grow { animation: apl-grow 650ms cubic-bezier(.2,.7,.2,1) both; transform-origin: left; }
 
 /* Feedback tactil: todo boton real de la app se comprime levemente al
    presionar (AUDIT.md categoria 3). Una sola regla global en vez de tocar
@@ -251,6 +256,10 @@ button:not(:disabled):active {
   .apl-bar {
     animation: none;
     transform: scaleY(1);
+  }
+  .apl-grow {
+    animation: none;
+    transform: scaleX(1);
   }
   button:not(:disabled):active {
     transform: none;
