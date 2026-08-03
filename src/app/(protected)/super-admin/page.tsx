@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SuperAdminShell, NavGroup } from '@/components/shell/SuperAdminShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
+import { InfoTip } from '@/components/shell/InfoTip';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
@@ -1393,19 +1394,20 @@ export default function DashboardSuperAdminPage() {
               </div>
             ) : isMobile ? (
               filteredTenants.slice(0, conjuntosVisible).map((t) => (
-                <div key={t.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div key={t.id} onClick={() => setSelectedId(t.id)} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                      {/* Boton real para que el detalle tambien se abra con teclado,
+                          no solo con el clic en la fila. */}
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(t.id); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 14, fontWeight: 800, color: COLORS.textPrimary, textAlign: 'left', cursor: 'pointer', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{t.name}</button>
                       <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{t.city} · {t.units} unidades</div>
                     </div>
                     <span style={{ ...TENANT_BADGE[t.group], flexShrink: 0 }}>{TENANT_LABEL[t.group]}</span>
                   </div>
                   <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.adminName} · Plan {t.plan}</div>
                   <div style={{ display: 'flex', gap: 16 }}>
-                    <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
-                    <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                    <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(t); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
                 </div>
               ))
@@ -1424,18 +1426,21 @@ export default function DashboardSuperAdminPage() {
                 </thead>
                 <tbody>
                   {filteredTenants.slice(0, conjuntosVisible).map((t) => (
-                    <tr key={t.id} style={{ borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                      <td style={{ padding: '13px 8px 13px 22px', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 0 }}>{t.name}</td>
+                    <tr key={t.id} onClick={() => setSelectedId(t.id)} style={{ borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer' }}>
+                      <td style={{ padding: '13px 8px 13px 22px', overflow: 'hidden', maxWidth: 0 }}>
+                        {/* Boton real para abrir el detalle con teclado; el clic en
+                            cualquier parte de la fila hace lo mismo. */}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(t.id); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.textPrimary, textAlign: 'left', cursor: 'pointer', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{t.name}</button>
+                      </td>
                       <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary }}>{t.city}</td>
                       <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 0 }}>{t.adminName}</td>
                       <td style={{ padding: '13px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted }}>{t.units}</td>
                       <td style={{ padding: '13px 8px', fontSize: 12, color: COLORS.textSecondary }}>{t.plan}</td>
                       <td style={{ padding: '13px 8px' }}><span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span></td>
                       <td style={{ padding: '13px 22px 13px 8px' }}>
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-                          <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Ver</button>
-                          <button type="button" onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                          <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(t); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                         </div>
                       </td>
                     </tr>
@@ -2476,8 +2481,14 @@ export default function DashboardSuperAdminPage() {
             {!confirmingCancel && !grantingCourtesy && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
                 <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
-                <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
-                <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
+                  <InfoTip text="Regalarle días de servicio sin cobrar: corre la fecha de vencimiento hacia adelante. Sirve para compensar un reclamo justificado o para dar un plazo extra sin suspender el acceso. Queda registrado en la auditoría con el motivo." />
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
+                  <InfoTip text="Descarga toda la información de este conjunto en un archivo. Útil si el conjunto pide sus datos o si vas a cancelarlo y quieres conservar el histórico." />
+                </span>
                 <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
               </div>
             )}
@@ -2490,7 +2501,7 @@ export default function DashboardSuperAdminPage() {
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Motivo (queda en la auditoría)</label>
                 <input value={courtesyReason} onChange={(e) => setCourtesyReason(e.target.value)} placeholder="Ej: reclamo justificado, cortesía de bienvenida…" style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontFamily: 'inherit', marginBottom: 14 }} />
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => grantCourtesy(selected.id)} disabled={courtesySubmitting} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{courtesySubmitting ? 'Aplicando...' : 'Confirmar cortesia'}</button>
+                  <button type="button" onClick={() => grantCourtesy(selected.id)} disabled={courtesySubmitting} style={{ border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{courtesySubmitting ? 'Aplicando…' : 'Confirmar cortesía'}</button>
                   <button type="button" onClick={() => { setGrantingCourtesy(false); setCourtesyReason(''); }} style={{ background: 'none', border: 'none', font: 'inherit', color: COLORS.textSecondary, fontSize: 13, fontWeight: 700, padding: '11px 12px', cursor: 'pointer' }}>Cancelar</button>
                 </div>
               </div>
