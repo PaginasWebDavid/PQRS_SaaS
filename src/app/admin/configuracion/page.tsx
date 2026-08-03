@@ -13,7 +13,7 @@ type TenantSettings = { tenant?: TenantInfo | null; pqrsCloseSlaDays?: number; i
 type PqrsCategory = { id: string; displayName: string; isActive: boolean; isCustom: boolean; sortOrder: number; workflowType: PqrsWorkflowType };
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: 'Falta primer pago', TRIAL: 'Trial', ACTIVE: 'Activa',
+  PENDING_PAYMENT: 'Falta primer pago', TRIAL: 'En prueba', ACTIVE: 'Activa',
   GRACE_PERIOD: 'En mora', SUSPENDED: 'Suspendida', CANCELLED: 'Cancelada',
 };
 
