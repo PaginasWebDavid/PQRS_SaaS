@@ -150,7 +150,7 @@ function VistaConsejoPageContent() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 20 }}>
         {metrics.map((m) => (
           <div key={m.label} style={{ background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: 18 }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div>

@@ -379,7 +379,7 @@ export default function ConsejoReportesPage() {
       {!loading && !error && data && data.hayDatosSuficientes && (
         <>
           {/* A. Resumen ejecutivo */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 20 }}>
             {resumenCards.map((c) => (
               <div key={c.label} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 16 }}>
                 <div style={{ fontSize: 11, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 8 }}>{c.label}<InfoTip text={c.desc} /></div>
@@ -445,7 +445,7 @@ export default function ConsejoReportesPage() {
           <div style={{ ...card, marginBottom: 20 }}>
             <div style={sectionTitle}>Tiempos de atención</div>
             <p style={sectionSubtitle}>SLA esperado: {data.slaDays} días para cierre</p>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 20 }}>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>PRIMER CONTACTO — PROMEDIO<InfoTip text="Días promedio entre la radicación y el primer contacto del equipo." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.avg)}</div></div>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>MEDIANA<InfoTip text="El valor central: la mitad de los casos tardó menos, la otra mitad tardó más. Menos sensible a casos extremos que el promedio." /></div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.median)}</div></div>
               <div><div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700 }}>MÍN / MÁX</div><div style={{ fontSize: 18, fontWeight: 800 }}>{fmtDays(data.tiempos.primerContacto.min)} / {fmtDays(data.tiempos.primerContacto.max)}</div></div>
