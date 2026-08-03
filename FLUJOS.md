@@ -313,5 +313,14 @@ Cosas ciertas hoy que conviene tener presentes:
   sistema exige cotización manual, pero la tabla tampoco cubre ese rango).
 - **El pago del piloto y la conversión son manuales** (transferencia +
   referencia). La pasarela solo se usa para la licencia mensual recurrente.
+- **Hoy no ha entrado dinero por la pasarela.** Los $1.968.000 que figuran
+  como pagos aprobados son todos *registros manuales sin cobro*: los generó
+  el botón "Registrar pago" de Super Admin, que extiende la licencia 30 días
+  y deja un pago marcado como `SIMULATED`. Sirve para reflejar una
+  transferencia que recibiste por fuera, pero **no es plata que haya entrado
+  por Mercado Pago**. En *Licencias y pagos → Pagos* se ven separados.
+- **El MRR y "Recibido en \<mes\>" incluyen esos registros manuales** (solo
+  excluyen cortesías). Si quieres que esas métricas cuenten únicamente el
+  dinero real de la pasarela, hay que cambiarlo en el backend.
 - **No hay registro de leads**: el primer contacto ocurre por fuera de la
   plataforma.

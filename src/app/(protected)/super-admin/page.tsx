@@ -6,7 +6,7 @@ import { InfoTip } from '@/components/shell/InfoTip';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
-import { paymentProviderLabel } from '@/lib/design/billing';
+import { paymentProviderLabel, isRealMoneyProvider } from '@/lib/design/billing';
 import { CommercialTenantPanel, type CommercialMetrics, type CommercialTenantDetail } from '@/components/commercial/CommercialTenantPanel';
 import {
   ANNUAL_DISCOUNT_BPS,
@@ -267,6 +267,7 @@ export default function DashboardSuperAdminPage() {
   const [payments, setPayments] = useState<ApiPayment[]>([]);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'APPROVED' | 'PENDING' | 'REJECTED'>('all');
   const [paymentSearch, setPaymentSearch] = useState('');
+  const [confirmingRenewalId, setConfirmingRenewalId] = useState<string | null>(null);
   const [showGraceSetting, setShowGraceSetting] = useState(false);
   const [mercadoPago, setMercadoPago] = useState<IntegrationStatus | null>(null);
   const [integrationsFull, setIntegrationsFull] = useState<IntegrationsFull | null>(null);
@@ -514,6 +515,7 @@ export default function DashboardSuperAdminPage() {
 
   const renewSubscription = async (id: string) => {
     if (renewingTenantId) return;
+    setConfirmingRenewalId(null);
     const operationId = renewalOperationKeys.current.get(id) || globalThis.crypto.randomUUID();
     renewalOperationKeys.current.set(id, operationId);
     setRenewingTenantId(id);
@@ -1076,7 +1078,10 @@ export default function DashboardSuperAdminPage() {
 
   const paymentQuery = paymentSearch.trim().toLowerCase();
   const visiblePayments = payments.filter((p) => (paymentFilter === 'all' || p.status === paymentFilter) && (!paymentQuery || p.tenantName.toLowerCase().includes(paymentQuery)));
-  const visiblePaymentsApprovedCents = visiblePayments.filter((p) => p.status === 'APPROVED').reduce((sum, p) => sum + p.amountCents, 0);
+  const approvedVisible = visiblePayments.filter((p) => p.status === 'APPROVED');
+  // Separado a proposito: un "registro manual" no es plata que haya entrado.
+  const visibleRealCents = approvedVisible.filter((p) => isRealMoneyProvider(p.provider)).reduce((sum, p) => sum + p.amountCents, 0);
+  const visibleManualCents = approvedVisible.filter((p) => !isRealMoneyProvider(p.provider)).reduce((sum, p) => sum + p.amountCents, 0);
 
   const monthlyCoverage = analyzeRuleCoverage(tiers, 'MONTHLY');
   const pilotCoverage = analyzeRuleCoverage(tiers, 'PILOT');
@@ -1527,7 +1532,8 @@ export default function DashboardSuperAdminPage() {
                     : left === 0 ? `Vence hoy (${t.licenseEnd})`
                       : `Vence en ${left} día${left === 1 ? '' : 's'} (${t.licenseEnd})`;
               return (
-                <div key={t.id} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 14, padding: isMobile ? '14px 18px' : '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div key={t.id} style={{ borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 14, padding: isMobile ? '14px 18px' : '14px 22px' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, cursor: 'pointer', textAlign: 'left' }}>{t.name}</button>
@@ -1536,10 +1542,26 @@ export default function DashboardSuperAdminPage() {
                     <div style={{ fontSize: 11.5, color: urgent ? COLORS.warning : COLORS.textMuted, fontWeight: urgent ? 700 : 600, marginTop: 3 }}>{timing}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando…' : 'Renovar'}</button>
+                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <button type="button" onClick={() => setConfirmingRenewalId(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Registrando…' : 'Registrar pago'}</button>
+                      <InfoTip text="Marca la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úsalo solo cuando ya recibiste el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
+                    </span>
                     <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
-                </div>
+                  </div>
+                  {confirmingRenewalId === t.id && (
+                    <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.stat, padding: 14, margin: isMobile ? '0 18px 14px' : '0 22px 14px' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>Esto no le cobra nada al conjunto</div>
+                      <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 500, lineHeight: 1.5, marginBottom: 12 }}>
+                        Vas a extender la licencia de <strong>{t.name}</strong> 30 días y a dejar registrado un pago marcado como <em>sin cobro</em>. Hazlo solo si ya recibiste el dinero por fuera de la plataforma.
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', background: COLORS.success, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '9px 14px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, ya me pagaron</button>
+                        <button type="button" onClick={() => setConfirmingRenewalId(null)} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', background: 'none', color: COLORS.textPrimary, fontSize: 12.5, fontWeight: 700, padding: '9px 14px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar</button>
+                      </div>
+                    </div>
+                  )}
+                  </div>
               );
             };
             return (
@@ -1596,7 +1618,7 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>
                     Recibido en {new Date().toLocaleDateString('es-CO', { month: 'long' })}
-                    <InfoTip text="Solo cuenta los pagos aprobados del mes calendario en curso. Si aparece en cero pero abajo ves pagos, es porque esos pagos son de meses anteriores." />
+                    <InfoTip text="Pagos aprobados del mes calendario en curso. Si aparece en cero pero abajo ves pagos, es porque son de meses anteriores. Ojo: incluye los registros manuales que hiciste con 'Registrar pago', no solo el dinero cobrado por la pasarela." />
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing ? formatMoney(billing.monthlyRevenueCents) : '—'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{billing?.monthlyApprovedPayments ?? 0} pagos aprobados</div>
@@ -1637,7 +1659,10 @@ export default function DashboardSuperAdminPage() {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 600 }}>{visiblePayments.length} de {payments.length} pagos</span>
-                <span style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 700 }}>Aprobado en esta vista: {formatMoney(visiblePaymentsApprovedCents)}</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>
+                  <span style={{ color: COLORS.success }}>Cobrado por pasarela: {formatMoney(visibleRealCents)}</span>
+                  {visibleManualCents > 0 && <span style={{ color: COLORS.textMuted }}> · registros manuales: {formatMoney(visibleManualCents)}</span>}
+                </span>
               </div>
 
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
@@ -2027,8 +2052,11 @@ export default function DashboardSuperAdminPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20, marginBottom: 20 }}>
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>Ingresos mensuales (MRR)</div>
-                    <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
+                      Ingresos mensuales (MRR)
+                      <InfoTip text="Suma los pagos aprobados de cada mes. Incluye los registros manuales que hiciste con 'Registrar pago', así que no es solo el dinero que entró por la pasarela. Para ver la separación, entra a Licencias y pagos → Pagos." />
+                    </div>
+                    <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados (incluye registros manuales)</div>
                     <MiniBarChart data={analytics.mrrTrend.map((m) => ({ label: m.month, value: m.revenueCents }))} color={COLORS.success} formatValue={(v) => formatMoney(v).replace('COP', '').trim()} />
                   </div>
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
