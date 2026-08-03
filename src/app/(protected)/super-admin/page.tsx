@@ -1352,7 +1352,7 @@ export default function DashboardSuperAdminPage() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                    <span style={{ color: COLORS.textSecondary, fontWeight: 500 }}>Churn (conjuntos cancelados)</span>
+                    <span style={{ color: COLORS.textSecondary, fontWeight: 500 }}>Conjuntos que se fueron</span>
                     <span style={{ fontWeight: 800 }}>{billing?.churnThisMonth ?? 0}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
@@ -2429,7 +2429,7 @@ export default function DashboardSuperAdminPage() {
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 4px' }}>Ajustes reales de la plataforma — cada opción aquí afecta el comportamiento del sistema.</p>
 
           <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Branding</div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Identidad de la plataforma</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Se refleja en el sidebar de este panel.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre de la plataforma</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -2445,18 +2445,18 @@ export default function DashboardSuperAdminPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>Resend (correo transaccional)</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>Envío de correos</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.resend.fromEmailConfigured ? 'Remitente configurado' : 'Falta configurar remitente'}</div>
                   </div>
                   <span style={integrationsFull.resend.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.resend.connected ? 'Conectado' : 'No conectado'}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>Supabase Storage (evidencias y archivos)</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>Almacenamiento de evidencias y archivos</div>
                   <span style={integrationsFull.supabaseStorage.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.supabaseStorage.connected ? 'Conectado' : 'No conectado'}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>Proveedor de pagos (cobros)</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>Pasarela de pagos</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.mercadoPago.webhookSecretConfigured ? 'Webhook configurado' : 'Falta configurar webhook'}</div>
                   </div>
                   <span style={integrationsFull.mercadoPago.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.mercadoPago.connected ? 'Conectado' : 'No conectado'}</span>
@@ -2479,7 +2479,7 @@ export default function DashboardSuperAdminPage() {
           </div>
 
           <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Feature flags</div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Interruptores del sistema</div>
             <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Interruptores reales — apagarlos cambia el comportamiento del sistema al instante.</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
               <div>
