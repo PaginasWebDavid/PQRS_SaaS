@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
+import { InfoTip } from '@/components/shell/InfoTip';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
@@ -60,15 +61,6 @@ const ALERT_LABEL: Record<string, string> = { sinAbrir: 'Sin abrir 3+ días', si
 function fmtDate(v: string | null) { return v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
 function fmtShort(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
 function fmtDays(v: number | null) { return v == null ? '—' : `${v}d`; }
-
-function InfoTip({ text }: { text: string }) {
-  return (
-    <span className="info-tip" tabIndex={0} style={{ marginLeft: 5, verticalAlign: 'middle' }}>
-      <span style={{ width: 14, height: 14, borderRadius: 999, background: COLORS.neutralSoft, color: COLORS.textSecondaryAlt, fontSize: 9.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}>?</span>
-      <span className="info-tip-bubble">{text}</span>
-    </span>
-  );
-}
 
 function DeltaTag({ metric }: { metric: Metric }) {
   if (metric.deltaPct == null) return <span style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600 }}>Sin comparación</span>;
