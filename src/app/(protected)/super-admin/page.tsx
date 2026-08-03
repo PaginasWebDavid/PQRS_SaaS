@@ -1229,7 +1229,7 @@ export default function DashboardSuperAdminPage() {
         <div className="apl-up">
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Resumen de la plataforma</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>{loading ? 'Cargando datos reales...' : stats.totalTenants + ' conjuntos administrados'}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,minmax(0,1fr))', gap: 12, marginBottom: 16 }}>
             {primaryKpis.map((k) => (
               <button
                 key={k.label}
@@ -1244,7 +1244,7 @@ export default function DashboardSuperAdminPage() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,minmax(0,1fr))', gap: 12, marginBottom: 24 }}>
             {kpiGroups.map((group) => (
               <div key={group.title} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: '14px 16px' }}>
                 <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 10 }}>{group.title}</div>
@@ -1582,7 +1582,7 @@ export default function DashboardSuperAdminPage() {
             return (
               <>
                 {/* Estos cuatro numeros si suman el total de conjuntos. */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 18 }}>
                   {GROUPS.map((g) => (
                     <div key={g.key} style={{ background: g.list.length > 0 && g.key === 'needsAction' ? g.soft : COLORS.bg, border: `1px solid ${g.list.length > 0 && g.key === 'needsAction' ? g.accent : COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{g.title}</div>
@@ -1629,7 +1629,7 @@ export default function DashboardSuperAdminPage() {
 
           {finSubTab === 'pagos' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(3, minmax(0,1fr))', gap: 14, marginBottom: 20 }}>
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>
                     Recibido en {new Date().toLocaleDateString('es-CO', { month: 'long' })}
@@ -1737,7 +1737,7 @@ export default function DashboardSuperAdminPage() {
             {!simValid ? (
               <div style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 600 }}>Escribe un número de unidades para ver el precio.</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 14 : 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,minmax(0,1fr))', gap: isMobile ? 14 : 18 }}>
                 {[
                   {
                     key: 'pilot',
@@ -1851,7 +1851,7 @@ export default function DashboardSuperAdminPage() {
           <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: isMobile ? '18px' : '20px 22px', marginBottom: 20 }}>
             <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', marginBottom: 3 }}>Condiciones del negocio</div>
             <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 14 }}>Reglas fijas que se aplican encima de los precios de arriba. No se editan desde aquí.</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 10 }}>
               {[
                 {
                   label: 'Conjuntos fundadores',
@@ -2067,7 +2067,7 @@ export default function DashboardSuperAdminPage() {
                 )}
 
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 800, letterSpacing: '0.05em', marginBottom: 10 }}>TU NEGOCIO</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', gap: 14, marginBottom: 22 }}>
                   {insightCards.map((c, i) => (
                     <div key={c.label} className="apl-up" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, padding: 16, animationDelay: `${i * 60}ms` }}>
                       <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{c.label}</div>
@@ -2077,7 +2077,7 @@ export default function DashboardSuperAdminPage() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 20, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0,1fr))', gap: 20, marginBottom: 20 }}>
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
                       Ingresos mensuales (MRR)
@@ -2678,7 +2678,7 @@ export default function DashboardSuperAdminPage() {
             <CommercialTenantPanel tenantId={selected.id} detail={selectedDetail} metrics={commercialMetrics} founderSlotsRemaining={founderSlotsRemaining} onUpdated={refreshSelectedCommercialDetail} />
             <div style={{ height: 20 }} />
             <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 10 }}>INFORMACIÓN GENERAL</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))', gap: 10, marginBottom: 20 }}>
               <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>UNIDADES</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.units}</div></div>
               <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PLAN</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.plan}</div></div>
               <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 12 }}><div style={{ fontSize: 10, color: COLORS.textMuted, fontWeight: 700, marginBottom: 5 }}>PQRS ABIERTAS</div><div style={{ fontSize: 15, fontWeight: 800 }}>{selected.pqrsOpen}</div></div>

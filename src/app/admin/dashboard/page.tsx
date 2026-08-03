@@ -130,7 +130,7 @@ export default function DashboardAdminPage() {
         </div>
       </Link>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: 12, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))', gap: 12, marginBottom: 28 }}>
         {secondaryMetrics.map((m) => (
           <Link key={m.label} href={m.href} style={{ background: COLORS.bgCard, borderRadius: 16, padding: 18, color: '#1D1D1F' }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{m.label}</div>

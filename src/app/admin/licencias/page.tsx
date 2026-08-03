@@ -113,7 +113,7 @@ export default function ModuloLicenciasPage() {
       {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
       <div style={{ background: COLORS.navy, borderRadius: 20, padding: isMobile ? '22px 20px' : '30px 34px', color: '#FFFFFF', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : '1.4fr repeat(3,1fr)', gap: isMobile ? 18 : 26, alignItems: isMobile ? 'start' : 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : '1.4fr repeat(3,minmax(0,1fr))', gap: isMobile ? 18 : 26, alignItems: isMobile ? 'start' : 'center' }}>
           <div style={isMobile ? { gridColumn: 'span 2' } : undefined}>
             <div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 700, marginBottom: 10 }}>ESTADO DE LICENCIA</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

@@ -277,11 +277,18 @@ button:not(:disabled):active {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
 .info-tip { position: relative; display: inline-flex; }
+/* La burbuja se oculta con display:none, no solo con visibility:hidden.
+   Un elemento absolute invisible SIGUE contando para scrollWidth, y cuando el
+   "?" caia cerca del borde derecho empujaba toda la pagina: en celular eso
+   producia scroll horizontal (461px de contenido en una pantalla de 390px).
+   Se pierde la transicion de entrada, que vale mucho menos que no romper el
+   layout de la pagina entera. */
 .info-tip .info-tip-bubble {
-  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+  display: none;
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
   background: #1D1D1F; color: #FFFFFF; font-size: 11.5px; font-weight: 500; line-height: 1.4;
-  padding: 8px 11px; border-radius: 10px; width: max-content; max-width: 240px;
-  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 150ms ease, transform 150ms ease;
+  padding: 8px 11px; border-radius: 10px; width: max-content; max-width: min(240px, 70vw);
+  pointer-events: none;
   z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 .info-tip .info-tip-bubble::after {
@@ -289,5 +296,5 @@ button:not(:disabled):active {
   border: 5px solid transparent; border-top-color: #1D1D1F;
 }
 .info-tip:hover .info-tip-bubble, .info-tip:focus-within .info-tip-bubble {
-  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+  display: block;
 }

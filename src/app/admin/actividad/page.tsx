@@ -3,15 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, tabStyle } from '@/lib/design/tokens';
-
-type AuditEntry = {
-  id: string;
-  action: string;
-  targetType?: string | null;
-  metadata?: Record<string, unknown> | null;
-  createdAt: string;
-  actor?: { name?: string | null; email?: string | null } | null;
-};
+import { describeActivity, activityCategory, type ActivityEntry } from '@/lib/design/activityFeed';
 
 const FILTERS = [
   { key: 'all', label: 'Todo' },
@@ -22,79 +14,6 @@ const FILTERS = [
 
 const CATEGORY_DOT: Record<string, string> = { pqrs: COLORS.navy, usuarios: COLORS.warning, licencia: COLORS.success };
 
-function actionCategory(action: string): string {
-  if (action.startsWith('PQRS_')) return 'pqrs';
-  if (action.startsWith('INVITATION_') || action.startsWith('USER_') || action === 'ONBOARDING_COMPLETED' || action === 'PROFILE_UPDATED') return 'usuarios';
-  return 'licencia';
-}
-
-function meta(entry: AuditEntry, key: string): string {
-  const value = entry.metadata?.[key];
-  return typeof value === 'string' ? value : '';
-}
-
-function actorName(entry: AuditEntry): string {
-  return entry.actor?.name || entry.actor?.email || 'Alguien';
-}
-
-function describe(entry: AuditEntry): string {
-  const who = actorName(entry);
-  const email = meta(entry, 'email');
-  switch (entry.action) {
-    case 'PQRS_CREATED':
-      return `${who} radicó una nueva PQRS${meta(entry, 'asunto') ? ` — "${meta(entry, 'asunto')}"` : ''}`;
-    case 'PQRS_UPDATED':
-      return `${who} actualizó una PQRS`;
-    case 'PQRS_CLOSED':
-      return `${who} cerró una PQRS`;
-    case 'INVITATION_CREATED':
-      return `${who} invitó a ${email || 'un nuevo usuario'}`;
-    case 'INVITATION_RESENT':
-      return `${who} reenvió la invitación a ${email}`;
-    case 'INVITATION_ACCEPTED':
-      return `${email || who} aceptó su invitación y activó su cuenta`;
-    case 'INVITATION_CANCELLED':
-      return `${who} canceló la invitación a ${email}`;
-    case 'INVITATION_EXPIRED':
-      return `La invitación a ${email} expiró sin ser aceptada`;
-    case 'USER_UPDATED':
-      return `${who} actualizó los datos de un usuario`;
-    case 'USER_DEACTIVATED':
-      return `${who} desactivó un usuario`;
-    case 'USER_REACTIVATED':
-      return `${who} reactivó un usuario`;
-    case 'ONBOARDING_COMPLETED':
-      return `${who} completó el onboarding`;
-    case 'PROFILE_UPDATED':
-      return `${who} actualizó su perfil`;
-    case 'TENANT_CREATED':
-      return 'Tu conjunto fue creado en la plataforma';
-    case 'TENANT_UPDATED':
-      return `${who} actualizó los datos del conjunto`;
-    case 'TENANT_SUSPENDED':
-      return 'La licencia del conjunto fue suspendida';
-    case 'TENANT_REACTIVATED':
-      return 'La licencia del conjunto fue reactivada';
-    case 'TENANT_CANCELLED':
-      return 'La licencia del conjunto fue cancelada';
-    case 'SUBSCRIPTION_CREATED':
-      return 'Se generó la licencia del conjunto, pendiente de primer pago';
-    case 'SUBSCRIPTION_RENEWED':
-      return 'La licencia fue renovada';
-    case 'MERCADO_PAGO_SUBSCRIPTION_CREATED':
-      return `${who} inició el pago de la licencia con Mercado Pago`;
-    case 'MERCADO_PAGO_WEBHOOK_PROCESSED':
-      return 'Mercado Pago confirmó un movimiento sobre la licencia';
-    case 'SUBSCRIPTION_AUTO_RENEW_DISABLED':
-      return `${who} desactivó la renovación automática de la licencia`;
-    case 'SUBSCRIPTION_AUTO_RENEW_ENABLED':
-      return `${who} activó la renovación automática de la licencia`;
-    case 'SUBSCRIPTION_PAYMENT_FAILED':
-      return 'Un pago de la licencia fue rechazado';
-    default:
-      return `${who} — ${entry.action.replaceAll('_', ' ').toLowerCase()}`;
-  }
-}
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -110,7 +29,7 @@ function relativeTime(iso: string): string {
 
 export default function ActividadPage() {
   const [filter, setFilter] = useState('all');
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -161,11 +80,11 @@ export default function ActividadPage() {
         {!loading && !error && entries.map((ev, i) => (
           <div key={ev.id} style={{ display: 'flex', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 9, height: 9, borderRadius: 999, background: CATEGORY_DOT[actionCategory(ev.action)] || COLORS.textMuted, marginTop: 5, flexShrink: 0 }} />
+              <div style={{ width: 9, height: 9, borderRadius: 999, background: CATEGORY_DOT[activityCategory(ev.action)] || COLORS.textMuted, marginTop: 5, flexShrink: 0 }} />
               {i < entries.length - 1 && <div style={{ width: 1.5, flex: 1, background: 'rgba(0,0,0,0.08)', margin: '3px 0' }} />}
             </div>
             <div style={{ paddingBottom: i < entries.length - 1 ? 18 : 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{describe(ev)}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{describeActivity(ev)}</div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, marginTop: 2 }}>{relativeTime(ev.createdAt)}</div>
             </div>
           </div>
