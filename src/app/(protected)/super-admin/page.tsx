@@ -1041,6 +1041,10 @@ export default function DashboardSuperAdminPage() {
   const newUnitsNumber = Number(newUnits || 0);
   const quotedPilotRule = tiers.find((rule) => rule.type === 'PILOT' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
   const quotedMonthlyRule = tiers.find((rule) => rule.type === 'MONTHLY' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
+  // Sin esto, tras un "Cargar mas" el contador se quedaba alto al cambiar de
+  // filtro y mostraba mas filas de las que el usuario habia pedido ver.
+  useEffect(() => { setConjuntosVisible(10); }, [filter, search]);
+
   const monthlyCoverage = analyzeRuleCoverage(tiers, 'MONTHLY');
   const pilotCoverage = analyzeRuleCoverage(tiers, 'PILOT');
   const archivedRules = tiers.filter((r) => !r.isActive).sort((a, b) => a.minUnits - b.minUnits);
@@ -1084,7 +1088,22 @@ export default function DashboardSuperAdminPage() {
     },
   ];
   const q = search.trim().toLowerCase();
-  const filteredTenants = tenants.filter((t) => (filter === 'all' || t.group === filter) && (!q || t.name.toLowerCase().includes(q) || t.city.toLowerCase().includes(q)));
+  // El placeholder ofrece buscar por administrador; antes solo miraba nombre y
+  // ciudad, asi que buscar un admin no devolvia nada.
+  const matchesSearch = (t: Tenant) => !q
+    || t.name.toLowerCase().includes(q)
+    || t.city.toLowerCase().includes(q)
+    || t.adminName.toLowerCase().includes(q)
+    || t.adminEmail.toLowerCase().includes(q);
+  const searchedTenants = tenants.filter(matchesSearch);
+  const filteredTenants = searchedTenants.filter((t) => filter === 'all' || t.group === filter);
+  // Los contadores respetan la busqueda para que el numero del chip coincida
+  // con lo que realmente veria al hacer clic.
+  const tenantFilterCounts = searchedTenants.reduce((acc, t) => {
+    acc[t.group] = (acc[t.group] || 0) + 1;
+    return acc;
+  }, {} as Record<TenantGroup, number>);
+  const hasActiveFilters = filter !== 'all' || q.length > 0;
 
   const suspend = async (id: string) => { await updateTenantStatus(id, 'SUSPENDED'); };
   const reactivate = async (id: string) => { await updateTenantStatus(id, 'ACTIVE'); };
@@ -1305,20 +1324,73 @@ export default function DashboardSuperAdminPage() {
 
       {nav === 'conjuntos' && (
         <div className="apl-up">
-          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 20 }}>
-            <div><h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p></div>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8 }}>
-              <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit', order: isMobile ? 0 : 1 }}>+ Crear conjunto</button>
-              <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit', order: isMobile ? 1 : 0 }}>{applyingOverdue ? 'Actualizando…' : 'Actualizar estados por mora'}</button>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
+            <div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1>
+              <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p>
+            </div>
+            <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit', flexShrink: 0 }}>+ Crear conjunto</button>
+          </div>
+
+          {/* Buscar y filtrar son el mismo trabajo — acotar la lista — asi que
+              van juntos en un solo bloque en vez de flotar sueltos. Los chips
+              llevan su conteo para no tener que hacer clic para descubrir que
+              estan vacios. */}
+          <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: isMobile ? 14 : '14px 16px', marginBottom: 14 }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, ciudad o administrador…"
+              aria-label="Buscar conjuntos"
+              style={{ width: '100%', height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }}
+            />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {(['all', 'active', 'trial', 'pending_payment', 'grace', 'suspended', 'cancelled'] as const).map((f) => {
+                const count = f === 'all' ? searchedTenants.length : (tenantFilterCounts[f] || 0);
+                const isEmpty = count === 0 && filter !== f;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFilter(f)}
+                    aria-pressed={filter === f}
+                    style={{ ...tabStyle(filter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: isEmpty ? 0.45 : 1 }}
+                  >
+                    {f === 'all' ? 'Todos' : TENANT_LABEL[f]}
+                    <span style={{ fontSize: 10.5, fontWeight: 800, opacity: 0.75 }}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, ciudad o administrador…" style={{ width: '100%', maxWidth: 420, height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-            {(['all', 'active', 'trial', 'pending_payment', 'grace', 'suspended', 'cancelled'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} style={{ ...tabStyle(filter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>{f === 'all' ? 'Todos' : TENANT_LABEL[f]}</button>)}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+            <span style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 600 }}>
+              {filteredTenants.length === tenants.length
+                ? `${tenants.length} conjunto${tenants.length === 1 ? '' : 's'}`
+                : `${filteredTenants.length} de ${tenants.length} conjuntos`}
+            </span>
+            {hasActiveFilters && (
+              <button type="button" onClick={() => { setFilter('all'); setSearch(''); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Limpiar filtros</button>
+            )}
           </div>
           <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflowX: isMobile ? 'hidden' : 'auto', overflowY: 'hidden' }}>
             {filteredTenants.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>Ningún conjunto coincide con esta búsqueda o filtro.</div>
+              <div style={{ textAlign: 'center', padding: '54px 22px' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textSecondaryAlt, marginBottom: 6 }}>
+                  {tenants.length === 0 ? 'Todavía no hay conjuntos' : 'Ningún conjunto coincide'}
+                </div>
+                <div style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.5, maxWidth: 340, margin: '0 auto 14px' }}>
+                  {tenants.length === 0
+                    ? 'Cuando crees el primer conjunto aparecerá aquí con su estado de licencia.'
+                    : 'Prueba con otro término de búsqueda o quita el filtro de estado.'}
+                </div>
+                {tenants.length === 0 ? (
+                  <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
+                ) : hasActiveFilters && (
+                  <button type="button" onClick={() => { setFilter('all'); setSearch(''); }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.navy, padding: '9px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Limpiar filtros</button>
+                )}
+              </div>
             ) : isMobile ? (
               filteredTenants.slice(0, conjuntosVisible).map((t) => (
                 <div key={t.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
@@ -1345,7 +1417,7 @@ export default function DashboardSuperAdminPage() {
                     <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>CIUDAD</th>
                     <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 120 }}>ADMINISTRADOR</th>
                     <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 56 }}>UNID.</th>
-                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>LICENCIA</th>
+                    <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>PLAN (UNID.)</th>
                     <th scope="col" style={{ textAlign: 'left', padding: '11px 8px', width: 90 }}>ESTADO</th>
                     <th scope="col" style={{ textAlign: 'right', padding: '11px 22px 11px 8px', width: 190 }}>ACCIONES</th>
                   </tr>
@@ -1375,6 +1447,18 @@ export default function DashboardSuperAdminPage() {
           {filteredTenants.length > conjuntosVisible && (
             <button type="button" onClick={() => setConjuntosVisible((v) => v + 10)} style={{ display: 'block', width: '100%', background: 'none', border: 'none', font: 'inherit', textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, padding: '16px 0', cursor: 'pointer' }}>Cargar más conjuntos ({filteredTenants.length - conjuntosVisible} restantes)</button>
           )}
+
+          {/* Accion de mantenimiento masivo: no es par de "Crear conjunto", asi
+              que baja al pie y explica que hace antes de ejecutarse. */}
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 12 : 14, background: COLORS.bgCard, borderRadius: RADIUS.cardSm, padding: isMobile ? 16 : '16px 18px', marginTop: 24 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>Actualizar estados por mora</div>
+              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.45 }}>
+                Revisa todos los conjuntos y mueve a mora los que se les venció la licencia, y a suspendido los que ya agotaron los {graceDays} días de gracia. Normalmente lo hace el sistema solo; ejecútalo a mano únicamente si necesitas adelantar esa revisión.
+              </div>
+            </div>
+            <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: COLORS.bg, color: COLORS.textPrimary, fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit', flexShrink: 0, opacity: applyingOverdue ? 0.6 : 1 }}>{applyingOverdue ? 'Actualizando…' : 'Ejecutar ahora'}</button>
+          </div>
         </div>
       )}
 
