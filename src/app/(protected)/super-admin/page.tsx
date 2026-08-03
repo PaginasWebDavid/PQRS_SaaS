@@ -40,7 +40,7 @@ type TenantGroup = 'active' | 'trial' | 'pending_payment' | 'grace' | 'suspended
 type Tenant = {
   id: string; name: string; city: string; units: number; plan: string; group: TenantGroup;
   adminName: string; adminEmail: string; adminPhone: string; startDate: string;
-  pqrsTotal: number; pqrsOpen: number; licenseEnd: string; paymentStatus: 'al_dia' | 'mora'; moraDays: number;
+  pqrsTotal: number; pqrsOpen: number; licenseEnd: string; licenseEndAt: string | null; paymentStatus: 'al_dia' | 'mora'; moraDays: number;
   trialDaysLeft: number | null;
 };
 
@@ -266,6 +266,8 @@ export default function DashboardSuperAdminPage() {
   const [applyingOverdue, setApplyingOverdue] = useState(false);
   const [payments, setPayments] = useState<ApiPayment[]>([]);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'APPROVED' | 'PENDING' | 'REJECTED'>('all');
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [showGraceSetting, setShowGraceSetting] = useState(false);
   const [mercadoPago, setMercadoPago] = useState<IntegrationStatus | null>(null);
   const [integrationsFull, setIntegrationsFull] = useState<IntegrationsFull | null>(null);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({ platformName: 'PQRS Services', pqrsCloseSlaDays: 7, supportTicketsEnabled: true, transactionalEmailEnabled: true });
@@ -453,6 +455,7 @@ export default function DashboardSuperAdminPage() {
       pqrsTotal: Number(tenant._count?.pqrs || 0),
       pqrsOpen: open,
       licenseEnd: formatDate(subscription?.currentPeriodEnd),
+      licenseEndAt: subscription?.currentPeriodEnd || null,
       paymentStatus: subscription?.status === 'ACTIVE' || subscription?.status === 'TRIAL' ? 'al_dia' : 'mora',
       moraDays: group === 'grace' ? daysSince(subscription?.currentPeriodEnd) : 0,
       trialDaysLeft: group === 'trial' ? daysUntil(subscription?.trialEndsAt) : null,
@@ -1046,6 +1049,35 @@ export default function DashboardSuperAdminPage() {
   // filtro y mostraba mas filas de las que el usuario habia pedido ver.
   useEffect(() => { setConjuntosVisible(10); }, [filter, search]);
 
+  // Clasificacion de licencias por lo que hay que HACER, no por estado crudo.
+  // Antes la lista salia entera y sin orden, y los 4 KPIs ni siquiera sumaban
+  // el total de conjuntos (dejaban fuera prueba y falta-primer-pago).
+  const daysUntilLicenseEnd = (t: Tenant) => {
+    if (!t.licenseEndAt) return null;
+    return Math.ceil((new Date(t.licenseEndAt).getTime() - Date.now()) / 86400000);
+  };
+  const licenseBuckets = (() => {
+    const needsAction: Tenant[] = [];
+    const expiringSoon: Tenant[] = [];
+    const healthy: Tenant[] = [];
+    const closed: Tenant[] = [];
+    for (const t of tenants) {
+      if (t.group === 'cancelled') { closed.push(t); continue; }
+      if (t.group === 'grace' || t.group === 'suspended' || t.group === 'pending_payment') { needsAction.push(t); continue; }
+      const left = daysUntilLicenseEnd(t);
+      if (left != null && left <= 15) expiringSoon.push(t);
+      else healthy.push(t);
+    }
+    // Dentro de cada grupo, primero lo mas urgente.
+    const byUrgency = (a: Tenant, b: Tenant) => (daysUntilLicenseEnd(a) ?? 99999) - (daysUntilLicenseEnd(b) ?? 99999);
+    needsAction.sort(byUrgency); expiringSoon.sort(byUrgency); healthy.sort(byUrgency);
+    return { needsAction, expiringSoon, healthy, closed };
+  })();
+
+  const paymentQuery = paymentSearch.trim().toLowerCase();
+  const visiblePayments = payments.filter((p) => (paymentFilter === 'all' || p.status === paymentFilter) && (!paymentQuery || p.tenantName.toLowerCase().includes(paymentQuery)));
+  const visiblePaymentsApprovedCents = visiblePayments.filter((p) => p.status === 'APPROVED').reduce((sum, p) => sum + p.amountCents, 0);
+
   const monthlyCoverage = analyzeRuleCoverage(tiers, 'MONTHLY');
   const pilotCoverage = analyzeRuleCoverage(tiers, 'PILOT');
   const archivedRules = tiers.filter((r) => !r.isActive).sort((a, b) => a.minUnits - b.minUnits);
@@ -1476,80 +1508,96 @@ export default function DashboardSuperAdminPage() {
             <button type="button" onClick={() => setFinSubTab('pagos')} style={{ ...tabStyle(finSubTab === 'pagos'), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>Pagos</button>
           </div>
 
-          {finSubTab === 'licencia' && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Licencias activas</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{billing?.activeLicenses ?? 0}</div>
-                </div>
-                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>En mora</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.warning }}>{tenants.filter((t) => t.group === 'grace').length}</div>
-                </div>
-                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Renovaciones próximas</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{billing?.upcomingRenewals ?? 0}</div>
-                </div>
-                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Suspendidos</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.textSecondaryAlt }}>{tenants.filter((t) => t.group === 'suspended').length}</div>
-                </div>
-              </div>
-
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 18, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>Período de gracia global</div>
-                  <div style={{ fontSize: 11.5, color: COLORS.textSecondary }}>Días de gracia antes de suspender automáticamente una licencia vencida</div>
-                </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={graceDaysInput}
-                  onChange={(e) => setGraceDaysInput(e.target.value)}
-                  style={{ width: 70, height: 44, padding: '0 10px', borderRadius: RADIUS.input, border: `1px solid ${COLORS.border}`, fontSize: 13.5, fontWeight: 500, font: 'inherit' }}
-                />
-                <button type="button" onClick={submitGraceDays} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.white, background: COLORS.navy, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Guardar</button>
-                <span style={{ fontSize: 11, color: COLORS.textMuted }}>Actual: {graceDays} días</span>
-              </div>
-
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-                {tenants.map((t) => isMobile ? (
-                  <div key={t.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
-                      <span style={{ ...TENANT_BADGE[t.group], flexShrink: 0 }}>{TENANT_LABEL[t.group]}</span>
+          {finSubTab === 'licencia' && (() => {
+            const GROUPS = [
+              { key: 'needsAction', title: 'Requieren acción', help: 'Conjuntos que no están pagando: en mora, sin primer pago o suspendidos. Empieza por aquí.', list: licenseBuckets.needsAction, accent: COLORS.warning, soft: COLORS.warningSoft },
+              { key: 'expiringSoon', title: 'Vencen pronto', help: 'Se les acaba la licencia en 15 días o menos. Confirma que van a renovar antes de que caigan en mora.', list: licenseBuckets.expiringSoon, accent: COLORS.navy, soft: COLORS.navySoft },
+              { key: 'healthy', title: 'Al día', help: 'Nada que hacer con estos por ahora.', list: licenseBuckets.healthy, accent: COLORS.success, soft: COLORS.successSoft },
+              { key: 'closed', title: 'Cerrados', help: 'Conjuntos cancelados. Se conservan por historial.', list: licenseBuckets.closed, accent: COLORS.textMuted, soft: COLORS.neutralSoft },
+            ];
+            const renderRow = (t: Tenant, urgent: boolean) => {
+              const left = daysUntilLicenseEnd(t);
+              const timing = t.group === 'pending_payment'
+                ? 'Nunca ha hecho el primer pago'
+                : t.group === 'suspended' ? `Suspendido · la licencia venció el ${t.licenseEnd}`
+                : t.paymentStatus === 'mora' && t.moraDays > 0
+                ? `Venció hace ${t.moraDays} día${t.moraDays === 1 ? '' : 's'} (${t.licenseEnd})`
+                : left == null ? 'Sin fecha de vencimiento'
+                  : left < 0 ? `Venció hace ${Math.abs(left)} día${Math.abs(left) === 1 ? '' : 's'} (${t.licenseEnd})`
+                    : left === 0 ? `Vence hoy (${t.licenseEnd})`
+                      : `Vence en ${left} día${left === 1 ? '' : 's'} (${t.licenseEnd})`;
+              return (
+                <div key={t.id} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 14, padding: isMobile ? '14px 18px' : '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => setSelectedId(t.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, cursor: 'pointer', textAlign: 'left' }}>{t.name}</button>
+                      <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>Vence {t.licenseEnd}</span>
-                      {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.white, background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
-                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
-                    </div>
+                    <div style={{ fontSize: 11.5, color: urgent ? COLORS.warning : COLORS.textMuted, fontWeight: urgent ? 700 : 600, marginTop: 3 }}>{timing}</div>
                   </div>
-                ) : (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
-                    <span style={{ flex: 1, minWidth: 150, fontSize: 13.5, fontWeight: 700 }}>{t.name}</span>
-                    <span style={TENANT_BADGE[t.group]}>{TENANT_LABEL[t.group]}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 170 }}>{t.licenseEnd}</span>
-                    {t.paymentStatus === 'mora' && <span style={badgeStyle(COLORS.warningSoft, COLORS.warning)}>Mora {t.moraDays}d</span>}
-                    <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                      <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.white, background: COLORS.success, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando...' : 'Renovar'}</button>
-                      <button type="button" onClick={() => (canReactivate(t.group) ? reactivate(t.id) : suspend(t.id))} style={{ border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: COLORS.neutralSoft, padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Renovando…' : 'Renovar'}</button>
+                    <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                  </div>
+                </div>
+              );
+            };
+            return (
+              <>
+                {/* Estos cuatro numeros si suman el total de conjuntos. */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+                  {GROUPS.map((g) => (
+                    <div key={g.key} style={{ background: g.list.length > 0 && g.key === 'needsAction' ? g.soft : COLORS.bg, border: `1px solid ${g.list.length > 0 && g.key === 'needsAction' ? g.accent : COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
+                      <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>{g.title}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: g.list.length === 0 ? COLORS.textMuted : g.accent }}>{g.list.length}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {GROUPS.filter((g) => g.list.length > 0).map((g) => (
+                  <div key={g.key} style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 2 }}>
+                      {g.title} ({g.list.length})
+                      <InfoTip text={g.help} />
+                    </div>
+                    <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 9 }}>{g.help}</div>
+                    <div style={{ background: COLORS.bg, border: `1px solid ${g.key === 'needsAction' ? g.accent : COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
+                      {g.list.map((t) => renderRow(t, g.key === 'needsAction'))}
                     </div>
                   </div>
                 ))}
-              </div>
-            </>
-          )}
+
+                {tenants.length === 0 && (
+                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '48px 20px', textAlign: 'center', fontSize: 13, color: COLORS.textMuted }}>Todavía no hay conjuntos con licencia.</div>
+                )}
+
+                {/* Ajuste de configuracion: se consulta poco, no compite con la lista. */}
+                <div style={{ marginTop: 4 }}>
+                  <button type="button" onClick={() => setShowGraceSetting((v) => !v)} aria-expanded={showGraceSetting} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.textSecondaryAlt, cursor: 'pointer' }}>
+                    {showGraceSetting ? '▾' : '▸'} Período de gracia ({graceDays} días)
+                  </button>
+                  {showGraceSetting && (
+                    <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 18, marginTop: 10, maxWidth: 460 }}>
+                      <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 14, lineHeight: 1.45 }}>Cuántos días puede seguir usando la plataforma un conjunto después de que se le venció la licencia, antes de que el sistema lo suspenda solo.</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <input type="number" min={1} value={graceDaysInput} onChange={(e) => setGraceDaysInput(e.target.value)} aria-label="Días de gracia" style={{ width: 80, height: 42, padding: '0 10px', borderRadius: RADIUS.input, border: `1.5px solid ${COLORS.inputBorder}`, fontSize: 13.5, fontWeight: 500, font: 'inherit' }} />
+                        <button type="button" onClick={submitGraceDays} disabled={graceDaysInput === String(graceDays)} style={{ border: 'none', font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.white, background: graceDaysInput === String(graceDays) ? COLORS.neutralSoft : COLORS.navy, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: graceDaysInput === String(graceDays) ? 'default' : 'pointer' }}>Guardar</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           {finSubTab === 'pagos' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Pagos recibidos (mes)</div>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>
+                    Recibido en {new Date().toLocaleDateString('es-CO', { month: 'long' })}
+                    <InfoTip text="Solo cuenta los pagos aprobados del mes calendario en curso. Si aparece en cero pero abajo ves pagos, es porque esos pagos son de meses anteriores." />
+                  </div>
                   <div style={{ fontSize: 20, fontWeight: 800 }}>{billing ? formatMoney(billing.monthlyRevenueCents) : '—'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{billing?.monthlyApprovedPayments ?? 0} pagos aprobados</div>
                 </div>
@@ -1566,20 +1614,37 @@ export default function DashboardSuperAdminPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-                {(['all', 'APPROVED', 'PENDING', 'REJECTED'] as const).map((f) => (
-                  <button key={f} type="button" onClick={() => setPaymentFilter(f)} style={{ ...tabStyle(paymentFilter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer' }}>
-                    {f === 'all' ? 'Todos' : PAYMENT_STATUS_LABEL[f]}
-                  </button>
-                ))}
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: isMobile ? 14 : '14px 16px', marginBottom: 12 }}>
+                <input
+                  value={paymentSearch}
+                  onChange={(e) => setPaymentSearch(e.target.value)}
+                  placeholder="Buscar por conjunto…"
+                  aria-label="Buscar pagos por conjunto"
+                  style={{ width: '100%', height: 40, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }}
+                />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {(['all', 'APPROVED', 'PENDING', 'REJECTED'] as const).map((f) => {
+                    const count = f === 'all' ? payments.length : payments.filter((p) => p.status === f).length;
+                    return (
+                      <button key={f} type="button" onClick={() => setPaymentFilter(f)} aria-pressed={paymentFilter === f} style={{ ...tabStyle(paymentFilter === f), fontSize: 11.5, fontWeight: 700, border: 'none', font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: count === 0 && paymentFilter !== f ? 0.45 : 1 }}>
+                        {f === 'all' ? 'Todos' : PAYMENT_STATUS_LABEL[f]}
+                        <span style={{ fontSize: 10.5, fontWeight: 800, opacity: 0.75 }}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 600 }}>{visiblePayments.length} de {payments.length} pagos</span>
+                <span style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 700 }}>Aprobado en esta vista: {formatMoney(visiblePaymentsApprovedCents)}</span>
               </div>
 
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-                {payments.filter((p) => paymentFilter === 'all' || p.status === paymentFilter).length === 0 ? (
+                {visiblePayments.length === 0 ? (
                   <div style={{ padding: '32px 22px', textAlign: 'center', fontSize: 12.5, color: COLORS.textMuted }}>No hay pagos para mostrar</div>
                 ) : (
-                  payments
-                    .filter((p) => paymentFilter === 'all' || p.status === paymentFilter)
+                  visiblePayments
                     .map((tx) => isMobile ? (
                       <div key={tx.id} style={{ padding: '14px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
