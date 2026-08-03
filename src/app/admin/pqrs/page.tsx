@@ -118,6 +118,8 @@ function ModuloPqrsPageContent() {
   const [contactOpen, setContactOpen] = useState(false);
   const [contactNota, setContactNota] = useState('');
   const [contactPrioridad, setContactPrioridad] = useState<'ALTA' | 'MEDIA' | 'BAJA'>('MEDIA');
+  const [contactCategoryId, setContactCategoryId] = useState('');
+  const [contactReclassReason, setContactReclassReason] = useState('');
   const [contactSubmitting, setContactSubmitting] = useState(false);
 
   const [faseOpen, setFaseOpen] = useState(false);
@@ -203,19 +205,44 @@ function ModuloPqrsPageContent() {
     if (!selected) return;
     setContactNota('');
     setContactPrioridad('MEDIA');
+    setContactCategoryId(selected.categoryId || '');
+    setContactReclassReason('');
     setContactOpen(true);
   }
 
+  // La categoria elegida decide sola la ruta: no se le pregunta al admin dos
+  // veces. Mantenimiento y Zonas comunes van por las 5 fases; el resto es
+  // ruta simple.
+  const contactCategory = categories.find((c) => c.id === contactCategoryId) || null;
+  const contactWorkflow = contactCategory?.workflowType || selected?.workflowType || 'SIMPLE';
+  const contactCategoryChanged = Boolean(selected && contactCategoryId && contactCategoryId !== selected.categoryId);
+  const contactReasonMissing = contactCategoryChanged && contactReclassReason.trim().length < 10;
+  const contactReady = Boolean(contactCategoryId) && contactNota.trim().length > 0 && !contactReasonMissing;
+
   async function submitContact() {
-    if (!selected || !contactNota.trim()) return;
+    if (!selected || !contactReady) return;
     setContactSubmitting(true);
     try {
+      // Si el admin reclasifico, eso es una correccion auditada de verdad, asi
+      // que pasa por su endpoint antes de abrir el caso. Para el admin sigue
+      // siendo un solo boton.
+      if (contactCategoryChanged) {
+        const fix = await fetch(`/api/pqrs/${selected.id}/corregir`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operationId: crypto.randomUUID(), reason: contactReclassReason.trim(), categoryId: contactCategoryId }),
+        });
+        if (!fix.ok) {
+          const err = await fix.json().catch(() => null);
+          showToast(err?.error || 'No se pudo reclasificar la solicitud');
+          return;
+        }
+      }
       const res = await fetch(`/api/pqrs/${selected.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ primerContacto: true, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
       });
-      if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo registrar el primer contacto'); return; }
-      setContactOpen(false); await load(); showToast('Recepción confirmada ✓ Se avisó al residente.');
+      if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo abrir el caso'); return; }
+      setContactOpen(false); await load(); showToast('Caso abierto ✓ Se le avisó al residente por correo.');
     } finally { setContactSubmitting(false); }
   }
 
@@ -525,20 +552,25 @@ function ModuloPqrsPageContent() {
                 ))}
               </div>
 
+              {/* Una sola accion principal segun la etapa. "Corregir caso" es
+                  una salida de emergencia, no un par de la accion principal,
+                  asi que baja a enlace discreto. */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" onClick={openCorrection} style={{ flex: 1, textAlign: 'center', background: COLORS.bg, color: COLORS.navy, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Corregir caso</button>
                 {selected.estado === 'EN_ESPERA' && (
-                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Confirmar recepción</button>
+                  <button type="button" onClick={openContact} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Abrir caso</button>
                 )}
                 {selected.estado === 'EN_PROGRESO' && (
                   <>
-                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: COLORS.textPrimary, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Actualizar gestión</button>
-                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Marcar como resuelta</button>
+                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Continuar proceso</button>
+                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.bg, color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Cerrar solicitud</button>
                   </>
                 )}
                 {selected.estado === 'TERMINADO' && (
-                  <div style={{ flex: 1, textAlign: 'center', background: COLORS.bgCard, color: COLORS.textMuted, fontSize: 12.5, fontWeight: 700, padding: '10px 0', borderRadius: RADIUS.pill }}>Terminada</div>
+                  <div style={{ flex: 1, textAlign: 'center', background: COLORS.successSoft, color: COLORS.success, fontSize: 13, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill }}>Solicitud terminada</div>
                 )}
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <button type="button" onClick={openCorrection} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 600, color: COLORS.textMuted, cursor: 'pointer', textDecoration: 'underline' }}>Corregir un error de esta solicitud</button>
               </div>
             </>
           ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
@@ -571,19 +603,65 @@ function ModuloPqrsPageContent() {
       {/* Primer contacto sheet */}
       <Sheet open={contactOpen} onClose={() => setContactOpen(false)} maxWidth={460}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Confirmar recepción</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Abrir caso</div>
           <CloseButton onClick={() => setContactOpen(false)} />
         </div>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Esto pasa la PQRS a &quot;En proceso&quot;, genera su número de radicación y avisa al residente por correo.</p>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Prioridad</label>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se genera el número de radicación, la solicitud pasa a &quot;En proceso&quot; y se le avisa al residente por correo.</p>
+
+        <label htmlFor="contact-categoria" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>1. ¿De qué es la solicitud?</label>
+        <select
+          id="contact-categoria"
+          value={contactCategoryId}
+          onChange={(e) => setContactCategoryId(e.target.value)}
+          style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', marginBottom: 10 }}
+        >
+          <option value="">Selecciona una categoría</option>
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+        </select>
+
+        {/* La ruta no se pregunta: se muestra como consecuencia de la
+            categoria, con los pasos que el admin va a tener que llenar. */}
+        {contactCategory && (
+          <div className="apl-up" style={{ background: contactWorkflow === 'MAINTENANCE' ? COLORS.warningSoft : COLORS.navySoft, borderRadius: RADIUS.stat, padding: '13px 15px', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: contactWorkflow === 'MAINTENANCE' ? COLORS.warning : COLORS.navy, marginBottom: 6 }}>
+              {contactWorkflow === 'MAINTENANCE' ? 'Se gestiona por 5 fases' : 'Gestión simple'}
+            </div>
+            <div style={{ fontSize: 12, color: contactWorkflow === 'MAINTENANCE' ? COLORS.warning : COLORS.navy, fontWeight: 500, lineHeight: 1.5 }}>
+              {contactWorkflow === 'MAINTENANCE'
+                ? 'Vas a registrar: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada fase tiene su plazo.'
+                : 'Vas a registrar: esta nota de primer contacto, la acción tomada y la evidencia de cierre.'}
+            </div>
+          </div>
+        )}
+
+        {contactCategoryChanged && (
+          <div className="apl-up" style={{ marginBottom: 14 }}>
+            <label htmlFor="contact-motivo" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>¿Por qué la reclasificas?</label>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 7, lineHeight: 1.45 }}>Estás cambiando la categoría que eligió el residente, así que queda registrado en la auditoría.</div>
+            <input
+              id="contact-motivo"
+              value={contactReclassReason}
+              onChange={(e) => setContactReclassReason(e.target.value)}
+              placeholder="Ej: el residente la marcó como convivencia pero es una fuga"
+              style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${contactReasonMissing && contactReclassReason.length > 0 ? COLORS.warning : COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit' }}
+            />
+            {contactReasonMissing && contactReclassReason.length > 0 && (
+              <div style={{ fontSize: 11.5, color: COLORS.warning, fontWeight: 600, marginTop: 5 }}>Escribe al menos 10 caracteres.</div>
+            )}
+          </div>
+        )}
+
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>2. ¿Qué tan urgente es?</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {(['ALTA', 'MEDIA', 'BAJA'] as const).map((p) => (
             <button key={p} type="button" onClick={() => setContactPrioridad(p)} style={{ flex: 1, border: `1.5px solid ${contactPrioridad === p ? COLORS.navy : COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: contactPrioridad === p ? COLORS.navySoft : 'none', color: contactPrioridad === p ? COLORS.navy : COLORS.textPrimary }}>{p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja'}</button>
           ))}
         </div>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de primer contacto</label>
-        <textarea value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="¿Qué se le informó o gestionó al residente?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
-        <button type="button" onClick={submitContact} disabled={!contactNota.trim() || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactNota.trim() ? COLORS.navy : COLORS.neutralSoft, color: contactNota.trim() ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{contactSubmitting ? 'Guardando…' : 'Confirmar recepción'}</button>
+
+        <label htmlFor="contact-nota" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>3. ¿Qué le dijiste al residente?</label>
+        <textarea id="contact-nota" value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="Ej: se le confirmó la recepción y se programó visita para el jueves" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
+
+        <button type="button" onClick={submitContact} disabled={!contactReady || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactReady ? COLORS.navy : COLORS.neutralSoft, color: contactReady ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: contactReady ? 'pointer' : 'default' }}>{contactSubmitting ? 'Abriendo…' : 'Abrir caso y avisar al residente'}</button>
       </Sheet>
 
       {/* Correccion auditada */}
@@ -592,31 +670,41 @@ function ModuloPqrsPageContent() {
           <div style={{ fontSize: 17, fontWeight: 800 }}>Corregir caso</div>
           <CloseButton onClick={() => setCorrectionOpen(false)} />
         </div>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>Los cambios quedan registrados en el historial y la auditoria.</p>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
-        <select value={correctionCategoryId} onChange={(e) => setCorrectionCategoryId(e.target.value)} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 12 }}>
-          <option value="">Selecciona una categoria</option>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>Para arreglar un dato mal registrado. Los cambios quedan en el historial y en la auditoría.</p>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría</label>
+        <select
+          value={correctionCategoryId}
+          onChange={(e) => {
+            setCorrectionCategoryId(e.target.value);
+            // La categoria manda: al cambiarla, la ruta se ajusta sola en vez
+            // de dejar que queden en contradiccion.
+            const next = categories.find((c) => c.id === e.target.value);
+            if (next) setCorrectionWorkflow(next.workflowType);
+          }}
+          style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 10 }}
+        >
+          <option value="">Selecciona una categoría</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
+        <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, marginBottom: 12 }}>
+          Esta categoría se gestiona {correctionWorkflow === 'MAINTENANCE' ? 'por 5 fases' : 'de forma simple'}.
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <input type="number" min={1} value={correctionBloque} onChange={(e) => setCorrectionBloque(e.target.value)} placeholder="Bloque" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }} />
           <input type="number" min={1} value={correctionApto} onChange={(e) => setCorrectionApto(e.target.value)} placeholder="Apartamento" style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }} />
         </div>
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Workflow efectivo</label>
-        <select value={correctionWorkflow} onChange={(e) => setCorrectionWorkflow(e.target.value as 'SIMPLE' | 'MAINTENANCE')} style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 12 }}>
-          <option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option>
-        </select>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>En qué punto del proceso va</label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <select value={correctionPhase} onChange={(e) => setCorrectionPhase(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }}>
-            <option value="">Sin fase</option><option value="1">Fase 1</option>
+            <option value="">Sin empezar</option><option value="1">Fase 1</option>
             {correctionWorkflow === 'MAINTENANCE' && <><option value="2">Fase 2</option><option value="3">Fase 3</option><option value="4">Fase 4</option></>}
           </select>
-          <select disabled={correctionWorkflow !== 'MAINTENANCE'} value={correctionRoute} onChange={(e) => setCorrectionRoute(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input }}>
-            <option value="">Sin ruta</option><option value="INSUMOS">Insumos</option><option value="PROVEEDOR">Proveedor</option>
+          <select disabled={correctionWorkflow !== 'MAINTENANCE'} value={correctionRoute} onChange={(e) => setCorrectionRoute(e.target.value)} style={{ height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, opacity: correctionWorkflow === 'MAINTENANCE' ? 1 : 0.5 }}>
+            <option value="">Sin ruta</option><option value="INSUMOS">Compra de insumos</option><option value="PROVEEDOR">Gestión con proveedor</option>
           </select>
         </div>
-        {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado accidentalmente</label>}
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo obligatorio</label>
+        {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado por equivocación</label>}
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo (obligatorio)</label>
         <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
         <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
       </Sheet>
