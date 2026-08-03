@@ -7,6 +7,16 @@ import { COLORS, RADIUS, badgeStyle, tabStyle, toggleTrackStyle, toggleDotStyle 
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 import { paymentProviderLabel } from '@/lib/design/billing';
 import { CommercialTenantPanel, type CommercialMetrics, type CommercialTenantDetail } from '@/components/commercial/CommercialTenantPanel';
+import {
+  ANNUAL_DISCOUNT_BPS,
+  ASSISTED_IMPLEMENTATION_FEE_CENTS,
+  FOUNDER_PRICE_PROTECTION_MONTHS,
+  MAX_COMMERCIAL_DISCOUNT_BPS,
+  MAX_FOUNDER_CUSTOMERS,
+  PILOT_ACCESS_DAYS,
+  applyBasisPointDiscount,
+  bpsToPercent,
+} from '@/domains/commercial/commercial-policy.constants';
 
 const NAV_DEFS: { header?: string; key?: string; label?: string }[] = [
   { header: 'PLATAFORMA' },
@@ -163,6 +173,49 @@ function MiniBarChart({ data, color, formatValue }: { data: { label: string; val
   );
 }
 
+function ruleRangeLabel(rule: ApiPricingRule) {
+  return rule.maxUnits ? `${rule.minUnits}-${rule.maxUnits}` : `${rule.minUnits}+`;
+}
+
+// Espejo exacto de calculatePriceForUnits() en billing.service.ts: regla activa
+// del tipo pedido cuyo rango cubra las unidades, ordenadas por minUnits asc y
+// tomando la primera. Si esto se desincroniza, el simulador mentiria.
+function resolveRuleForUnits(rules: ApiPricingRule[], units: number, type: 'MONTHLY' | 'PILOT') {
+  return rules
+    .filter((r) => r.type === type && r.isActive && r.minUnits <= units && (r.maxUnits == null || r.maxUnits >= units))
+    .sort((a, b) => a.minUnits - b.minUnits)[0] || null;
+}
+
+// Detecta configuraciones que hacen impredecible el cobro: dos reglas activas
+// que cubren las mismas unidades, o tramos de unidades sin ninguna regla.
+function analyzeRuleCoverage(rules: ApiPricingRule[], type: 'MONTHLY' | 'PILOT') {
+  const active = rules.filter((r) => r.type === type && r.isActive).sort((a, b) => a.minUnits - b.minUnits);
+  const overlaps: string[] = [];
+  const gaps: string[] = [];
+  for (let i = 0; i < active.length; i += 1) {
+    for (let j = i + 1; j < active.length; j += 1) {
+      const a = active[i];
+      const b = active[j];
+      if (a.minUnits <= (b.maxUnits ?? Infinity) && b.minUnits <= (a.maxUnits ?? Infinity)) {
+        overlaps.push(`${ruleRangeLabel(a)} y ${ruleRangeLabel(b)}`);
+      }
+    }
+  }
+  if (active.length > 0 && active[0].minUnits > 1) gaps.push(`1-${active[0].minUnits - 1}`);
+  for (let i = 0; i < active.length - 1; i += 1) {
+    const currentMax = active[i].maxUnits;
+    if (currentMax != null && active[i + 1].minUnits > currentMax + 1) {
+      gaps.push(`${currentMax + 1}-${active[i + 1].minUnits - 1}`);
+    }
+  }
+  // Sin una regla de tope abierto, todo conjunto mas grande que el ultimo
+  // rango queda sin precio y no se puede cobrar.
+  const hasOpenEnd = active.some((r) => r.maxUnits == null);
+  const highestMax = active.reduce((max, r) => (r.maxUnits != null && r.maxUnits > max ? r.maxUnits : max), 0);
+  if (active.length > 0 && !hasOpenEnd) gaps.push(`${highestMax + 1} o más`);
+  return { active, overlaps, gaps, hasOpenEnd };
+}
+
 export default function DashboardSuperAdminPage() {
   const isMobile = useIsMobile();
   const [nav, setNav] = useState('resumen');
@@ -199,6 +252,9 @@ export default function DashboardSuperAdminPage() {
   const [ruleMaxUnits, setRuleMaxUnits] = useState('');
   const [rulePrice, setRulePrice] = useState('');
   const [ruleType, setRuleType] = useState<'MONTHLY' | 'PILOT'>('MONTHLY');
+  const [simUnits, setSimUnits] = useState('150');
+  const [showArchivedRules, setShowArchivedRules] = useState(false);
+  const [showPriceCaps, setShowPriceCaps] = useState(false);
   const [addingRule, setAddingRule] = useState(false);
   const [ruleError, setRuleError] = useState<string | null>(null);
   const [ruleConfirmStep, setRuleConfirmStep] = useState(false);
@@ -367,9 +423,11 @@ export default function DashboardSuperAdminPage() {
   };
 
   const findPlanLabel = (units: number, rules: ApiPricingRule[]) => {
-    const match = rules.find((r) => r.type === 'MONTHLY' && r.isActive && units >= r.minUnits && (r.maxUnits == null || units <= r.maxUnits));
+    // Mismo criterio que calculatePriceForUnits(): sin ordenar por minUnits,
+    // esta etiqueta podia mostrar un rango distinto al que realmente se cobra.
+    const match = resolveRuleForUnits(rules, units, 'MONTHLY');
     if (!match) return 'Sin plan';
-    return match.maxUnits ? `${match.minUnits}-${match.maxUnits}` : `${match.minUnits}+`;
+    return ruleRangeLabel(match);
   };
 
   const mapTenant = (tenant: ApiTenant, rules: ApiPricingRule[]): Tenant => {
@@ -671,9 +729,9 @@ export default function DashboardSuperAdminPage() {
     showToast('Topes de precio actualizados ✓');
   };
 
-  const openAddRule = () => {
+  const openAddRule = (type: 'MONTHLY' | 'PILOT' = 'MONTHLY') => {
     setAddingRule(true);
-    setRuleType('MONTHLY');
+    setRuleType(type);
     setEditingRuleId(null);
     setRuleMinUnits('');
     setRuleMaxUnits('');
@@ -983,6 +1041,16 @@ export default function DashboardSuperAdminPage() {
   const newUnitsNumber = Number(newUnits || 0);
   const quotedPilotRule = tiers.find((rule) => rule.type === 'PILOT' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
   const quotedMonthlyRule = tiers.find((rule) => rule.type === 'MONTHLY' && rule.isActive && newUnitsNumber >= rule.minUnits && (rule.maxUnits == null || newUnitsNumber <= rule.maxUnits));
+  const monthlyCoverage = analyzeRuleCoverage(tiers, 'MONTHLY');
+  const pilotCoverage = analyzeRuleCoverage(tiers, 'PILOT');
+  const archivedRules = tiers.filter((r) => !r.isActive).sort((a, b) => a.minUnits - b.minUnits);
+  const simUnitsNumber = Number(simUnits);
+  const simValid = Number.isInteger(simUnitsNumber) && simUnitsNumber > 0;
+  const simMonthlyRule = simValid ? resolveRuleForUnits(tiers, simUnitsNumber, 'MONTHLY') : null;
+  const simPilotRule = simValid ? resolveRuleForUnits(tiers, simUnitsNumber, 'PILOT') : null;
+  const simAnnualListCents = simMonthlyRule ? simMonthlyRule.priceCents * 12 : null;
+  const simAnnualCents = simAnnualListCents ? applyBasisPointDiscount(simAnnualListCents, ANNUAL_DISCOUNT_BPS) : null;
+
   const alertTenants = tenants.filter((t) => t.group === 'grace' || t.group === 'trial' || t.group === 'pending_payment');
   const primaryKpis = [
     { label: 'Total conjuntos', value: String(stats.totalTenants), color: COLORS.textPrimary, href: 'conjuntos' as const },
@@ -1453,86 +1521,242 @@ export default function DashboardSuperAdminPage() {
       {nav === 'precios' && (
         <div className="apl-up" style={{ maxWidth: 1000 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Reglas de precio</h1>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Define cuánto paga cada conjunto según su número de unidades.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Cuánto paga un conjunto según cuántas unidades tenga. Los cambios aplican a conjuntos nuevos y a las próximas renovaciones, nunca a un período ya cobrado.</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 20, alignItems: 'flex-start' }}>
-            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-              {!isMobile && (
-                <div style={{ display: 'flex', padding: '14px 22px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
-                  <span style={{ flex: 1 }}>DESDE</span><span style={{ flex: 1 }}>HASTA</span><span style={{ flex: 2 }}>PRECIO MENSUAL</span><span style={{ width: 140 }} />
+          {/* Simulador: responde de entrada la unica pregunta que importa aqui,
+              "cuanto paga un conjunto de N unidades", con las mismas reglas que
+              usa el cobro real. */}
+          <div style={{ background: COLORS.navy, borderRadius: RADIUS.card, padding: isMobile ? '20px 18px' : '24px 26px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.white }}>Un conjunto de</span>
+              <input
+                type="number"
+                min={1}
+                value={simUnits}
+                onChange={(e) => setSimUnits(e.target.value)}
+                aria-label="Número de unidades para simular"
+                style={{ width: 92, height: 42, padding: '0 12px', borderRadius: RADIUS.input, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', color: COLORS.white, fontSize: 16, fontWeight: 800, fontFamily: 'inherit' }}
+              />
+              <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.white }}>unidades pagaría:</span>
+            </div>
+
+            {!simValid ? (
+              <div style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 600 }}>Escribe un número de unidades para ver el precio.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 14 : 18 }}>
+                {[
+                  {
+                    key: 'pilot',
+                    label: `Piloto ${PILOT_ACCESS_DAYS} días`,
+                    value: simPilotRule ? formatMoney(simPilotRule.priceCents, simPilotRule.currency) : 'Sin regla',
+                    note: simPilotRule ? `Pago único · rango ${ruleRangeLabel(simPilotRule)}` : 'No hay regla de piloto activa que cubra estas unidades',
+                    missing: !simPilotRule,
+                  },
+                  {
+                    key: 'monthly',
+                    label: 'Plan mensual',
+                    value: simMonthlyRule ? `${formatMoney(simMonthlyRule.priceCents, simMonthlyRule.currency)}/mes` : 'Sin regla',
+                    note: simMonthlyRule ? `Recurrente · rango ${ruleRangeLabel(simMonthlyRule)}` : 'No hay regla mensual activa que cubra estas unidades',
+                    missing: !simMonthlyRule,
+                  },
+                  {
+                    key: 'annual',
+                    label: 'Plan anual',
+                    value: simAnnualCents ? formatMoney(simAnnualCents) : 'Sin regla',
+                    note: simAnnualCents && simAnnualListCents
+                      ? `12 meses con ${bpsToPercent(ANNUAL_DISCOUNT_BPS)} % dto. · ahorra ${formatMoney(simAnnualListCents - simAnnualCents)}`
+                      : 'Depende de la regla mensual',
+                    missing: !simAnnualCents,
+                  },
+                ].map((card) => (
+                  <div key={card.key} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.stat, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: COLORS.navyMuted2, marginBottom: 8 }}>{card.label}</div>
+                    <div style={{ fontSize: card.missing ? 15 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: card.missing ? '#F8B4B4' : COLORS.white, marginBottom: 5 }}>{card.value}</div>
+                    <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.45, color: COLORS.navyMuted }}>{card.note}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Avisos de configuracion: un solape hace impredecible el cobro. */}
+          {([
+            { title: 'plan mensual', coverage: monthlyCoverage },
+            { title: 'piloto', coverage: pilotCoverage },
+          ] as const).map(({ title, coverage }) => (
+            (coverage.overlaps.length > 0 || coverage.gaps.length > 0) && (
+              <div key={title} style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.cardSm, padding: '13px 16px', marginBottom: 12 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 5 }}>Revisa los rangos del {title}</div>
+                {coverage.overlaps.length > 0 && (
+                  <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 500, lineHeight: 1.5 }}>
+                    Hay rangos que se pisan ({coverage.overlaps.join('; ')}). Cuando dos reglas cubren las mismas unidades se cobra la del rango que empiece más abajo, así que el precio deja de ser obvio.
+                  </div>
+                )}
+                {coverage.gaps.length > 0 && (
+                  <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 500, lineHeight: 1.5, marginTop: coverage.overlaps.length > 0 ? 5 : 0 }}>
+                    Sin cubrir: {coverage.gaps.join(', ')} unidades. Un conjunto de ese tamaño no se puede cobrar.
+                  </div>
+                )}
+              </div>
+            )
+          ))}
+
+          {/* Dos tablas separadas: mensual y piloto son productos distintos y
+              mezclarlos en una sola lista era la raiz de la confusion. */}
+          {([
+            {
+              key: 'MONTHLY' as const,
+              title: 'Plan Gestión — cobro mensual',
+              help: 'Lo que el conjunto paga cada mes, de forma recurrente.',
+              suffix: '/mes',
+              coverage: monthlyCoverage,
+            },
+            {
+              key: 'PILOT' as const,
+              title: `Piloto pago de ${PILOT_ACCESS_DAYS} días`,
+              help: 'Pago único al inicio. Al terminar el piloto, el conjunto decide si pasa al plan mensual.',
+              suffix: ' / piloto',
+              coverage: pilotCoverage,
+            },
+          ]).map((table) => (
+            <div key={table.key} style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '-0.01em' }}>{table.title}</div>
+                  <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginTop: 2 }}>{table.help}</div>
                 </div>
-              )}
-              {tiers.length === 0 && (
-                <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: 12.5, color: COLORS.textMuted }}>No hay reglas de precio configuradas</div>
-              )}
-              {[...tiers].sort((a, b) => a.minUnits - b.minUnits).map((p) => isMobile ? (
-                <div key={p.id} style={{ padding: '16px 18px', borderBottom: `1px solid ${COLORS.borderSoft}`, opacity: p.isActive ? 1 : 0.55 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: p.type === 'PILOT' ? COLORS.warning : COLORS.navy }}>{p.type === 'PILOT' ? 'PILOTO 45 DÍAS' : 'MENSUAL'}</span>
-                    {!p.isActive && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}>· inactiva</span>}
+                <button type="button" onClick={() => openAddRule(table.key)} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.navy, padding: '8px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', flexShrink: 0 }}>+ Agregar rango</button>
+              </div>
+
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
+                {table.coverage.active.length === 0 ? (
+                  <div style={{ padding: '28px 18px', textAlign: 'center', fontSize: 12.5, color: COLORS.textMuted }}>Todavía no hay rangos activos aquí.</div>
+                ) : table.coverage.active.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 12, padding: isMobile ? '14px 18px' : '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em' }}>
+                        {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>{table.suffix}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginTop: 2 }}>
+                        {p.maxUnits ? `De ${p.minUnits} a ${p.maxUnits} unidades` : `Desde ${p.minUnits} unidades, sin límite`}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+                      <button type="button" onClick={() => openEditRule(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
+                      <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.warning, cursor: 'pointer' }}>Archivar</button>
+                      <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 21, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>
-                    {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>{p.type === 'PILOT' ? ' / piloto' : '/mes'}</span>
-                  </div>
-                  <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 14 }}>De {p.minUnits} a {p.maxUnits ? p.maxUnits : 'sin límite'} unidades</div>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: p.isActive ? COLORS.warning : COLORS.success, cursor: 'pointer' }}>{p.isActive ? 'Desactivar' : 'Activar'}</button>
-                    <button type="button" onClick={() => openEditRule(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                    <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
-                  </div>
-                </div>
-              ) : (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 22px', borderBottom: `1px solid ${COLORS.borderSoft}`, opacity: p.isActive ? 1 : 0.55 }}>
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.minUnits}</span>
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.maxUnits ? p.maxUnits : 'Sin límite'}</span>
-                  <span style={{ flex: 2, fontSize: 15, color: COLORS.textPrimary, fontWeight: 800 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: p.type === 'PILOT' ? COLORS.warning : COLORS.navy, marginRight: 8 }}>{p.type === 'PILOT' ? 'PILOTO 45 DÍAS' : 'MENSUAL'}</span>
-                    {formatMoney(p.priceCents, p.currency)}<span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted }}>{p.type === 'PILOT' ? ' / piloto' : '/mes'}</span>{!p.isActive && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted }}> · inactiva</span>}
-                  </span>
-                  <div style={{ width: 140, display: 'flex', gap: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
-                    <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: p.isActive ? COLORS.warning : COLORS.success, cursor: 'pointer' }}>{p.isActive ? 'Desactivar' : 'Activar'}</button>
-                    <button type="button" onClick={() => openEditRule(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                    <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11.5, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
-                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Condiciones fijas del negocio: viven en codigo, pero el operador
+              necesita verlas junto a los precios para entender que cobra. */}
+          <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.card, padding: isMobile ? '18px' : '20px 22px', marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', marginBottom: 3 }}>Condiciones del negocio</div>
+            <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 14 }}>Reglas fijas que se aplican encima de los precios de arriba. No se editan desde aquí.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 10 }}>
+              {[
+                {
+                  label: 'Conjuntos fundadores',
+                  value: `${founderSlotsRemaining} de ${MAX_FOUNDER_CUSTOMERS} cupos libres`,
+                  help: `Los primeros ${MAX_FOUNDER_CUSTOMERS} conjuntos que pasan de piloto a plan pagado quedan como fundadores: no pagan implementación y su precio queda protegido ${FOUNDER_PRICE_PROTECTION_MONTHS} meses.`,
+                  highlight: founderSlotsRemaining === 0,
+                },
+                {
+                  label: 'Descuento por pago anual',
+                  value: `${bpsToPercent(ANNUAL_DISCOUNT_BPS)} %`,
+                  help: 'Se aplica solo si el conjunto paga los 12 meses por adelantado.',
+                },
+                {
+                  label: 'Descuento comercial máximo',
+                  value: `${bpsToPercent(MAX_COMMERCIAL_DISCOUNT_BPS)} %`,
+                  help: 'Tope por conjunto para negociar. Siempre exige un motivo escrito y una fecha de vigencia.',
+                },
+                {
+                  label: 'Implementación asistida',
+                  value: formatMoney(ASSISTED_IMPLEMENTATION_FEE_CENTS),
+                  help: 'Cobro único opcional al arrancar. Gratis para los conjuntos fundadores.',
+                },
+              ].map((item) => (
+                <div key={item.label} style={{ background: COLORS.bg, borderRadius: RADIUS.stat, padding: '13px 15px' }}>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: item.highlight ? COLORS.warning : COLORS.textPrimary, marginBottom: 5 }}>{item.value}</div>
+                  <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.45 }}>{item.help}</div>
                 </div>
               ))}
-              <button type="button" onClick={openAddRule} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 'none', background: 'none', font: 'inherit', padding: '16px 22px', fontSize: 13, fontWeight: 700, color: COLORS.navy, cursor: 'pointer', textAlign: 'left' }}>
-                <span style={{ width: 22, height: 22, borderRadius: RADIUS.pill, background: COLORS.navySoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>+</span>
-                Agregar rango
-              </button>
             </div>
+          </div>
 
-            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 20 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 4 }}>Topes de precio</div>
-              <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.4 }}>Ninguna regla se puede guardar fuera de este rango. Ajusta esto solo si el negocio realmente cambió de escala.</div>
-
-              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope mínimo (COP)</label>
-              <input type="number" value={capsMinInput} onChange={(e) => { setCapsMinInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
-
-              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope máximo (COP)</label>
-              <input type="number" value={capsMaxInput} onChange={(e) => { setCapsMaxInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
-
-              {capsError && (
-                <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.input, padding: '10px 12px', fontSize: 11.5, fontWeight: 600, marginBottom: 14, lineHeight: 1.4 }}>{capsError}</div>
-              )}
-
-              {!capsConfirmStep ? (
-                <button type="button" onClick={reviewCapsForm} disabled={capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', opacity: (capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)) ? 0.5 : 1 }}>Actualizar topes</button>
-              ) : (
-                <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.input, padding: 14 }}>
-                  <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 700, marginBottom: 8, lineHeight: 1.4 }}>
-                    Esto cambia el rango permitido para TODAS las reglas de precio, presentes y futuras. ¿Confirmas?
+          {archivedRules.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <button type="button" onClick={() => setShowArchivedRules((v) => !v)} aria-expanded={showArchivedRules} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.textSecondaryAlt, cursor: 'pointer' }}>
+                {showArchivedRules ? '▾' : '▸'} Reglas archivadas ({archivedRules.length})
+              </button>
+              {showArchivedRules && (
+                <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden', marginTop: 10 }}>
+                  <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, padding: '12px 18px', borderBottom: `1px solid ${COLORS.borderSoft}`, lineHeight: 1.45 }}>
+                    Estas reglas no se le cobran a nadie. Se guardan por historial; puedes reactivarlas o eliminarlas.
                   </div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>{formatMoney(Number(capsMinInput) * 100)} — {formatMoney(Number(capsMaxInput) * 100)}</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" onClick={cancelCapsForm} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar</button>
-                    <button type="button" onClick={submitCaps} style={{ flex: 1, border: 'none', background: COLORS.success, color: COLORS.white, font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar</button>
-                  </div>
+                  {archivedRules.map((p) => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '13px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textSecondaryAlt }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: COLORS.textMuted, marginRight: 7 }}>{p.type === 'PILOT' ? 'PILOTO' : 'MENSUAL'}</span>
+                          {formatMoney(p.priceCents, p.currency)}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, marginTop: 2 }}>
+                          {p.maxUnits ? `De ${p.minUnits} a ${p.maxUnits} unidades` : `Desde ${p.minUnits} unidades`}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+                        <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.success, cursor: 'pointer' }}>Reactivar</button>
+                        <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
+          )}
+
+          <div>
+            <button type="button" onClick={() => setShowPriceCaps((v) => !v)} aria-expanded={showPriceCaps} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 700, color: COLORS.textSecondaryAlt, cursor: 'pointer' }}>
+              {showPriceCaps ? '▾' : '▸'} Topes de precio ({formatMoney(pricingCapsMinCents)} — {formatMoney(pricingCapsMaxCents)})
+            </button>
+            {showPriceCaps && (
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 20, marginTop: 10, maxWidth: 420 }}>
+                <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.45 }}>Ninguna regla se puede guardar fuera de este rango. Ajusta esto solo si el negocio realmente cambió de escala.</div>
+
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope mínimo (COP)</label>
+                <input type="number" value={capsMinInput} onChange={(e) => { setCapsMinInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
+
+                <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope máximo (COP)</label>
+                <input type="number" value={capsMaxInput} onChange={(e) => { setCapsMaxInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
+
+                {capsError && (
+                  <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.input, padding: '10px 12px', fontSize: 11.5, fontWeight: 600, marginBottom: 14, lineHeight: 1.4 }}>{capsError}</div>
+                )}
+
+                {!capsConfirmStep ? (
+                  <button type="button" onClick={reviewCapsForm} disabled={capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', opacity: (capsMinInput === String(pricingCapsMinCents / 100) && capsMaxInput === String(pricingCapsMaxCents / 100)) ? 0.5 : 1 }}>Actualizar topes</button>
+                ) : (
+                  <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.input, padding: 14 }}>
+                    <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 700, marginBottom: 8, lineHeight: 1.4 }}>
+                      Esto cambia el rango permitido para TODAS las reglas de precio, presentes y futuras. ¿Confirmas?
+                    </div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>{formatMoney(Number(capsMinInput) * 100)} — {formatMoney(Number(capsMaxInput) * 100)}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button type="button" onClick={cancelCapsForm} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar</button>
+                      <button type="button" onClick={submitCaps} style={{ flex: 1, border: 'none', background: COLORS.success, color: COLORS.white, font: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <p style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 12 }}>Un conjunto con más unidades nunca puede pagar menos que uno con menos unidades.</p>
         </div>
       )}
 
