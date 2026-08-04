@@ -15,7 +15,7 @@ export const INITIAL_PQRS_CATEGORIES: ReadonlyArray<{
   { canonicalKey: "MANTENIMIENTO", slug: "mantenimiento", displayName: "Mantenimiento", sortOrder: 40, workflowType: "MAINTENANCE" },
   { canonicalKey: "ZONAS_COMUNES", slug: "zonas-comunes", displayName: "Zonas comunes", sortOrder: 50, workflowType: "MAINTENANCE" },
   { canonicalKey: "CARTERA_PAGOS", slug: "cartera-pagos", displayName: "Cartera y pagos", sortOrder: 60, workflowType: "SIMPLE" },
-  { canonicalKey: "ADMINISTRACION_CERTIFICADOS", slug: "administracion-certificados", displayName: "Administracion y certificados", sortOrder: 70, workflowType: "SIMPLE" },
+  { canonicalKey: "ADMINISTRACION_CERTIFICADOS", slug: "administracion-certificados", displayName: "Administración y certificados", sortOrder: 70, workflowType: "SIMPLE" },
   { canonicalKey: "OTROS", slug: "otros", displayName: "Otros", sortOrder: 80, workflowType: "SIMPLE" },
 ];
 
