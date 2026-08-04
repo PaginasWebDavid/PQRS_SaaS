@@ -1,14 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Download, FileText } from 'lucide-react';
 import { AdminShell } from '@/components/shell/AdminShell';
-import { useIsMobile } from '@/components/shell/Sheet';
+import { CloseButton, Sheet, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 import { SUBSCRIPTION_STATUS_LABEL } from '@/lib/design/licenseStatus';
 import { paymentProviderLabel } from '@/lib/design/billing';
 
-type Payment = { id: string; amountCents: number; currency: string; status: string; provider: string; dueDate: string; paidAt?: string | null };
+type Payment = { id: string; amountCents: number; currency: string; status: string; provider: string; dueDate: string; paidAt?: string | null; createdAt?: string; concept?: string };
 type LicenseSummary = {
   status: string; autoRenew: boolean; currentPeriodEnd: string; nextPaymentDueDate: string;
   priceCents: number; currency: string; unitsSnapshot: number; pendingUnitsSnapshot?: number | null; pendingPriceCents?: number | null; pendingCurrency?: string | null; pendingPriceEffectiveAt?: string | null; recentPayments: Payment[];
@@ -26,13 +27,33 @@ const STATUS_DOT: Record<string, string> = {
 };
 const NEEDS_PAYMENT = new Set(['PENDING_PAYMENT', 'GRACE_PERIOD', 'SUSPENDED']);
 
-const BADGE = { paid: badgeStyle(COLORS.successSoft, COLORS.success), pending: badgeStyle(COLORS.warningSoft, COLORS.warning), courtesy: badgeStyle(COLORS.navySoft, COLORS.navy) };
-const FILTERS = [{ key: 'all', label: 'Todas' }, { key: 'paid', label: 'Pagadas' }, { key: 'pending', label: 'Pendientes' }, { key: 'courtesy', label: 'Cortesias' }];
+const BADGE = {
+  paid: badgeStyle(COLORS.successSoft, COLORS.success),
+  pending: badgeStyle(COLORS.warningSoft, COLORS.warning),
+  rejected: badgeStyle(COLORS.dangerSoft, COLORS.danger),
+  courtesy: badgeStyle(COLORS.navySoft, COLORS.navy),
+};
+const FILTERS = [{ key: 'all', label: 'Todas' }, { key: 'paid', label: 'Pagadas' }, { key: 'pending', label: 'Pendientes' }, { key: 'rejected', label: 'Rechazadas' }, { key: 'courtesy', label: 'Cortesias' }];
+
+function paymentGroup(payment: Payment) {
+  if (payment.provider === 'COURTESY') return 'courtesy';
+  if (payment.status === 'APPROVED') return 'paid';
+  if (payment.status === 'REJECTED') return 'rejected';
+  return 'pending';
+}
+
+function paymentGroupLabel(group: string) {
+  if (group === 'courtesy') return 'Cortesia';
+  if (group === 'paid') return 'Pagado';
+  if (group === 'rejected') return 'Rechazado';
+  return 'Pendiente';
+}
 
 export default function ModuloLicenciasPage() {
   const isMobile = useIsMobile();
   const [filter, setFilter] = useState('all');
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [documentOpen, setDocumentOpen] = useState(false);
+  const [documentLoading, setDocumentLoading] = useState(false);
   const [me, setMe] = useState<MeData | null>(null);
   const [loadError, setLoadError] = useState('');
   const [payLoading, setPayLoading] = useState(false);
@@ -74,10 +95,10 @@ export default function ModuloLicenciasPage() {
   const invoices = (license?.recentPayments || []).map((p, idx) => {
     const courtesy = p.provider === 'COURTESY';
     return {
-      number: courtesy ? `Cortesia #${String(idx + 1).padStart(4, '0')}` : `Factura #${String(idx + 1).padStart(4, '0')}`,
+      number: courtesy ? `Cortesia #${String(idx + 1).padStart(4, '0')}` : `Pago #${String(idx + 1).padStart(4, '0')}`,
       date: shortDate(p.paidAt || p.dueDate),
       amount: courtesy ? 'Sin cobro' : money(p.amountCents, p.currency),
-      group: courtesy ? 'courtesy' : p.status === 'APPROVED' ? 'paid' : 'pending',
+      group: paymentGroup(p),
       providerLabel: paymentProviderLabel(p.provider),
     };
   });
@@ -97,6 +118,31 @@ export default function ModuloLicenciasPage() {
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
       setPayLoading(false);
+    }
+  }
+
+  async function downloadBillingDocument() {
+    setDocumentLoading(true);
+    try {
+      const response = await fetch('/api/billing/document', { cache: 'no-store' });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo generar el documento');
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = match?.[1] || 'cuenta-cobro-pqrs-services.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Documento descargado');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo generar el documento');
+    } finally {
+      setDocumentLoading(false);
     }
   }
 
@@ -145,7 +191,7 @@ export default function ModuloLicenciasPage() {
               <div key={inv.number} style={{ padding: '14px 22px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
-                  <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'courtesy' ? 'Cortesia' : inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+                  <span style={BADGE[inv.group as keyof typeof BADGE]}>{paymentGroupLabel(inv.group)}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted }}>{inv.date}</span>
@@ -157,7 +203,7 @@ export default function ModuloLicenciasPage() {
                 <span style={{ flex: 1, minWidth: 100, fontSize: 13.5, fontWeight: 700 }}>{inv.number}</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: COLORS.textMuted, width: 110 }}>{inv.date}</span>
                 <span style={{ fontSize: 13, color: COLORS.textSecondaryAlt, fontWeight: 600, width: 150, textAlign: 'right' }}>{inv.amount}<br /><small>{inv.providerLabel}</small></span>
-                <span style={BADGE[inv.group as keyof typeof BADGE]}>{inv.group === 'courtesy' ? 'Cortesia' : inv.group === 'paid' ? 'Pagado' : 'Pendiente'}</span>
+                <span style={BADGE[inv.group as keyof typeof BADGE]}>{paymentGroupLabel(inv.group)}</span>
               </div>
             )
           )) : <div style={{ padding: 24, color: COLORS.textMuted, fontWeight: 600 }}>No hay pagos registrados.</div>}
@@ -168,21 +214,11 @@ export default function ModuloLicenciasPage() {
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{isPaidPilot ? 'Precio posterior al piloto' : needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
             <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(isPaidPilot ? (me?.commercial?.postPilotPriceCents || 0) : (license?.priceCents || 0), me?.commercial?.currency || license?.currency)}</div>
             <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
-            <button type="button" onClick={() => setDetailOpen((v) => !v)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}>{detailOpen ? 'Ocultar detalle' : 'Ver detalle de factura'}</button>
+            <button type="button" onClick={() => setDocumentOpen(true)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}><FileText size={16} />Ver resumen de licencia</button>
             {isPaidPilot ? null : needsPayment ? (
               <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Pagar mensualidad'}</button>
             ) : (
               <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Renovar o actualizar el pago'}</button>
-            )}
-            {detailOpen && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.08)', fontSize: 12.5, color: COLORS.textSecondaryAlt, lineHeight: 1.8 }}>
-                Plan actual — {license ? `${license.unitsSnapshot} unidades` : '—'}<br />
-                Estado — {visibleStatusLabel}<br />
-                <strong style={{ color: '#1D1D1F' }}>Total: {money(license?.priceCents || 0, license?.currency)}</strong>
-                {license?.pendingPriceCents != null && license.pendingUnitsSnapshot != null && (
-                  <><br />Nueva tarifa desde la proxima renovacion: {money(license.pendingPriceCents, license.pendingCurrency || license.currency)} por {license.pendingUnitsSnapshot} unidades.</>
-                )}
-              </div>
             )}
           </div>
 
@@ -198,6 +234,32 @@ export default function ModuloLicenciasPage() {
           </div>}
         </div>
       </div>
+
+      <Sheet open={documentOpen} onClose={() => setDocumentOpen(false)} maxWidth={540}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 5 }}>PQRS SERVICES</div>
+            <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.015em' }}>Resumen de licencia</h2>
+          </div>
+          <CloseButton onClick={() => setDocumentOpen(false)} />
+        </div>
+        <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.cardSm, overflow: 'hidden', marginBottom: 18 }}>
+          <div style={{ padding: '16px 18px', background: COLORS.bgCard, borderBottom: `1px solid ${COLORS.borderSoft}` }}>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>{me?.tenant?.name || 'Conjunto'}</div>
+            <div style={{ marginTop: 5, color: COLORS.textSecondary, fontSize: 12.5, fontWeight: 600 }}>Licencia mensual PQRS Services</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '14px 20px', padding: 18, fontSize: 13 }}>
+            <span style={{ color: COLORS.textSecondary }}>Unidades contratadas</span><strong>{license?.unitsSnapshot || me?.tenant?.units || 0}</strong>
+            <span style={{ color: COLORS.textSecondary }}>Estado de licencia</span><strong>{visibleStatusLabel}</strong>
+            <span style={{ color: COLORS.textSecondary }}>Proximo vencimiento</span><strong>{shortDate(license?.nextPaymentDueDate)}</strong>
+            <span style={{ color: COLORS.textSecondary, fontWeight: 700 }}>Total a pagar</span><strong style={{ fontSize: 17 }}>{money(license?.priceCents || 0, license?.currency)}</strong>
+          </div>
+        </div>
+        <p style={{ margin: '0 0 18px', color: COLORS.textMuted, fontSize: 12, lineHeight: 1.6 }}>
+          El PDF incluye los datos vigentes del conjunto, la licencia, el periodo y el valor de la renovacion.
+        </p>
+        <button type="button" onClick={downloadBillingDocument} disabled={documentLoading} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', border: 'none', borderRadius: RADIUS.pill, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: documentLoading ? 'wait' : 'pointer' }}><Download size={16} />{documentLoading ? 'Generando documento...' : 'Descargar PDF'}</button>
+      </Sheet>
 
       <Toast message={toast} />
     </AdminShell>
