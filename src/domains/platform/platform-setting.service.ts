@@ -1,6 +1,7 @@
 import { AuditAction, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
+import { getWompiIntegrationStatus } from "@/domains/billing/wompi.service";
 
 const SECRET_ENV_KEYS: Record<string, string> = {
   RESEND_API_KEY: "RESEND_API_KEY",
@@ -98,5 +99,6 @@ export async function getIntegrationStatus() {
       webhookSecretConfigured: Boolean(process.env.MERCADO_PAGO_WEBHOOK_SECRET),
       lastVerifiedAt: null,
     },
+    wompi: getWompiIntegrationStatus(),
   };
 }

@@ -202,6 +202,8 @@ enum AuditAction {
   PAYMENT_SIMULATED
   MERCADO_PAGO_SUBSCRIPTION_CREATED
   MERCADO_PAGO_WEBHOOK_PROCESSED
+  WOMPI_CHECKOUT_CREATED
+  WOMPI_WEBHOOK_PROCESSED
   INVITATION_CREATED
   INVITATION_RESENT
   INVITATION_ACCEPTED
@@ -659,6 +661,7 @@ model Payment {
   periodEnd         DateTime
   externalReference    String?
   mercadoPagoPaymentId String?         @unique
+  wompiTransactionId   String?         @unique
   rawStatus            String?
   operationId          String?
   requestHash          String?
@@ -697,6 +700,7 @@ enum PaymentStatus {
 enum PaymentProvider {
   SIMULATED
   MERCADO_PAGO
+  WOMPI
   COURTESY
   MANUAL_TRANSFER
 }

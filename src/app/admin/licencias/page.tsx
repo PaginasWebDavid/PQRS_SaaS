@@ -36,7 +36,6 @@ export default function ModuloLicenciasPage() {
   const [me, setMe] = useState<MeData | null>(null);
   const [loadError, setLoadError] = useState('');
   const [payLoading, setPayLoading] = useState(false);
-  const [autoRenewLoading, setAutoRenewLoading] = useState(false);
   const { toast, showToast } = useToast();
 
   const load = async () => {
@@ -49,7 +48,27 @@ export default function ModuloLicenciasPage() {
       setLoadError('No se pudo cargar la información de la licencia.');
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    let timeout: number | undefined;
+    const returnedFromWompi = new URLSearchParams(window.location.search).get('payment') === 'wompi';
+
+    const refresh = async (attempt = 0): Promise<void> => {
+      await load();
+      if (cancelled || !returnedFromWompi) return;
+      if (attempt >= 3) {
+        window.history.replaceState({}, '', '/admin/licencias');
+        return;
+      }
+      timeout = window.setTimeout(() => { void refresh(attempt + 1); }, 2000);
+    };
+
+    void refresh();
+    return () => {
+      cancelled = true;
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, []);
 
   const license = me?.licenseSummary;
   const invoices = (license?.recentPayments || []).map((p, idx) => {
@@ -67,36 +86,17 @@ export default function ModuloLicenciasPage() {
   async function payNow() {
     setPayLoading(true);
     try {
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch('/api/billing/wompi/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createPreapproval', backUrl: new URL('/admin/licencias', window.location.origin).toString() }),
+        body: JSON.stringify({ operationId: `wompi_${crypto.randomUUID().replaceAll('-', '')}` }),
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok || !body?.initPoint) throw new Error(body?.error || 'No se pudo iniciar el pago');
-      window.location.href = body.initPoint;
+      if (!res.ok || !body?.checkoutUrl) throw new Error(body?.error || 'No se pudo iniciar el pago');
+      window.location.href = body.checkoutUrl;
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
       setPayLoading(false);
-    }
-  }
-
-  async function disableAutoRenew() {
-    if (!window.confirm('¿Desactivar la renovación automática? Al vencer el período actual, si no pagas manualmente, la licencia entrará en mora.')) return;
-    setAutoRenewLoading(true);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'disableAutoRenew' }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'No se pudo desactivar');
-      showToast('Renovación automática desactivada');
-      await load();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'No se pudo desactivar');
-    } finally {
-      setAutoRenewLoading(false);
     }
   }
 
@@ -187,19 +187,14 @@ export default function ModuloLicenciasPage() {
           </div>
 
           {!isPaidPilot && <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>Renovación automática</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>Pagos mensuales</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 999, background: license?.autoRenew ? COLORS.success : COLORS.textMuted }} />
-              <span style={{ fontSize: 13.5, fontWeight: 700 }}>{license?.autoRenew ? 'Activada' : 'Desactivada'}</span>
+              <div style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.success }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700 }}>Pago en línea disponible</span>
             </div>
-            <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.6, margin: '0 0 12px' }}>
-              {license?.autoRenew
-                ? 'El proveedor de pagos cobrará automáticamente cada mes. Si la desactivas, deberás pagar manualmente antes de cada vencimiento.'
-                : 'Debes pagar manualmente cada mes. Al pagar nuevamente, podrás activar la renovación automática.'}
+            <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.6, margin: 0 }}>
+              Elige PSE, tarjeta, Nequi o Bancolombia en Wompi. La licencia se actualiza únicamente después de la confirmación del pago.
             </p>
-            {license?.autoRenew && (
-              <button type="button" onClick={disableAutoRenew} disabled={autoRenewLoading} style={{ border: 0, background: 'none', color: COLORS.danger, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{autoRenewLoading ? 'Desactivando…' : 'Desactivar renovación automática'}</button>
-            )}
           </div>}
         </div>
       </div>

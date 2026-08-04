@@ -64,14 +64,14 @@ export function AdminShell({
     setPayLoading(true);
     setPayError('');
     try {
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch('/api/billing/wompi/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createPreapproval', backUrl: new URL('/admin/licencias', window.location.origin).toString() }),
+        body: JSON.stringify({ operationId: `wompi_${crypto.randomUUID().replaceAll('-', '')}` }),
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok || !body?.initPoint) throw new Error(body?.error || 'No se pudo iniciar el pago');
-      window.location.href = body.initPoint;
+      if (!res.ok || !body?.checkoutUrl) throw new Error(body?.error || 'No se pudo iniciar el pago');
+      window.location.href = body.checkoutUrl;
     } catch (error) {
       setPayError(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
       setPayLoading(false);
