@@ -9,7 +9,7 @@ import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories
 const FAQS = [
   { q: '¿Puedo gestionar o cerrar una PQRS desde aquí?', a: 'No. El rol Consejo es de solo lectura — puedes ver el estado, historial y reportes de todas las PQRS del conjunto, pero la gestión (primer contacto, fases, cierre) la realiza la administración.' },
   { q: '¿Cómo exporto un reporte para la reunión de consejo?', a: 'Ve a Reportes, ajusta el periodo y los filtros que necesites, y usa el botón PDF (elige el tipo "Ejecutivo" para un resumen ideal para consejo) o Excel.' },
-  { q: '¿Por qué no veo el módulo de Usuarios o Facturación?', a: 'Esos módulos son exclusivos de la administración del conjunto. El rol Consejo solo tiene acceso a PQRS y Reportes.' },
+  { q: '¿Por qué no veo el módulo de Usuarios o Licencias?', a: 'Esos módulos son exclusivos de la administración del conjunto. Como Consejo puedes consultar PQRS, Reservas, Pagos, Reportes y Actividad, siempre en modo lectura.' },
   { q: '¿Cómo cambio mi contraseña?', a: 'Ve a Mi cuenta → Seguridad → Cambiar contraseña.' },
 ];
 
