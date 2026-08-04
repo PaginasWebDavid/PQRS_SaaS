@@ -7,6 +7,7 @@ import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
+import { NO_CATEGORY_LABEL } from '@/domains/pqrs/pqrs-category-policy';
 
 type State = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Pqrs = {
@@ -29,6 +30,10 @@ const ticketStatusBadge = (status: string) => status === 'ABIERTA' ? badgeStyle(
 type Me = { user?: { name?: string | null; email?: string | null; phone?: string | null; bloque?: number | null; apto?: number | null; bloqueAptoEditado?: boolean }; tenant?: { name?: string | null }; pqrsCloseSlaDays?: number };
 type Photo = { data: string; nombre: string; tipo: string; preview: string };
 type Step = { label: string; done: boolean; date?: string; hint?: string };
+
+// Mientras la administracion no clasifique la solicitud, al residente no le
+// sirve ver "Sin categoria": es ruido sobre algo que el no controla.
+const hasCategory = (asunto?: string | null) => Boolean(asunto) && asunto !== NO_CATEGORY_LABEL;
 
 const badgeOf = (s: State) => s === 'EN_ESPERA' ? badgeStyle(COLORS.warningSoft, COLORS.warning) : s === 'EN_PROGRESO' ? badgeStyle(COLORS.navySoft, COLORS.navy) : badgeStyle(COLORS.successSoft, COLORS.success);
 const label = (s: State) => s === 'EN_ESPERA' ? 'En espera' : s === 'EN_PROGRESO' ? 'En proceso' : 'Terminada';
@@ -386,7 +391,7 @@ export default function VistaResidentePage() {
         <h2 style={{ margin: '4px 0 8px', fontSize: 19, fontWeight: 800 }}>{selected.titulo || 'Solicitud'}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={badgeOf(selected.estado)}>{label(selected.estado)}</span>
-          {selected.asunto && <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{CATEGORY_LABEL[selected.asunto] || selected.asunto}</span>}
+          {hasCategory(selected.asunto) && <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{CATEGORY_LABEL[selected.asunto!] || selected.asunto}</span>}
         </div>
 
         <Timeline steps={buildTimeline(selected, slaDays)} />
@@ -440,7 +445,7 @@ function PqrsCard({ row, index = 0, onClick }: { row: Pqrs; index?: number; onCl
       </div>
       <small style={{ color: COLORS.textMuted }}>
         {row.numeroRadicacion ? `N.° ${row.numeroRadicacion}` : 'Sin radicar aún'}
-        {row.asunto ? ` · ${CATEGORY_LABEL[row.asunto] || row.asunto}` : ''} · {fmt(row.updatedAt)}
+        {hasCategory(row.asunto) ? ` · ${CATEGORY_LABEL[row.asunto!] || row.asunto}` : ''} · {fmt(row.updatedAt)}
       </small>
     </button>
   );

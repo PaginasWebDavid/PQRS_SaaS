@@ -76,11 +76,16 @@ export function normalizeCategorySortOrder(value: unknown): number {
   return parsed;
 }
 
+// Es a la vez texto visible y centinela: la API lo compara para saber si la
+// PQRS todavia no tiene categoria. Por eso vive en una constante, para que
+// nadie le cambie la tilde y rompa la comparacion sin darse cuenta.
+export const NO_CATEGORY_LABEL = "Sin categoría";
+
 export function pqrsCategoryVisibleLabel(input: {
   categorySnapshot?: string | null;
   asunto?: string | null;
 }): string {
   if (input.categorySnapshot?.trim()) return input.categorySnapshot.trim();
-  if (!input.asunto) return "Sin categoria";
+  if (!input.asunto) return NO_CATEGORY_LABEL;
   return LEGACY_CATEGORY_LABELS[input.asunto] || input.asunto;
 }
