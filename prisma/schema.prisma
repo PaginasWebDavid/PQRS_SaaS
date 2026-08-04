@@ -32,6 +32,7 @@ model Tenant {
   historial     HistorialPqrs[]
   subscription  Subscription?
   payments      Payment[]
+  wompiPaymentMethods WompiPaymentMethod[]
   invitations   Invitation[]
   notifications Notification[]
   emailLogs     EmailLog[]
@@ -120,6 +121,7 @@ model User {
   paymentReceiptsUploaded      PaymentReceipt[]      @relation("PaymentReceiptUploadedBy")
   paymentReceiptsReviewed      PaymentReceipt[]      @relation("PaymentReceiptReviewedBy")
   paymentImportBatchesUploaded PaymentImportBatch[]  @relation("PaymentImportBatchUploadedBy")
+  wompiPaymentMethodsCreated   WompiPaymentMethod[]  @relation("WompiPaymentMethodCreatedBy")
 
   @@index([tenantId])
   @@index([role])
@@ -204,6 +206,10 @@ enum AuditAction {
   MERCADO_PAGO_WEBHOOK_PROCESSED
   WOMPI_CHECKOUT_CREATED
   WOMPI_WEBHOOK_PROCESSED
+  WOMPI_PAYMENT_METHOD_CREATED
+  WOMPI_PAYMENT_METHOD_REVOKED
+  WOMPI_AUTOMATIC_CHARGE_CREATED
+  WOMPI_AUTOMATIC_CHARGE_FAILED
   INVITATION_CREATED
   INVITATION_RESENT
   INVITATION_ACCEPTED
@@ -662,6 +668,8 @@ model Payment {
   externalReference    String?
   mercadoPagoPaymentId String?         @unique
   wompiTransactionId   String?         @unique
+  wompiPaymentMethodId String?
+  wompiPaymentMethod   WompiPaymentMethod? @relation(fields: [wompiPaymentMethodId], references: [id], onDelete: SetNull)
   rawStatus            String?
   operationId          String?
   requestHash          String?
@@ -688,7 +696,52 @@ model Payment {
   @@index([tenantId, concept, status])
   @@index([status, dueDate])
   @@index([tenantId, status, dueDate])
+  @@index([wompiPaymentMethodId])
   @@index([createdAt])
+}
+
+// La fuente vive exclusivamente en Wompi. Esta tabla solo conserva el ID del
+// proveedor y datos publicos enmascarados para habilitar o revocar el cobro
+// automatico por conjunto; nunca contiene numero de tarjeta, CVV ni token.
+model WompiPaymentMethod {
+  id               String                   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUserId  String
+  createdBy        User                     @relation("WompiPaymentMethodCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  environment      WompiPaymentEnvironment
+  providerSourceId Int
+  type             WompiPaymentMethodType
+  status           WompiPaymentMethodStatus @default(ACTIVE)
+  customerEmail    String
+  brand            String?
+  lastFour         String?
+  expMonth         String?
+  expYear          String?
+  consentedAt      DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  payments         Payment[]
+
+  @@unique([environment, providerSourceId])
+  @@index([tenantId, status])
+  @@index([createdByUserId])
+}
+
+enum WompiPaymentEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum WompiPaymentMethodType {
+  CARD
+}
+
+enum WompiPaymentMethodStatus {
+  ACTIVE
+  REVOCATION_PENDING
+  REVOKED
 }
 
 enum PaymentStatus {

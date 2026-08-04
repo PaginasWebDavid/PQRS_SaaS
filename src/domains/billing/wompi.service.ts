@@ -12,8 +12,12 @@ const WOMPI_CHECKOUT_URL = "https://checkout.wompi.co/p/";
 const ALLOWED_OPERATION_ID = /^[A-Za-z0-9_-]{8,128}$/;
 type Tx = Prisma.TransactionClient;
 type Env = "sandbox" | "production";
-type Config = { env: Env; publicKey: string; integrity: string; events: string };
+type Config = { env: Env; publicKey: string; integrity: string; events: string; privateKey?: string };
 type RecordValue = Record<string, unknown>;
+const WOMPI_API_BY_ENV: Record<Env, string> = {
+  sandbox: "https://sandbox.wompi.co/v1",
+  production: "https://production.wompi.co/v1",
+};
 
 export class WompiBillingError extends Error {
   constructor(message: string, readonly code = "WOMPI_BILLING_ERROR") {
@@ -29,7 +33,7 @@ export class WompiWebhookValidationError extends Error {
   }
 }
 
-function wompiConfig(): Config {
+function wompiConfig(options: { requirePrivateKey?: boolean } = {}): Config {
   const env = process.env.WOMPI_ENV?.trim().toLowerCase();
   if (env !== "sandbox" && env !== "production") throw new WompiBillingError("La integracion Wompi no tiene un ambiente valido", "WOMPI_ENV_INVALID");
   const suffix = env === "sandbox" ? "SANDBOX" : "PRODUCTION";
@@ -39,11 +43,16 @@ function wompiConfig(): Config {
     if (!current.startsWith(expected)) throw new WompiBillingError(`Falta configurar ${label} de Wompi`, "WOMPI_NOT_CONFIGURED");
     return current;
   };
+  const privateKey = process.env[`WOMPI_${suffix}_PRIVATE_KEY`]?.trim() || "";
+  if (options.requirePrivateKey && !privateKey.startsWith(`prv_${prefix}_`)) {
+    throw new WompiBillingError("Falta configurar la llave privada de Wompi", "WOMPI_PRIVATE_KEY_NOT_CONFIGURED");
+  }
   return {
     env,
     publicKey: value("PUBLIC_KEY", "la llave publica", `pub_${prefix}_`),
     integrity: value("INTEGRITY_SECRET", "el secreto de integridad", `${prefix}_integrity_`),
     events: value("EVENTS_SECRET", "el secreto de eventos", `${prefix}_events_`),
+    privateKey: privateKey || undefined,
   };
 }
 
@@ -129,6 +138,13 @@ export async function createWompiCheckoutForTenant(input: { actorUserId: string;
       }
       return existing;
     }
+    const pendingPayment = await tx.payment.findFirst({
+      where: { tenantId: input.tenantId, subscriptionId: subscription.id, provider: "WOMPI", status: "PENDING" },
+      select: { id: true },
+    });
+    if (pendingPayment) {
+      throw new WompiBillingError("Ya hay un pago Wompi en proceso. Espera su confirmacion antes de iniciar otro.", "WOMPI_PAYMENT_ALREADY_PENDING");
+    }
     const now = new Date();
     const created = await tx.payment.create({ data: {
       tenantId: input.tenantId, subscriptionId: subscription.id, amountCents, currency,
@@ -149,6 +165,497 @@ export async function createWompiCheckoutForTenant(input: { actorUserId: string;
     reference: payment.externalReference!,
     checkoutUrl: checkoutUrl(config, payment.externalReference!, payment.amountCents, payment.currency, actor.email, actor.name),
   };
+}
+
+type WompiAcceptanceContracts = {
+  acceptanceToken: string;
+  personalDataToken: string;
+  termsUrl: string;
+  personalDataUrl: string;
+};
+
+type WompiSourceSummary = {
+  id: string;
+  type: "CARD";
+  status: "ACTIVE" | "REVOKED";
+  brand: string | null;
+  lastFour: string | null;
+  expMonth: string | null;
+  expYear: string | null;
+  customerEmail: string;
+  consentedAt: Date;
+};
+
+function wompiEnvironment(env: Env) {
+  return env === "sandbox" ? "SANDBOX" as const : "PRODUCTION" as const;
+}
+
+function safeWompiErrorCode(status: number) {
+  if (status === 400) return "WOMPI_REQUEST_REJECTED";
+  if (status === 401 || status === 403) return "WOMPI_AUTHORIZATION_FAILED";
+  if (status === 404) return "WOMPI_RESOURCE_NOT_FOUND";
+  if (status === 409) return "WOMPI_CONFLICT";
+  if (status >= 500) return "WOMPI_PROVIDER_UNAVAILABLE";
+  return "WOMPI_REQUEST_FAILED";
+}
+
+async function wompiApiRequest(config: Config, path: string, init: RequestInit & { private?: boolean } = {}) {
+  const { private: usePrivateKey, ...request } = init;
+  const authorization = usePrivateKey ? config.privateKey : config.publicKey;
+  if (!authorization) throw new WompiBillingError("Falta configurar la llave privada de Wompi", "WOMPI_PRIVATE_KEY_NOT_CONFIGURED");
+  let response: Response;
+  try {
+    response = await fetch(`${WOMPI_API_BY_ENV[config.env]}${path}`, {
+      ...request,
+      headers: {
+        Accept: "application/json",
+        ...(request.body ? { "Content-Type": "application/json" } : {}),
+        Authorization: `Bearer ${authorization}`,
+        ...request.headers,
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new WompiBillingError("No fue posible comunicarse con Wompi", "WOMPI_NETWORK_ERROR");
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    console.warn("[billing/wompi] provider request failed", { path, status: response.status });
+    throw new WompiBillingError("Wompi no pudo procesar la solicitud. Intentalo de nuevo.", safeWompiErrorCode(response.status));
+  }
+  return payload;
+}
+
+function readString(source: RecordValue | null, key: string) {
+  const value = source?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readInteger(source: RecordValue | null, key: string) {
+  const value = source?.[key];
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+}
+
+async function getWompiAcceptanceContracts(config: Config): Promise<WompiAcceptanceContracts> {
+  const payload = await wompiApiRequest(config, `/merchants/${encodeURIComponent(config.publicKey)}`);
+  const data = asRecord(payload) ? asRecord(asRecord(payload)?.data) : null;
+  const acceptance = data ? asRecord(data.presigned_acceptance) : null;
+  const personal = data ? asRecord(data.presigned_personal_data_auth) : null;
+  const acceptanceToken = readString(acceptance, "acceptance_token");
+  const personalDataToken = readString(personal, "acceptance_token");
+  const termsUrl = readString(acceptance, "permalink");
+  const personalDataUrl = readString(personal, "permalink");
+  if (!acceptanceToken || !personalDataToken || !termsUrl || !personalDataUrl) {
+    throw new WompiBillingError("No fue posible cargar los documentos de autorizacion de Wompi", "WOMPI_ACCEPTANCE_CONTRACTS_INVALID");
+  }
+  return { acceptanceToken, personalDataToken, termsUrl, personalDataUrl };
+}
+
+function toWompiSourceSummary(method: {
+  id: string; type: "CARD"; status: "ACTIVE" | "REVOCATION_PENDING" | "REVOKED";
+  brand: string | null; lastFour: string | null; expMonth: string | null; expYear: string | null;
+  customerEmail: string; consentedAt: Date;
+}): WompiSourceSummary {
+  return {
+    ...method,
+    status: method.status === "ACTIVE" ? "ACTIVE" : "REVOKED",
+  };
+}
+
+export async function getWompiAutomaticPaymentState(tenantId: string) {
+  const config = wompiConfig();
+  const [subscription, method] = await Promise.all([
+    prisma.subscription.findUnique({ where: { tenantId }, select: { autoRenew: true, status: true } }),
+    prisma.wompiPaymentMethod.findFirst({
+      where: { tenantId, environment: wompiEnvironment(config.env), status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, type: true, status: true, brand: true, lastFour: true, expMonth: true, expYear: true, customerEmail: true, consentedAt: true },
+    }),
+  ]);
+  if (!subscription) throw new WompiBillingError("El conjunto no tiene una licencia disponible para pago", "SUBSCRIPTION_NOT_FOUND");
+  return {
+    environment: config.env,
+    automaticEnabled: subscription.autoRenew && method?.status === "ACTIVE",
+    method: method ? toWompiSourceSummary(method) : null,
+  };
+}
+
+export async function getWompiAutomaticPaymentSetup(tenantId: string) {
+  const config = wompiConfig({ requirePrivateKey: true });
+  const [state, contracts] = await Promise.all([
+    getWompiAutomaticPaymentState(tenantId),
+    getWompiAcceptanceContracts(config),
+  ]);
+  return {
+    ...state,
+    publicKey: config.publicKey,
+    agreements: { termsUrl: contracts.termsUrl, personalDataUrl: contracts.personalDataUrl },
+  };
+}
+
+export async function createWompiPaymentMethodForTenant(input: {
+  actorUserId: string;
+  tenantId: string;
+  token: unknown;
+  type: unknown;
+  acceptedTerms: boolean;
+  acceptedPersonalData: boolean;
+}) {
+  const config = wompiConfig({ requirePrivateKey: true });
+  const token = typeof input.token === "string" ? input.token.trim() : "";
+  const type = typeof input.type === "string" ? input.type.trim().toUpperCase() : "";
+  if (!token || token.length > 500 || type !== "CARD") {
+    throw new WompiBillingError("No fue posible registrar el medio de pago", "WOMPI_SOURCE_TOKEN_INVALID");
+  }
+  if (!input.acceptedTerms || !input.acceptedPersonalData) {
+    throw new WompiBillingError("Debes aceptar los documentos de Wompi para activar el cobro automatico", "WOMPI_CONSENT_REQUIRED");
+  }
+
+  const [actor, subscription, contracts] = await Promise.all([
+    prisma.user.findUnique({ where: { id: input.actorUserId }, select: { email: true, isActive: true } }),
+    prisma.subscription.findUnique({ where: { tenantId: input.tenantId }, select: { id: true, status: true } }),
+    getWompiAcceptanceContracts(config),
+  ]);
+  if (!actor?.isActive || !actor.email) throw new WompiBillingError("No se pudo identificar la cuenta que autoriza el cobro", "ACTOR_NOT_FOUND");
+  if (!subscription || subscription.status === "CANCELLED") throw new WompiBillingError("La licencia no permite activar cobros automaticos", "SUBSCRIPTION_CANCELLED");
+
+  const payload = await wompiApiRequest(config, "/payment_sources", {
+    method: "POST",
+    private: true,
+    body: JSON.stringify({
+      type: "CARD",
+      token,
+      customer_email: actor.email,
+      acceptance_token: contracts.acceptanceToken,
+      accept_personal_auth: contracts.personalDataToken,
+    }),
+  });
+  const source = asRecord(asRecord(payload)?.data);
+  const providerSourceId = readInteger(source, "id");
+  const sourceStatus = readString(source, "status")?.toUpperCase();
+  const publicData = source ? asRecord(source.public_data) : null;
+  if (!providerSourceId || sourceStatus !== "AVAILABLE") {
+    throw new WompiBillingError("Wompi no pudo dejar disponible el medio de pago", "WOMPI_SOURCE_UNAVAILABLE");
+  }
+
+  const environment = wompiEnvironment(config.env);
+  const now = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wompi-payment-method:${input.tenantId}`}, 0))`;
+      const currentSubscription = await tx.subscription.findUnique({ where: { tenantId: input.tenantId }, select: { id: true, status: true, autoRenew: true } });
+      if (!currentSubscription || currentSubscription.status === "CANCELLED") throw new WompiBillingError("La licencia no permite activar cobros automaticos", "SUBSCRIPTION_CANCELLED");
+      const active = await tx.wompiPaymentMethod.findFirst({
+        where: { tenantId: input.tenantId, environment, status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, providerSourceId: true },
+      });
+      if (active) await tx.wompiPaymentMethod.update({ where: { id: active.id }, data: { status: "REVOKED", revokedAt: now } });
+      const method = await tx.wompiPaymentMethod.create({ data: {
+        tenantId: input.tenantId,
+        createdByUserId: input.actorUserId,
+        environment,
+        providerSourceId,
+        type: "CARD",
+        status: "ACTIVE",
+        customerEmail: actor.email,
+        brand: readString(publicData, "brand"),
+        lastFour: readString(publicData, "last_four"),
+        expMonth: readString(publicData, "exp_month"),
+        expYear: readString(publicData, "exp_year"),
+        consentedAt: now,
+      } });
+      await tx.subscription.update({ where: { id: currentSubscription.id }, data: { autoRenew: true } });
+      await registerAuditLog({
+        actorUserId: input.actorUserId,
+        tenantId: input.tenantId,
+        action: AuditAction.WOMPI_PAYMENT_METHOD_CREATED,
+        targetType: "WompiPaymentMethod",
+        targetId: method.id,
+        metadata: { provider: WOMPI_PROVIDER, environment: config.env, type: method.type, automaticEnabled: true },
+      }, tx);
+      if (!currentSubscription.autoRenew) {
+        await registerAuditLog({
+          actorUserId: input.actorUserId,
+          tenantId: input.tenantId,
+          action: AuditAction.SUBSCRIPTION_AUTO_RENEW_ENABLED,
+          targetType: "Subscription",
+          targetId: currentSubscription.id,
+          metadata: { provider: WOMPI_PROVIDER, methodId: method.id },
+        }, tx);
+      }
+      return { method: toWompiSourceSummary(method), replacedPreviousMethod: Boolean(active) };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  const initialCharge = await runWompiAutomaticRenewals(new Date(), { tenantIds: [input.tenantId] });
+  return {
+    method: result.method,
+    automaticEnabled: true,
+    replacedPreviousMethod: result.replacedPreviousMethod,
+    initialChargeStarted: initialCharge.initiated > 0,
+  };
+}
+
+export async function setWompiAutomaticRenewal(input: { actorUserId: string; tenantId: string; enabled: boolean }) {
+  const config = wompiConfig();
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wompi-auto-renew:${input.tenantId}`}, 0))`;
+    const subscription = await tx.subscription.findUnique({ where: { tenantId: input.tenantId }, select: { id: true, status: true, autoRenew: true } });
+    if (!subscription || subscription.status === "CANCELLED") throw new WompiBillingError("La licencia no permite cambiar el cobro automatico", "SUBSCRIPTION_CANCELLED");
+    if (input.enabled) {
+      const method = await tx.wompiPaymentMethod.findFirst({
+        where: { tenantId: input.tenantId, environment: wompiEnvironment(config.env), status: "ACTIVE" },
+        select: { id: true },
+      });
+      if (!method) throw new WompiBillingError("Registra primero un medio de pago para activar el cobro automatico", "WOMPI_SOURCE_REQUIRED");
+    }
+    if (subscription.autoRenew !== input.enabled) {
+      await tx.subscription.update({ where: { id: subscription.id }, data: { autoRenew: input.enabled } });
+      await registerAuditLog({
+        actorUserId: input.actorUserId,
+        tenantId: input.tenantId,
+        action: input.enabled ? AuditAction.SUBSCRIPTION_AUTO_RENEW_ENABLED : AuditAction.SUBSCRIPTION_AUTO_RENEW_DISABLED,
+        targetType: "Subscription",
+        targetId: subscription.id,
+        metadata: { provider: WOMPI_PROVIDER, enabled: input.enabled },
+      }, tx);
+    }
+    return { automaticEnabled: input.enabled };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function revokeWompiPaymentMethod(input: { actorUserId: string; tenantId: string }) {
+  const config = wompiConfig();
+  const environment = wompiEnvironment(config.env);
+  const now = new Date();
+  const target = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wompi-payment-method:${input.tenantId}`}, 0))`;
+    const method = await tx.wompiPaymentMethod.findFirst({
+      where: { tenantId: input.tenantId, environment, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true },
+    });
+    if (!method) throw new WompiBillingError("No hay un medio de pago automatico para eliminar", "WOMPI_SOURCE_NOT_FOUND");
+    await tx.wompiPaymentMethod.update({ where: { id: method.id }, data: { status: "REVOKED", revokedAt: now } });
+    const subscription = await tx.subscription.findUnique({ where: { tenantId: input.tenantId }, select: { id: true, autoRenew: true } });
+    if (subscription?.autoRenew) {
+      await tx.subscription.update({ where: { id: subscription.id }, data: { autoRenew: false } });
+      await registerAuditLog({
+        actorUserId: input.actorUserId,
+        tenantId: input.tenantId,
+        action: AuditAction.SUBSCRIPTION_AUTO_RENEW_DISABLED,
+        targetType: "Subscription",
+        targetId: subscription.id,
+        metadata: { provider: WOMPI_PROVIDER, reason: "payment-method-revocation" },
+      }, tx);
+    }
+    await registerAuditLog({
+      actorUserId: input.actorUserId,
+      tenantId: input.tenantId,
+      action: AuditAction.WOMPI_PAYMENT_METHOD_REVOKED,
+      targetType: "WompiPaymentMethod",
+      targetId: method.id,
+      metadata: { provider: WOMPI_PROVIDER, environment: config.env, scope: "PQRS_SERVICES" },
+    }, tx);
+    return method;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  return { revoked: Boolean(target) };
+}
+
+type AutomaticPaymentIntent = {
+  paymentId: string;
+  paymentMethodId: string;
+  providerSourceId: number;
+  amountCents: number;
+  currency: string;
+  customerEmail: string;
+  reference: string;
+};
+
+type AutomaticPaymentIntentResult =
+  | { kind: "READY"; intent: AutomaticPaymentIntent }
+  | { kind: "SKIPPED"; reason: string }
+  | { kind: "DUPLICATE" };
+
+function automaticOperationId(subscriptionId: string, methodId: string, currentPeriodEnd: Date) {
+  return `auto_wompi_${subscriptionId}_${methodId}_${currentPeriodEnd.getTime()}`;
+}
+
+async function reserveAutomaticWompiPayment(input: { subscriptionId: string; tenantId: string; now: Date; environment: "SANDBOX" | "PRODUCTION" }): Promise<AutomaticPaymentIntentResult> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wompi-auto-charge:${input.subscriptionId}`}, 0))`;
+    const subscription = await tx.subscription.findFirst({
+      where: { id: input.subscriptionId, tenantId: input.tenantId },
+      select: { id: true, tenantId: true, status: true, autoRenew: true, currentPeriodEnd: true, priceCents: true, pendingPriceCents: true, currency: true, pendingCurrency: true },
+    });
+    if (!subscription || !subscription.autoRenew || subscription.status === "CANCELLED") return { kind: "SKIPPED", reason: "SUBSCRIPTION_NOT_ELIGIBLE" };
+    if (subscription.status === "ACTIVE" && subscription.currentPeriodEnd > input.now) return { kind: "SKIPPED", reason: "NOT_DUE" };
+    if (!["PENDING_PAYMENT", "ACTIVE", "GRACE_PERIOD", "SUSPENDED"].includes(subscription.status)) return { kind: "SKIPPED", reason: "STATUS_NOT_ELIGIBLE" };
+    const method = await tx.wompiPaymentMethod.findFirst({
+      where: { tenantId: subscription.tenantId, environment: input.environment, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, providerSourceId: true, customerEmail: true },
+    });
+    if (!method) return { kind: "SKIPPED", reason: "PAYMENT_METHOD_NOT_AVAILABLE" };
+    const operationId = automaticOperationId(subscription.id, method.id, subscription.currentPeriodEnd);
+    const previousAttempt = await tx.payment.findUnique({ where: { tenantId_operationId: { tenantId: subscription.tenantId, operationId } }, select: { id: true } });
+    if (previousAttempt) return { kind: "DUPLICATE" };
+    const pendingPayment = await tx.payment.findFirst({
+      where: { tenantId: subscription.tenantId, subscriptionId: subscription.id, provider: "WOMPI", status: "PENDING" },
+      select: { id: true },
+    });
+    if (pendingPayment) return { kind: "SKIPPED", reason: "PAYMENT_ALREADY_PENDING" };
+    const amountCents = subscription.pendingPriceCents ?? subscription.priceCents;
+    const currency = subscription.pendingCurrency || subscription.currency;
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "COP") return { kind: "SKIPPED", reason: "INVALID_BILLING_TERMS" };
+    const requestHash = crypto.createHash("sha256").update(JSON.stringify({ tenantId: subscription.tenantId, subscriptionId: subscription.id, methodId: method.id, amountCents, currency, operationId })).digest("hex");
+    const payment = await tx.payment.create({ data: {
+      tenantId: subscription.tenantId,
+      subscriptionId: subscription.id,
+      wompiPaymentMethodId: method.id,
+      amountCents,
+      currency,
+      status: "PENDING",
+      provider: "WOMPI",
+      dueDate: input.now,
+      periodStart: input.now,
+      periodEnd: input.now,
+      operationId,
+      requestHash,
+      rawStatus: "AUTOMATIC_CHARGE_CREATED",
+    } });
+    const reference = `WOMPI_${payment.id}`;
+    const updated = await tx.payment.update({ where: { id: payment.id }, data: { externalReference: reference } });
+    await registerAuditLog({
+      actorUserId: null,
+      tenantId: subscription.tenantId,
+      action: AuditAction.WOMPI_AUTOMATIC_CHARGE_CREATED,
+      targetType: "Payment",
+      targetId: payment.id,
+      metadata: { provider: WOMPI_PROVIDER, paymentId: payment.id, reference, amountCents, currency, methodId: method.id },
+    }, tx);
+    return { kind: "READY", intent: { paymentId: updated.id, paymentMethodId: method.id, providerSourceId: method.providerSourceId, amountCents, currency, customerEmail: method.customerEmail, reference } };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+async function createWompiAutomaticTransaction(config: Config, intent: AutomaticPaymentIntent) {
+  const signature = crypto.createHash("sha256").update(`${intent.reference}${intent.amountCents}${intent.currency}${config.integrity}`).digest("hex");
+  const payload = await wompiApiRequest(config, "/transactions", {
+    method: "POST",
+    private: true,
+    body: JSON.stringify({
+      amount_in_cents: intent.amountCents,
+      currency: intent.currency,
+      customer_email: intent.customerEmail,
+      payment_method: { installments: 1 },
+      payment_source_id: intent.providerSourceId,
+      recurrent: true,
+      reference: intent.reference,
+      signature,
+    }),
+  });
+  const transaction = asRecord(asRecord(payload)?.data);
+  const transactionId = readString(transaction, "id");
+  const rawStatus = readString(transaction, "status");
+  if (!transactionId) throw new WompiBillingError("Wompi no devolvio una transaccion valida", "WOMPI_TRANSACTION_INVALID");
+  return { transactionId, rawStatus };
+}
+
+async function markAutomaticWompiChargeFailed(intent: AutomaticPaymentIntent, error: unknown) {
+  const code = error instanceof WompiBillingError ? error.code : "WOMPI_AUTOMATIC_CHARGE_FAILED";
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({ where: { id: intent.paymentId }, select: { id: true, tenantId: true, subscriptionId: true, status: true, createdAt: true } });
+    if (!payment || payment.status !== "PENDING") return;
+    await tx.payment.update({ where: { id: payment.id }, data: { status: "REJECTED", rawStatus: code } });
+    await createBillingOutboxIntentsForTransition(tx, {
+      tenantId: payment.tenantId,
+      subscriptionId: payment.subscriptionId,
+      eventType: BillingOutboxEventType.SAAS_PAYMENT_REJECTED,
+      boundary: payment.createdAt,
+    });
+    await registerAuditLog({
+      actorUserId: null,
+      tenantId: payment.tenantId,
+      action: AuditAction.WOMPI_AUTOMATIC_CHARGE_FAILED,
+      targetType: "Payment",
+      targetId: payment.id,
+      metadata: { provider: WOMPI_PROVIDER, errorCode: code, failedAt: now.toISOString() },
+    }, tx);
+  });
+}
+
+export type WompiAutomaticRenewalSummary = {
+  examined: number;
+  initiated: number;
+  duplicate: number;
+  skipped: number;
+  failed: number;
+  errors: { subscriptionId: string; code: string }[];
+};
+
+export async function runWompiAutomaticRenewals(
+  now = new Date(),
+  options: { tenantIds?: string[] } = {}
+): Promise<WompiAutomaticRenewalSummary> {
+  const summary: WompiAutomaticRenewalSummary = { examined: 0, initiated: 0, duplicate: 0, skipped: 0, failed: 0, errors: [] };
+  let config: Config;
+  try {
+    config = wompiConfig({ requirePrivateKey: true });
+  } catch (error) {
+    summary.failed = 1;
+    summary.errors.push({ subscriptionId: "configuration", code: error instanceof WompiBillingError ? error.code : "WOMPI_CONFIGURATION_FAILED" });
+    return summary;
+  }
+  let candidates: { id: string; tenantId: string }[];
+  try {
+    candidates = await prisma.subscription.findMany({
+      where: {
+        autoRenew: true,
+        status: { in: ["PENDING_PAYMENT", "ACTIVE", "GRACE_PERIOD", "SUSPENDED"] },
+        tenant: { status: { not: "CANCELLED" } },
+        ...(options.tenantIds?.length ? { tenantId: { in: Array.from(new Set(options.tenantIds)) } } : {}),
+      },
+      select: { id: true, tenantId: true },
+      orderBy: [{ currentPeriodEnd: "asc" }, { id: "asc" }],
+      take: 100,
+    });
+  } catch {
+    summary.failed = 1;
+    summary.errors.push({ subscriptionId: "selection", code: "AUTO_RENEW_SELECTION_FAILED" });
+    return summary;
+  }
+  for (const candidate of candidates) {
+    summary.examined += 1;
+    let reserved: AutomaticPaymentIntentResult;
+    try {
+      reserved = await reserveAutomaticWompiPayment({ subscriptionId: candidate.id, tenantId: candidate.tenantId, now, environment: wompiEnvironment(config.env) });
+    } catch (error) {
+      summary.failed += 1;
+      summary.errors.push({ subscriptionId: candidate.id, code: error instanceof WompiBillingError ? error.code : "AUTO_RENEW_RESERVATION_FAILED" });
+      continue;
+    }
+    if (reserved.kind === "DUPLICATE") {
+      summary.duplicate += 1;
+      continue;
+    }
+    if (reserved.kind === "SKIPPED") {
+      summary.skipped += 1;
+      continue;
+    }
+    try {
+      const transaction = await createWompiAutomaticTransaction(config, reserved.intent);
+      await prisma.payment.updateMany({
+        where: { id: reserved.intent.paymentId, status: "PENDING", wompiTransactionId: null },
+        data: { wompiTransactionId: transaction.transactionId, rawStatus: transaction.rawStatus || "AUTOMATIC_CHARGE_PENDING" },
+      });
+      summary.initiated += 1;
+    } catch (error) {
+      await markAutomaticWompiChargeFailed(reserved.intent, error).catch(() => undefined);
+      summary.failed += 1;
+      summary.errors.push({ subscriptionId: candidate.id, code: error instanceof WompiBillingError ? error.code : "AUTO_RENEW_PROVIDER_FAILED" });
+    }
+  }
+  return summary;
 }
 
 function asRecord(value: unknown): RecordValue | null {
@@ -272,7 +779,7 @@ async function applyApproved(tx: Tx, paymentId: string, tenantId: string, subscr
   } });
   if (economics.count !== 1) throw new WompiEconomicConflictError();
   const access = await tx.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
-  const terminal = access.status === "SUSPENDED" || access.status === "CANCELLED";
+  const terminal = access.status === "CANCELLED";
   let accessRestored = false;
   if (!terminal) {
     const claimed = await tx.subscription.updateMany({ where: {
