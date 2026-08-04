@@ -6,10 +6,12 @@ export function paymentProviderLabel(provider: string): string {
   // registre", justo lo contrario de lo que es.
   if (provider === "SIMULATED") return "Registro manual · sin cobro";
   if (provider === "MERCADO_PAGO") return "Mercado Pago";
+  if (provider === "WOMPI") return "Wompi";
+  if (provider === "MANUAL_TRANSFER") return "Transferencia confirmada";
   return "Otro";
 }
 
 // Un pago solo representa dinero real si entro por la pasarela.
 export function isRealMoneyProvider(provider: string): boolean {
-  return provider === "MERCADO_PAGO";
+  return provider === "MERCADO_PAGO" || provider === "WOMPI" || provider === "MANUAL_TRANSFER";
 }

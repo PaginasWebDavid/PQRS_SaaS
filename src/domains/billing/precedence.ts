@@ -219,7 +219,7 @@ export function hasCurrentAccessCoverage(input: AccessCoverageInput): boolean {
 }
 
 // --- Cobertura de PAGO REAL (F2-04, definicion 2) ----------------------------
-// Ingreso real vigente de Mercado Pago o transferencia manual confirmada. NO cuenta SIMULATED, cortesia, cuarentena,
+// Ingreso real vigente de una pasarela confirmada o transferencia manual. NO cuenta SIMULATED, cortesia, cuarentena,
 // pagos sin efecto aplicado ni periodos vencidos. El llamador debe acotar las
 // filas por tenant + subscription (identidad exacta) en la consulta.
 
@@ -250,7 +250,7 @@ function matchesIdentity(row: PaymentCoverageRow, identity: CoverageIdentity): b
 export function isCurrentRealPaymentRow(row: PaymentCoverageRow, now: Date, identity: CoverageIdentity): boolean {
   return (
     matchesIdentity(row, identity) &&
-    (row.provider === "MERCADO_PAGO" || row.provider === "MANUAL_TRANSFER") &&
+    (row.provider === "MERCADO_PAGO" || row.provider === "WOMPI" || row.provider === "MANUAL_TRANSFER") &&
     row.status === "APPROVED" &&
     row.approvedEffectAppliedAt !== null &&
     row.approvedEffectReconciliationRequired === false &&
