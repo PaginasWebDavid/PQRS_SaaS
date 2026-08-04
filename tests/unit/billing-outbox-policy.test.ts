@@ -11,7 +11,7 @@ import {
   hasBillingOutboxAttemptsRemaining,
   sanitizeBillingOutboxPayload,
 } from "../../src/domains/billing/billing-outbox-policy";
-import { paymentProviderLabel } from "../../src/lib/design/billing";
+import { paymentProviderLabel, isRealMoneyProvider } from "../../src/lib/design/billing";
 
 const BOUNDARY = new Date("2026-07-27T12:00:00.000Z");
 const BASE = {
@@ -131,6 +131,12 @@ test("16. el contenido de cortesia nunca afirma que hubo un pago", () => {
 
 test("17. los proveedores se muestran con conceptos distintos", () => {
   assert.equal(paymentProviderLabel("MERCADO_PAGO"), "Mercado Pago");
-  assert.equal(paymentProviderLabel("SIMULATED"), "Pago manual");
-  assert.equal(paymentProviderLabel("COURTESY"), "Cortesia");
+  assert.equal(paymentProviderLabel("WOMPI"), "Wompi");
+  // SIMULATED no es dinero recibido: lo genera el registro manual del Super
+  // Admin. Antes decia "Pago manual", que se lee como lo contrario.
+  assert.equal(paymentProviderLabel("SIMULATED"), "Registro manual · sin cobro");
+  assert.equal(paymentProviderLabel("COURTESY"), "Cortesía");
+  assert.equal(isRealMoneyProvider("SIMULATED"), false);
+  assert.equal(isRealMoneyProvider("COURTESY"), false);
+  assert.equal(isRealMoneyProvider("WOMPI"), true);
 });
