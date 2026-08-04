@@ -8,6 +8,8 @@ import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, tabStyle } from '@/lib/design/tokens';
 
+const ROLE_LABEL: Record<string, string> = { ADMIN: 'Administrador', ASISTENTE: 'Asistente', CONSEJO: 'Consejo', RESIDENTE: 'Residente', SUPER_ADMIN: 'Super Admin' };
+
 type Notice = { id: string; title: string; message: string; resourceType?: string | null; resourceId?: string | null; readAt?: string | null; createdAt: string };
 
 function shortDate(value?: string | null) {
@@ -22,6 +24,7 @@ export default function MiCuentaPage() {
   const [email, setEmail] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [role, setRole] = useState('');
   const [notifyNewPqrsEmail, setNotifyNewPqrsEmail] = useState(true);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [avatarLoading, setAvatarLoading] = useState(false);
@@ -40,6 +43,7 @@ export default function MiCuentaPage() {
       setEmail(d.user?.email || '');
       setImage(d.user?.image || null);
       setCreatedAt(d.user?.createdAt || null);
+      setRole(d.user?.role || '');
       setNotifyNewPqrsEmail(d.user?.notifyNewPqrsEmail ?? true);
     }
     if (n.ok) setNotices(await n.json());
@@ -55,7 +59,9 @@ export default function MiCuentaPage() {
 
   async function toggleNotify(next: boolean) {
     setNotifyNewPqrsEmail(next);
-    const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, notifyNewPqrsEmail: next }) });
+    // Antes mandaba tambien `name`: si habias editado el nombre sin guardar,
+    // prender el aviso te lo guardaba sin pedirtelo.
+    const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notifyNewPqrsEmail: next }) });
     if (!res.ok) { setNotifyNewPqrsEmail(!next); showToast('No se pudo actualizar la preferencia'); return; }
     showToast(next ? 'Recibirás correo por cada nueva PQRS' : 'Ya no recibirás correo por nuevas PQRS');
   }
@@ -140,15 +146,18 @@ export default function MiCuentaPage() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>ROL</div>
-                <div style={{ fontSize: 14, fontWeight: 800 }}>Administrador</div>
+                {/* Antes decia "Administrador" fijo, sin importar el rol real. */}
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{ROLE_LABEL[role] || 'Administrador'}</div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>MIEMBRO DESDE</div>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{shortDate(createdAt)}</div>
               </div>
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.textSecondary, marginBottom: 20 }}>Correo de acceso: <span style={{ color: COLORS.textPrimary, fontWeight: 800 }}>{email}</span></div>
+            {/* El correo ya se ve en Perfil; repetirlo aqui solo hace mas larga
+                la pantalla. */}
             <Link href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</Link>
+            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambias la contraseña, tendrás que volver a entrar en los dispositivos donde estés conectado.</p>
           </div>
         )}
 
