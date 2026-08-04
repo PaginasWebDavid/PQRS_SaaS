@@ -305,12 +305,14 @@ async function handlePost(req: NextRequest) {
         apto: finalApto,
         nombreResidente: finalNombre,
         titulo: finalTitulo || null,
-        asunto: category.slug,
-        categoryId: category.id,
-        categorySnapshot: category.displayName,
+        // Sin categoria hasta que el administrador abra el caso. El
+        // workflowType queda en SIMPLE y se ajusta al asignar la categoria.
+        asunto: category?.slug ?? null,
+        categoryId: category?.id ?? null,
+        categorySnapshot: category?.displayName ?? null,
         descripcion: finalDescripcion,
         creadoPorId: session.user.id,
-        workflowType: category.workflowType,
+        workflowType: category?.workflowType ?? "SIMPLE",
       },
     });
 

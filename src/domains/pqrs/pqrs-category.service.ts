@@ -219,23 +219,31 @@ export async function updatePqrsCategory(input: {
   });
 }
 
+// El residente no clasifica: solo describe su problema. La categoria la pone
+// el administrador al abrir el caso, porque es quien conoce como se gestiona
+// cada tipo de solicitud. Por eso puede devolver null.
+// Si viene un categoryId explicito (creacion hecha por el admin, o datos
+// heredados con `asunto`), se respeta y se valida.
 export async function resolvePqrsCategoryForCreation(input: {
   tenantId: string;
   categoryId?: unknown;
   legacyAsunto?: unknown;
 }) {
   await ensureInitialPqrsCategoriesForTenant(input.tenantId);
-  let category = null;
-  if (typeof input.categoryId === "string" && input.categoryId.trim()) {
-    category = await prisma.pqrsCategory.findFirst({ where: { id: input.categoryId.trim(), tenantId: input.tenantId, isActive: true } });
-  } else if (typeof input.legacyAsunto === "string") {
+  const requestedId = typeof input.categoryId === "string" ? input.categoryId.trim() : "";
+  if (requestedId) {
+    const category = await prisma.pqrsCategory.findFirst({ where: { id: requestedId, tenantId: input.tenantId, isActive: true } });
+    if (!category) throw new PqrsCategoryError("NOT_FOUND", "Categoria no disponible");
+    return category;
+  }
+  if (typeof input.legacyAsunto === "string") {
     const canonicalKey = LEGACY_CATEGORY_CANONICAL_KEY[input.legacyAsunto];
     if (canonicalKey) {
-      category = await prisma.pqrsCategory.findFirst({ where: { tenantId: input.tenantId, canonicalKey, isActive: true } });
+      const category = await prisma.pqrsCategory.findFirst({ where: { tenantId: input.tenantId, canonicalKey, isActive: true } });
+      if (category) return category;
     }
   }
-  if (!category) throw new PqrsCategoryError("NOT_FOUND", "Categoria no disponible");
-  return category;
+  return null;
 }
 
 export function mapPqrsCategoryError(error: unknown): { status: number; message: string } {
