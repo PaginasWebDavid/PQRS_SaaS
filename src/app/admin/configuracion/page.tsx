@@ -17,18 +17,6 @@ const STATUS_LABEL: Record<string, string> = {
   GRACE_PERIOD: 'En mora', SUSPENDED: 'Suspendida', CANCELLED: 'Cancelada',
 };
 
-function IntegrationRow({ label, ok }: { label: string; ok: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: `1px solid ${COLORS.borderSoft}`, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13, fontWeight: 600, minWidth: 0 }}>{label}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: ok ? COLORS.success : COLORS.warning, flexShrink: 0 }}>
-        <span style={{ width: 7, height: 7, borderRadius: 999, background: ok ? COLORS.success : COLORS.warning }} />
-        {ok ? 'Conectado' : 'No disponible'}
-      </span>
-    </div>
-  );
-}
-
 export default function ConfiguracionConjuntoPage() {
   const isMobile = useIsMobile();
   const [name, setName] = useState('');
@@ -52,6 +40,12 @@ export default function ConfiguracionConjuntoPage() {
       setEmail(data.user?.email || '');
     }).catch(() => setLoadError('No se pudo cargar la información del conjunto.'));
     fetch('/api/tenant').then((r) => r.ok ? r.json() : null).then((data) => { if (data) setSettings(data); }).catch(() => setLoadError('No se pudo cargar la configuración del conjunto.'));
+    // Faltaba: sin esto la lista de categorias salia siempre vacia y no habia
+    // forma de ver ni editar las que ya existian.
+    fetch('/api/tenant/pqrs-categories')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (Array.isArray(data)) setCategories([...data].sort((a, b) => a.sortOrder - b.sortOrder)); })
+      .catch(() => setLoadError('No se pudieron cargar las categorías.'));
   }, []);
 
   async function saveTenant() {
@@ -82,6 +76,25 @@ export default function ConfiguracionConjuntoPage() {
       setCategories((current) => current.map((item) => item.id === body.id ? body : item).sort((a, b) => a.sortOrder - b.sortOrder));
       showToast('Categoria actualizada');
     } catch { showToast('No se pudo actualizar la categoria. Revisa tu conexion.'); }
+    finally { setCategorySaving(false); }
+  }
+
+  // Reordenar intercambiando el orden con la vecina, para que el admin no
+  // tenga que entender ni escribir el numero de orden a mano.
+  async function moveCategory(index: number, direction: -1 | 1) {
+    if (categorySaving) return;
+    const current = categories[index];
+    const neighbour = categories[index + direction];
+    if (!current || !neighbour) return;
+    setCategorySaving(true);
+    try {
+      const a = await fetch('/api/tenant/pqrs-categories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId: current.id, sortOrder: neighbour.sortOrder }) });
+      const b = await fetch('/api/tenant/pqrs-categories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId: neighbour.id, sortOrder: current.sortOrder }) });
+      if (!a.ok || !b.ok) { showToast('No se pudo cambiar el orden'); return; }
+      setCategories((list) => list
+        .map((item) => item.id === current.id ? { ...item, sortOrder: neighbour.sortOrder } : item.id === neighbour.id ? { ...item, sortOrder: current.sortOrder } : item)
+        .sort((x, y) => x.sortOrder - y.sortOrder));
+    } catch { showToast('No se pudo cambiar el orden. Revisa tu conexión.'); }
     finally { setCategorySaving(false); }
   }
 
@@ -147,37 +160,52 @@ export default function ConfiguracionConjuntoPage() {
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Categorias de PQRS</div>
-          <p style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', lineHeight: 1.6 }}>
-            SIMPLE sirve para solicitudes administrativas, convivencia, consultas o certificados. MAINTENANCE incluye inspeccion, insumos o proveedor y ejecucion. Los cambios solo afectan casos nuevos.
+          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Categorías de PQRS</div>
+          <p style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 4px', lineHeight: 1.6 }}>
+            Cuando abres un caso, eliges una de estas. La categoría decide cómo se gestiona:
           </p>
+          <ul style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
+            <li><strong>Simple</strong>: primer contacto, acción tomada y evidencia de cierre. Para convivencia, certificados, cartera, consultas.</li>
+            <li><strong>Mantenimiento</strong>: las 5 fases (diagnóstico, cotización o proveedor, ejecución, verificación y cierre). Para arreglos y zonas comunes.</li>
+          </ul>
+          <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '0 0 14px' }}>Lo que cambies aquí solo aplica a los casos nuevos. Desactivar una categoría no borra los casos que ya la usaban.</p>
+
+          {categories.length === 0 && <div style={{ padding: '20px 0', fontSize: 12.5, color: COLORS.textMuted }}>Cargando categorías…</div>}
+
+          {!isMobile && categories.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(170px,1fr) 165px 92px 70px', gap: 8, padding: '0 10px 6px', fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.04em' }}>
+              <span>NOMBRE</span><span>CÓMO SE GESTIONA</span><span>¿SE PUEDE USAR?</span><span style={{ textAlign: 'right' }}>ORDEN</span>
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {categories.map((category) => (
-              <div key={category.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(170px, 1fr) 92px 145px 82px', gap: 8, alignItems: 'center', padding: 10, background: COLORS.bgCard, borderRadius: 12 }}>
-                <input value={category.displayName} onChange={(e) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, displayName: e.target.value } : item))} onBlur={() => void updateCategory(category.id, { displayName: category.displayName })} style={{ ...inputStyle, height: 38 }} />
-                <input type="number" min={0} max={999} value={category.sortOrder} onChange={(e) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, sortOrder: Number(e.target.value) } : item))} onBlur={() => void updateCategory(category.id, { sortOrder: category.sortOrder })} style={{ ...inputStyle, height: 38 }} />
-                <select value={category.workflowType} onChange={(e) => void updateCategory(category.id, { workflowType: e.target.value as PqrsWorkflowType })} style={{ ...inputStyle, height: 38 }}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option></select>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}><input type="checkbox" checked={category.isActive} onChange={(e) => void updateCategory(category.id, { isActive: e.target.checked })} /> Activa</label>
+            {categories.map((category, index) => (
+              <div key={category.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(170px,1fr) 165px 92px 70px', gap: 8, alignItems: 'center', padding: 10, background: COLORS.bgCard, borderRadius: 12 }}>
+                <input aria-label="Nombre de la categoría" value={category.displayName} onChange={(e) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, displayName: e.target.value } : item))} onBlur={() => void updateCategory(category.id, { displayName: category.displayName })} style={{ ...inputStyle, height: 38 }} />
+                <select aria-label="Cómo se gestiona" value={category.workflowType} onChange={(e) => void updateCategory(category.id, { workflowType: e.target.value as PqrsWorkflowType })} style={{ ...inputStyle, height: 38 }}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento (5 fases)</option></select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}><input type="checkbox" checked={category.isActive} onChange={(e) => void updateCategory(category.id, { isActive: e.target.checked })} /> Sí</label>
+                {/* Antes aqui habia un campo numerico sin etiqueta (el orden
+                    interno). Nadie sabia que era, asi que ahora se mueve con
+                    flechas y el numero no se muestra. */}
+                <div style={{ display: 'flex', gap: 4, justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+                  <button type="button" aria-label="Subir" disabled={index === 0 || categorySaving} onClick={() => void moveCategory(index, -1)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${COLORS.inputBorder}`, background: COLORS.bg, cursor: index === 0 ? 'default' : 'pointer', opacity: index === 0 ? 0.4 : 1, fontSize: 12 }}>↑</button>
+                  <button type="button" aria-label="Bajar" disabled={index === categories.length - 1 || categorySaving} onClick={() => void moveCategory(index, 1)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${COLORS.inputBorder}`, background: COLORS.bg, cursor: index === categories.length - 1 ? 'default' : 'pointer', opacity: index === categories.length - 1 ? 0.4 : 1, fontSize: 12 }}>↓</button>
+                </div>
               </div>
             ))}
           </div>
           <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, marginTop: 16, paddingTop: 16 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 8 }}>Categoria personalizada ({categories.filter((item) => item.isCustom).length}/3)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 150px auto', gap: 8 }}>
-              <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} maxLength={80} placeholder="Nombre de la categoria" style={inputStyle} />
-              <select value={newCategoryWorkflow} onChange={(e) => setNewCategoryWorkflow(e.target.value as PqrsWorkflowType)} style={inputStyle}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento</option></select>
-              <button type="button" onClick={() => void createCategory()} disabled={categorySaving || categories.filter((item) => item.isCustom).length >= 3} style={{ border: 0, background: COLORS.navy, color: '#FFF', borderRadius: RADIUS.pill, padding: '0 18px', fontWeight: 700 }}>Crear</button>
+            <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 3 }}>Crear una categoría propia ({categories.filter((item) => item.isCustom).length}/3)</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 8 }}>Por si tu conjunto maneja un tipo de solicitud que no encaja en las de arriba.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 190px auto', gap: 8 }}>
+              <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} maxLength={80} placeholder="Ej. Mascotas" aria-label="Nombre de la categoría nueva" style={inputStyle} />
+              <select value={newCategoryWorkflow} onChange={(e) => setNewCategoryWorkflow(e.target.value as PqrsWorkflowType)} aria-label="Cómo se gestiona" style={inputStyle}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento (5 fases)</option></select>
+              <button type="button" onClick={() => void createCategory()} disabled={categorySaving || newCategoryName.trim().length < 2 || categories.filter((item) => item.isCustom).length >= 3} style={{ border: 0, background: COLORS.navy, color: COLORS.white, borderRadius: RADIUS.pill, padding: '0 18px', fontWeight: 700, cursor: 'pointer' }}>Crear</button>
             </div>
           </div>
         </div>
-        <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 4 }}>Estado del sistema</div>
-          <p style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 10px' }}>Si algo no está conectado, contacta a soporte de PQRS Services.</p>
-          <IntegrationRow label="Correo transaccional (invitaciones, confirmaciones)" ok={Boolean(settings?.integrations?.correoTransaccional)} />
-          <IntegrationRow label="Almacenamiento de evidencias" ok={Boolean(settings?.integrations?.almacenamientoEvidencias)} />
-          <IntegrationRow label="Pagos (Mercado Pago)" ok={Boolean(settings?.integrations?.pagos)} />
-        </div>
-
+        {/* Se quito "Estado del sistema": mostraba el estado de servicios que
+            el administrador no puede accionar ("si algo falla, contacta a
+            soporte"). Si de verdad se cae uno, se nota al usarlo. */}
         <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500 }}>
           ¿Buscas activar o desactivar tus correos de nuevas PQRS? Eso se configura en <Link href="/admin/cuenta" style={{ color: COLORS.navy, fontWeight: 700 }}>Mi cuenta</Link>.
         </p>
