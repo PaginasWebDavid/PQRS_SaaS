@@ -81,6 +81,15 @@ function businessDaysBetween(start: Date, end: Date) {
   return count;
 }
 
+// En escritorio el detalle es la columna derecha; en celular se abre encima de
+// la lista para no tener que recorrer toda la pagina hasta el final.
+function DetailContainer({ isMobile, open, onClose, children }: { isMobile: boolean; open: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (isMobile) {
+    return <Sheet open={open} onClose={onClose} maxWidth={560}>{children}</Sheet>;
+  }
+  return <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>{children}</div>;
+}
+
 function faseSemaphore(faseNum: number, inicioIso?: string | null) {
   if (!inicioIso) return null;
   const target = FASE_TARGET_DAYS[faseNum];
@@ -119,6 +128,7 @@ function ModuloPqrsPageContent() {
   const [contactNota, setContactNota] = useState('');
   const [contactPrioridad, setContactPrioridad] = useState<'ALTA' | 'MEDIA' | 'BAJA'>('MEDIA');
   const [contactCategoryId, setContactCategoryId] = useState('');
+  const [contactDone, setContactDone] = useState(false);
   const [contactSubmitting, setContactSubmitting] = useState(false);
 
   const [faseOpen, setFaseOpen] = useState(false);
@@ -191,6 +201,7 @@ function ModuloPqrsPageContent() {
       .catch(() => showToast('No se pudo cargar el detalle de la PQRS'));
   }, [detail?.id, selectedId, showToast]);
 
+
   const selected = detail?.id === selectedId ? detail : data.find((p) => p.id === selectedId) ?? data[0];
 
   async function submitCreate() {
@@ -205,6 +216,7 @@ function ModuloPqrsPageContent() {
     setContactNota('');
     setContactPrioridad('MEDIA');
     setContactCategoryId(selected.categoryId || '');
+    setContactDone(false);
     setContactOpen(true);
   }
 
@@ -226,7 +238,10 @@ function ModuloPqrsPageContent() {
         body: JSON.stringify({ primerContacto: true, categoryId: contactCategoryId, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
       });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo abrir el caso'); return; }
-      setContactOpen(false); await load(); showToast('Caso abierto ✓ Se le avisó al residente por correo.');
+      // No se cierra en seco: se queda mostrando que cambio y cual es el paso
+      // siguiente, para no dejar al admin buscando la solicitud otra vez.
+      await refreshSelected(selected.id);
+      setContactDone(true);
     } finally { setContactSubmitting(false); }
   }
 
@@ -252,7 +267,7 @@ function ModuloPqrsPageContent() {
       if (payload.noteFase && payload.note !== undefined) body[`fase${payload.noteFase}Nota`] = payload.note;
       const res = await fetch(`/api/pqrs/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo actualizar la fase'); return; }
-      await load(); showToast('Fase actualizada ✓');
+      await refreshSelected(selected.id); showToast('Fase actualizada ✓');
     } finally { setFaseSubmitting(false); }
   }
 
@@ -293,7 +308,7 @@ function ModuloPqrsPageContent() {
       }
       const res = await fetch(`/api/pqrs/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo cerrar la PQRS'); return; }
-      setCloseOpen(false); await load(); showToast('PQRS cerrada ✓ Correo de cierre enviado al residente.');
+      await refreshSelected(selected.id); setCloseOpen(false); showToast('PQRS cerrada ✓ Correo de cierre enviado al residente.');
     } finally { setCloseSubmitting(false); }
   }
 
@@ -420,7 +435,7 @@ function ModuloPqrsPageContent() {
                 </div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginBottom: 2 }}>{categoryLabel(p)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning }}>{p.numeroRadicacion || 'Pendiente'}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: COLORS.textMuted }}>{p.numeroRadicacion || code(p.numero)}</span>
                   <span style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombreResidente}</span>
                 </div>
               </button>
@@ -432,7 +447,7 @@ function ModuloPqrsPageContent() {
                 className="apl-up"
                 style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit', animationDelay: `${Math.min(i, 9) * 30}ms` }}
               >
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || 'Pendiente'}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: 84, flexShrink: 0 }}>{p.numeroRadicacion || code(p.numero)}</span>
                 <span style={{ flex: 1, minWidth: 120, overflow: 'hidden' }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
@@ -451,12 +466,22 @@ function ModuloPqrsPageContent() {
           )}
         </div>
 
-        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
+        {/* En celular el detalle va sobre la lista: antes quedaba debajo de
+            todas las filas y con 100 solicitudes tocaba bajar la pagina entera
+            para leer la que acababas de tocar. */}
+        {/* En escritorio `selected` cae por defecto en la primera de la lista,
+            lo cual esta bien para la columna fija; en celular eso abriria el
+            panel encima de la lista apenas entras, asi que aqui manda el
+            seleccionado de verdad. */}
+        <DetailContainer isMobile={isMobile} open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
           {selected ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{code(selected.numero)}</span>
-                <span style={badge(selected.estado)}>{label(selected.estado)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={badge(selected.estado)}>{label(selected.estado)}</span>
+                  {isMobile && <CloseButton onClick={() => setSelectedId(null)} />}
+                </div>
               </div>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
               <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{categoryLabel(selected)}</span></div>
@@ -558,7 +583,7 @@ function ModuloPqrsPageContent() {
               </div>
             </>
           ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
-        </div>
+        </DetailContainer>
       </div>
 
       {/* Create sheet */}
@@ -587,9 +612,31 @@ function ModuloPqrsPageContent() {
       {/* Primer contacto sheet */}
       <Sheet open={contactOpen} onClose={() => setContactOpen(false)} maxWidth={460}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Abrir caso</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{contactDone ? 'Caso abierto' : 'Abrir caso'}</div>
           <CloseButton onClick={() => setContactOpen(false)} />
         </div>
+
+        {contactDone ? (
+          <div className="apl-up">
+            <div style={{ background: COLORS.successSoft, borderRadius: RADIUS.stat, padding: '16px 18px', marginBottom: 16 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: COLORS.success, marginBottom: 6 }}>✓ Listo, ya quedó en proceso</div>
+              <div style={{ fontSize: 12.5, color: COLORS.success, fontWeight: 500, lineHeight: 1.55 }}>
+                Radicado <strong>{selected?.numeroRadicacion || code(selected?.numero ?? 0)}</strong>. Se le avisó por correo a {selected?.nombreResidente}.
+              </div>
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>¿Qué sigue?</div>
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.55, marginBottom: 16 }}>
+              {selected?.workflowType === 'MAINTENANCE'
+                ? 'Ahora toca registrar el diagnóstico (Fase 1). Puedes hacerlo ya o volver después.'
+                : 'Ahora toca registrar la acción tomada y la evidencia de cierre. Puedes hacerlo ya o volver después.'}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => { setContactOpen(false); openFase(); }} style={{ flex: 1, minWidth: 150, background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Continuar ahora</button>
+              <button type="button" onClick={() => setContactOpen(false)} style={{ flex: 1, minWidth: 110, background: 'none', color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Más tarde</button>
+            </div>
+          </div>
+        ) : (
+        <>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se genera el número de radicación, la solicitud pasa a &quot;En proceso&quot; y se le avisa al residente por correo.</p>
 
         <label htmlFor="contact-categoria" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>1. ¿De qué es la solicitud?</label>
@@ -633,6 +680,8 @@ function ModuloPqrsPageContent() {
         </div>
 
         <button type="button" onClick={submitContact} disabled={!contactReady || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactReady ? COLORS.navy : COLORS.neutralSoft, color: contactReady ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: contactReady ? 'pointer' : 'default' }}>{contactSubmitting ? 'Abriendo…' : 'Abrir caso y avisar al residente'}</button>
+        </>
+        )}
       </Sheet>
 
       {/* Correccion auditada */}
