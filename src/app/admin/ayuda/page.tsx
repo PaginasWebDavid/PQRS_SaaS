@@ -6,12 +6,17 @@ import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 
+// Ojo: estas respuestas describen botones reales. Si cambia el flujo de PQRS,
+// hay que actualizarlas aqui o quedan mintiendo.
 const FAQS = [
-  { q: '¿Cómo cierro una PQRS?', a: 'Abre la solicitud en el módulo PQRS y usa "Avanzar estado" hasta llegar a Terminada, agregando una nota interna con la evidencia de cierre.' },
-  { q: '¿Cómo invito a un nuevo usuario?', a: 'Ve a Invitaciones → Nueva invitación, ingresa el correo y el rol. El usuario recibirá un enlace para activar su cuenta.' },
-  { q: '¿Puedo cambiar el número de unidades de mi conjunto?', a: 'No directamente. Esa información la administra PQRS Services — escríbenos abajo y lo ajustamos por ti.' },
-  { q: '¿Cómo pago o renuevo mi licencia?', a: 'Ve a Licencias y pagos. Si te falta el primer pago o estás en mora, verás el botón "Pagar ahora con Mercado Pago". Mientras la renovación automática esté activada, el cobro mensual se hace solo.' },
-  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes el período de gracia que se muestra en Licencias y pagos para ponerte al día antes de que la licencia se suspenda. Puedes pagar en cualquier momento desde ahí.' },
+  { q: '¿Qué hago cuando llega una solicitud nueva?', a: 'Entra a PQRS, tócala y pulsa "Abrir caso". Ahí eliges de qué es la solicitud, escribes qué le dijiste al residente y confirmas. Eso le genera el número de radicación y le avisa por correo.' },
+  { q: '¿Por qué el residente no elige la categoría?', a: 'Porque el residente describe su problema, no sabe cómo lo gestiona el conjunto. La categoría la pones tú al abrir el caso, y de ella depende si el caso se maneja simple o por 5 fases.' },
+  { q: '¿Cuál es la diferencia entre simple y 5 fases?', a: 'Simple es para convivencia, certificados, cartera o consultas: registras el primer contacto, la acción tomada y la evidencia de cierre. Las 5 fases son para mantenimiento y zonas comunes: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada categoría ya viene marcada con su ruta en Configuración.' },
+  { q: '¿Cómo cierro una solicitud?', a: 'Ábrela y pulsa "Cerrar solicitud". Te pide qué acción se tomó y la evidencia de cierre. Al confirmar, el residente recibe el correo de cierre.' },
+  { q: '¿Cómo invito a un nuevo usuario?', a: 'Ve a Invitaciones → Nueva invitación, ingresa el correo y el rol. Le llega un enlace para activar su cuenta; vence a los 3 días.' },
+  { q: '¿Puedo cambiar el número de unidades de mi conjunto?', a: 'No directamente. Esa información la administra PQRS Services — escríbenos aquí abajo y lo ajustamos por ti.' },
+  { q: '¿Cómo pago o renuevo mi licencia?', a: 'Ve a Licencias y pagos. Si te falta el primer pago o estás en mora, verás ahí el botón para pagar. Mientras la renovación automática esté activada, el cobro mensual se hace solo.' },
+  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes el período de gracia que se muestra en Licencias y pagos para ponerte al día antes de que se suspenda el acceso. Puedes pagar en cualquier momento desde ahí.' },
 ];
 
 type Category = 'TECHNICAL' | 'ACCESS' | 'PRIVACY_SECURITY' | 'BILLING';
