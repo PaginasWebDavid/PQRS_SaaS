@@ -11,7 +11,7 @@ import { createNotification, NotificationTypes } from "@/domains/notifications/n
 import { isPqrsTakenByAdministration } from "@/domains/pqrs/pqrs-permissions";
 import { VALID_NEXT_FASE_BY_WORKFLOW } from "@/domains/pqrs/pqrs-workflow.service";
 import { toResidentPqrsView, withoutStorageUrls } from "@/domains/pqrs/resident-view";
-import { pqrsCategoryVisibleLabel } from "@/domains/pqrs/pqrs-category-policy";
+import { pqrsCategoryVisibleLabel, NO_CATEGORY_LABEL } from "@/domains/pqrs/pqrs-category-policy";
 import {
   escapePqrsHtml,
   isRecord,
@@ -237,7 +237,7 @@ async function handlePatch(
         { status: 400 }
       );
     }
-    if (!assignedCategory && pqrsCategoryVisibleLabel(pqrs) === "Sin categoria") {
+    if (!assignedCategory && pqrsCategoryVisibleLabel(pqrs) === NO_CATEGORY_LABEL) {
       return NextResponse.json(
         { error: "Debe asignar una categoria para abrir el caso" },
         { status: 400 }
