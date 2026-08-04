@@ -119,7 +119,6 @@ function ModuloPqrsPageContent() {
   const [contactNota, setContactNota] = useState('');
   const [contactPrioridad, setContactPrioridad] = useState<'ALTA' | 'MEDIA' | 'BAJA'>('MEDIA');
   const [contactCategoryId, setContactCategoryId] = useState('');
-  const [contactReclassReason, setContactReclassReason] = useState('');
   const [contactSubmitting, setContactSubmitting] = useState(false);
 
   const [faseOpen, setFaseOpen] = useState(false);
@@ -206,7 +205,6 @@ function ModuloPqrsPageContent() {
     setContactNota('');
     setContactPrioridad('MEDIA');
     setContactCategoryId(selected.categoryId || '');
-    setContactReclassReason('');
     setContactOpen(true);
   }
 
@@ -215,31 +213,17 @@ function ModuloPqrsPageContent() {
   // ruta simple.
   const contactCategory = categories.find((c) => c.id === contactCategoryId) || null;
   const contactWorkflow = contactCategory?.workflowType || selected?.workflowType || 'SIMPLE';
-  const contactCategoryChanged = Boolean(selected && contactCategoryId && contactCategoryId !== selected.categoryId);
-  const contactReasonMissing = contactCategoryChanged && contactReclassReason.trim().length < 10;
-  const contactReady = Boolean(contactCategoryId) && contactNota.trim().length > 0 && !contactReasonMissing;
+  const contactReady = Boolean(contactCategoryId) && contactNota.trim().length > 0;
 
   async function submitContact() {
     if (!selected || !contactReady) return;
     setContactSubmitting(true);
     try {
-      // Si el admin reclasifico, eso es una correccion auditada de verdad, asi
-      // que pasa por su endpoint antes de abrir el caso. Para el admin sigue
-      // siendo un solo boton.
-      if (contactCategoryChanged) {
-        const fix = await fetch(`/api/pqrs/${selected.id}/corregir`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ operationId: crypto.randomUUID(), reason: contactReclassReason.trim(), categoryId: contactCategoryId }),
-        });
-        if (!fix.ok) {
-          const err = await fix.json().catch(() => null);
-          showToast(err?.error || 'No se pudo reclasificar la solicitud');
-          return;
-        }
-      }
+      // La categoria se asigna en el mismo paso que el primer contacto: el
+      // residente nunca la eligio, asi que esto no es una correccion.
       const res = await fetch(`/api/pqrs/${selected.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primerContacto: true, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
+        body: JSON.stringify({ primerContacto: true, categoryId: contactCategoryId, notaPrimerContacto: contactNota.trim(), prioridad: contactPrioridad }),
       });
       if (!res.ok) { const err = await res.json().catch(() => null); showToast(err?.error || 'No se pudo abrir el caso'); return; }
       setContactOpen(false); await load(); showToast('Caso abierto ✓ Se le avisó al residente por correo.');
@@ -634,32 +618,19 @@ function ModuloPqrsPageContent() {
           </div>
         )}
 
-        {contactCategoryChanged && (
-          <div className="apl-up" style={{ marginBottom: 14 }}>
-            <label htmlFor="contact-motivo" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>¿Por qué la reclasificas?</label>
-            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 7, lineHeight: 1.45 }}>Estás cambiando la categoría que eligió el residente, así que queda registrado en la auditoría.</div>
-            <input
-              id="contact-motivo"
-              value={contactReclassReason}
-              onChange={(e) => setContactReclassReason(e.target.value)}
-              placeholder="Ej: el residente la marcó como convivencia pero es una fuga"
-              style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${contactReasonMissing && contactReclassReason.length > 0 ? COLORS.warning : COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit' }}
-            />
-            {contactReasonMissing && contactReclassReason.length > 0 && (
-              <div style={{ fontSize: 11.5, color: COLORS.warning, fontWeight: 600, marginTop: 5 }}>Escribe al menos 10 caracteres.</div>
-            )}
+        <label htmlFor="contact-nota" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>2. ¿Qué le dijiste al residente?</label>
+        <textarea id="contact-nota" value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="Ej: se le confirmó la recepción y se programó visita para el jueves" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+
+        {/* La prioridad arranca en Media y casi nunca hay que tocarla, asi que
+            no estorba como un paso mas. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+          <span style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 600 }}>Prioridad</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['ALTA', 'MEDIA', 'BAJA'] as const).map((p) => (
+              <button key={p} type="button" onClick={() => setContactPrioridad(p)} style={{ border: `1.5px solid ${contactPrioridad === p ? COLORS.navy : COLORS.inputBorder}`, font: 'inherit', fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: RADIUS.pill, cursor: 'pointer', background: contactPrioridad === p ? COLORS.navySoft : 'none', color: contactPrioridad === p ? COLORS.navy : COLORS.textSecondary }}>{p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja'}</button>
+            ))}
           </div>
-        )}
-
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>2. ¿Qué tan urgente es?</label>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          {(['ALTA', 'MEDIA', 'BAJA'] as const).map((p) => (
-            <button key={p} type="button" onClick={() => setContactPrioridad(p)} style={{ flex: 1, border: `1.5px solid ${contactPrioridad === p ? COLORS.navy : COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '9px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: contactPrioridad === p ? COLORS.navySoft : 'none', color: contactPrioridad === p ? COLORS.navy : COLORS.textPrimary }}>{p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja'}</button>
-          ))}
         </div>
-
-        <label htmlFor="contact-nota" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>3. ¿Qué le dijiste al residente?</label>
-        <textarea id="contact-nota" value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="Ej: se le confirmó la recepción y se programó visita para el jueves" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 20 }} />
 
         <button type="button" onClick={submitContact} disabled={!contactReady || contactSubmitting} style={{ width: '100%', textAlign: 'center', background: contactReady ? COLORS.navy : COLORS.neutralSoft, color: contactReady ? COLORS.white : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: contactReady ? 'pointer' : 'default' }}>{contactSubmitting ? 'Abriendo…' : 'Abrir caso y avisar al residente'}</button>
       </Sheet>

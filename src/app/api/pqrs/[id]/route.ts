@@ -215,19 +215,37 @@ async function handlePatch(
       );
     }
 
-    if (body.asunto !== undefined || body.categoryId !== undefined) {
+    // El residente radica sin clasificar; el administrador asigna la categoria
+    // justo aqui, al abrir el caso. Eso no es una correccion (nadie se
+    // equivoco antes), asi que no exige motivo ni pasa por /corregir.
+    // Reclasificar DESPUES de abierto si sigue siendo una correccion auditada.
+    let assignedCategory = null;
+    if (body.categoryId !== undefined) {
+      if (typeof body.categoryId !== "string" || !body.categoryId.trim()) {
+        return NextResponse.json({ error: "Categoria invalida" }, { status: 400 });
+      }
+      assignedCategory = await prisma.pqrsCategory.findFirst({
+        where: { id: body.categoryId.trim(), tenantId, isActive: true },
+      });
+      if (!assignedCategory) {
+        return NextResponse.json({ error: "Categoria no disponible" }, { status: 404 });
+      }
+    }
+    if (body.asunto !== undefined) {
       return NextResponse.json(
-        { error: "La categoria solo puede cambiarse mediante Corregir caso" },
+        { error: "El asunto solo puede cambiarse mediante Corregir caso" },
         { status: 400 }
       );
     }
-    const categoryLabel = pqrsCategoryVisibleLabel(pqrs);
-    if (categoryLabel === "Sin categoria") {
+    if (!assignedCategory && pqrsCategoryVisibleLabel(pqrs) === "Sin categoria") {
       return NextResponse.json(
-        { error: "Corrige la categoria antes de registrar el primer contacto" },
+        { error: "Debe asignar una categoria para abrir el caso" },
         { status: 400 }
       );
     }
+    // Lo que vera el residente en el correo: la categoria recien asignada si
+    // la hubo, o la que ya tenia el caso.
+    const categoryLabel = assignedCategory?.displayName ?? pqrsCategoryVisibleLabel(pqrs);
 
     const ahora = new Date();
     const diffDays = Math.ceil(
@@ -260,6 +278,14 @@ async function handlePatch(
         data: {
           estado: "EN_PROGRESO",
           ...(prioridad ? { prioridad } : {}),
+          // La categoria arrastra el workflow: no se guardan por separado para
+          // que no puedan quedar contradiciendose.
+          ...(assignedCategory ? {
+            categoryId: assignedCategory.id,
+            categorySnapshot: assignedCategory.displayName,
+            asunto: assignedCategory.slug,
+            workflowType: assignedCategory.workflowType,
+          } : {}),
           fechaPrimerContacto: ahora,
           tiempoRespuestaPrimerContacto: diffDays,
           notaPrimerContacto: nota,

@@ -221,6 +221,7 @@ test("9. desactivar no oculta historicos", async () => {
 test("10. el workflow se deriva de la categoria", async () => {
   const maintenance = categoriesA.find((c) => c.canonicalKey === "MANTENIMIENTO")!;
   const resolved = await resolvePqrsCategoryForCreation({ tenantId: tenantA.id, categoryId: maintenance.id });
+  assert.ok(resolved);
   const pqrs = await createCase({ category: resolved, workflowType: resolved.workflowType });
   assert.equal(pqrs.workflowType, "MAINTENANCE");
 });
@@ -228,8 +229,20 @@ test("10. el workflow se deriva de la categoria", async () => {
 test("11. el cliente no puede falsificar el workflow derivado", async () => {
   const simple = categoriesA.find((c) => c.canonicalKey === "CARTERA_PAGOS")!;
   const resolved = await resolvePqrsCategoryForCreation({ tenantId: tenantA.id, categoryId: simple.id });
+  assert.ok(resolved);
   assert.equal(resolved.workflowType, "SIMPLE");
   assert.notEqual(resolved.workflowType, "MAINTENANCE");
+});
+
+// El residente no clasifica: radica sin categoria y el admin la asigna al
+// abrir el caso.
+test("10b. sin categoryId la creacion queda sin clasificar", async () => {
+  const resolved = await resolvePqrsCategoryForCreation({ tenantId: tenantA.id });
+  assert.equal(resolved, null);
+});
+
+test("10c. un categoryId invalido sigue fallando aunque la categoria sea opcional", async () => {
+  await assertRejectsCode(() => resolvePqrsCategoryForCreation({ tenantId: tenantA.id, categoryId: "no-existe" }), "NOT_FOUND");
 });
 
 test("12. categoria cross-tenant falla de forma opaca", async () => {
