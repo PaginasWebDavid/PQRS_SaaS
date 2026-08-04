@@ -138,8 +138,10 @@ export default function ConsejoCuentaPage() {
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{shortDate(createdAt)}</div>
               </div>
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.textSecondary, marginBottom: 20 }}>Correo de acceso: <span style={{ color: COLORS.textPrimary, fontWeight: 800 }}>{email}</span></div>
+            {/* El correo ya se ve en Perfil; repetirlo aqui solo alarga la
+                pantalla. */}
             <Link href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</Link>
+            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambias la contraseña, tendrás que volver a entrar en los dispositivos donde estés conectado.</p>
           </div>
         )}
 

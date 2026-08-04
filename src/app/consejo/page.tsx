@@ -2,7 +2,8 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/shell/AdminShell';
-import { useIsMobile } from '@/components/shell/Sheet';
+import { CloseButton, useIsMobile } from '@/components/shell/Sheet';
+import { DetailPanel } from '@/components/shell/DetailPanel';
 import { CONSEJO_NAV } from '@/lib/design/consejoNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
 import { pqrsPhaseDisplayLabel } from '@/lib/design/pqrsWorkflow';
@@ -174,7 +175,7 @@ function VistaConsejoPageContent() {
               onClick={() => setSelectedId(p.id)}
               style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexWrap: isMobile ? 'wrap' : 'nowrap', width: '100%', textAlign: 'left', padding: isMobile ? '14px 16px' : '14px 22px', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `1px solid ${COLORS.borderSoft}`, cursor: 'pointer', background: p.id === selected?.id ? COLORS.navySoft : 'transparent', fontFamily: 'inherit' }}
             >
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: p.numeroRadicacion ? COLORS.textMuted : COLORS.warning, width: isMobile ? 'auto' : 84, flexShrink: 0, order: isMobile ? 1 : 0 }}>{p.numeroRadicacion || 'Sin radicar'}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted, width: isMobile ? 'auto' : 84, flexShrink: 0, order: isMobile ? 1 : 0 }}>{p.numeroRadicacion || code(p.numero)}</span>
               <span style={{ flex: isMobile ? '1 1 100%' : 1, minWidth: isMobile ? 0 : 120, overflow: 'hidden', order: isMobile ? 3 : 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.titulo || 'Solicitud'}</div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, marginTop: 2 }}>{categoryLabel(p)}</div>
@@ -185,14 +186,17 @@ function VistaConsejoPageContent() {
           ))}
         </div>
 
-        <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
+        <DetailPanel isMobile={isMobile} open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
           {detailError && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.control, padding: 10, marginBottom: 12, fontSize: 12 }}>{detailError}</div>}
           {detailLoading && <div style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 12 }}>Cargando detalle...</div>}
           {selected ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: COLORS.textMuted }}>{code(selected.numero)}</span>
-                <span style={badge(selected.estado)}>{label(selected.estado)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={badge(selected.estado)}>{label(selected.estado)}</span>
+                  {isMobile && <CloseButton onClick={() => setSelectedId(null)} />}
+                </div>
               </div>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{selected.titulo || 'Solicitud'}</h3>
               <div style={{ marginBottom: 18 }}><span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{categoryLabel(selected)}</span></div>
@@ -263,7 +267,7 @@ function VistaConsejoPageContent() {
               <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, textAlign: 'center', margin: 0 }}>Vista de solo lectura — la gestión de esta solicitud la realiza la administración.</p>
             </>
           ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
-        </div>
+        </DetailPanel>
       </div>
     </AdminShell>
   );

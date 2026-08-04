@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/shell/AdminShell';
 import { Sheet, CloseButton, useIsMobile } from '@/components/shell/Sheet';
+import { DetailPanel } from '@/components/shell/DetailPanel';
 import { Toast, useToast } from '@/components/shell/Toast';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle, tabStyle } from '@/lib/design/tokens';
@@ -79,15 +80,6 @@ function businessDaysBetween(start: Date, end: Date) {
     if (day !== 0 && day !== 6) count++;
   }
   return count;
-}
-
-// En escritorio el detalle es la columna derecha; en celular se abre encima de
-// la lista para no tener que recorrer toda la pagina hasta el final.
-function DetailContainer({ isMobile, open, onClose, children }: { isMobile: boolean; open: boolean; onClose: () => void; children: React.ReactNode }) {
-  if (isMobile) {
-    return <Sheet open={open} onClose={onClose} maxWidth={560}>{children}</Sheet>;
-  }
-  return <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>{children}</div>;
 }
 
 function faseSemaphore(faseNum: number, inicioIso?: string | null) {
@@ -473,7 +465,7 @@ function ModuloPqrsPageContent() {
             lo cual esta bien para la columna fija; en celular eso abriria el
             panel encima de la lista apenas entras, asi que aqui manda el
             seleccionado de verdad. */}
-        <DetailContainer isMobile={isMobile} open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
+        <DetailPanel isMobile={isMobile} open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
           {selected ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -583,7 +575,7 @@ function ModuloPqrsPageContent() {
               </div>
             </>
           ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
-        </DetailContainer>
+        </DetailPanel>
       </div>
 
       {/* Create sheet */}
