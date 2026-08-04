@@ -111,7 +111,7 @@ export default function ModuloLicenciasPage() {
     try {
       const response = await fetch('/api/billing/wompi/payment-method', { cache: 'no-store' });
       const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error || 'No se pudo consultar el cobro automatico');
+      if (!response.ok) throw new Error(body?.error || 'No se pudo consultar el cobro automático');
       setAutomaticPayment(body as AutomaticPaymentState);
     } catch {
       setAutomaticPayment(null);
@@ -123,7 +123,7 @@ export default function ModuloLicenciasPage() {
     const result = new URLSearchParams(window.location.search).get('automaticPayment');
     if (!result) return;
     window.history.replaceState({}, '', '/admin/licencias');
-    window.setTimeout(() => showToast(result === 'enabled' ? 'Cobro automatico activado' : 'No se pudo activar el cobro automatico'), 0);
+    window.setTimeout(() => showToast(result === 'enabled' ? 'Cobro automático activado' : 'No se pudo activar el cobro automático'), 0);
   }, [showToast]);
 
   useEffect(() => {
@@ -174,13 +174,13 @@ export default function ModuloLicenciasPage() {
     try {
       const response = await fetch('/api/billing/wompi/payment-method?setup=1', { cache: 'no-store' });
       const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error || 'No se pudo preparar el cobro automatico');
+      if (!response.ok) throw new Error(body?.error || 'No se pudo preparar el cobro automático');
       setAutomaticSetup(body as AutomaticPaymentSetup);
       setAcceptedWompiTerms(false);
       setAcceptedWompiPersonalData(false);
       setAutomaticSheetOpen(true);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'No se pudo preparar el cobro automatico');
+      showToast(error instanceof Error ? error.message : 'No se pudo preparar el cobro automático');
     } finally {
       setAutomaticLoading(false);
     }
@@ -193,25 +193,25 @@ export default function ModuloLicenciasPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }),
       });
       const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.error || 'No se pudo actualizar el cobro automatico');
+      if (!response.ok) throw new Error(body?.error || 'No se pudo actualizar el cobro automático');
       setAutomaticPayment((current) => current ? { ...current, automaticEnabled: Boolean(body.automaticEnabled) } : current);
-      showToast(enabled ? 'Cobro automatico activado' : 'Cobro automatico desactivado');
+      showToast(enabled ? 'Cobro automático activado' : 'Cobro automático desactivado');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'No se pudo actualizar el cobro automatico');
+      showToast(error instanceof Error ? error.message : 'No se pudo actualizar el cobro automático');
     } finally {
       setAutomaticLoading(false);
     }
   }
 
   async function removeAutomaticPaymentMethod() {
-    if (!window.confirm('Se desactivara el cobro automatico y PQRS Services dejara de usar la tarjeta guardada.')) return;
+    if (!window.confirm('Se desactivara el cobro automático y PQRS Services dejara de usar la tarjeta guardada.')) return;
     setAutomaticLoading(true);
     try {
       const response = await fetch('/api/billing/wompi/payment-method', { method: 'DELETE' });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error || 'No se pudo eliminar el medio de pago');
       setAutomaticPayment((current) => current ? { ...current, automaticEnabled: false, method: null } : current);
-      showToast('Tarjeta desvinculada del cobro automatico');
+      showToast('Tarjeta desvinculada del cobro automático');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'No se pudo eliminar el medio de pago');
     } finally {
@@ -325,43 +325,58 @@ export default function ModuloLicenciasPage() {
             )}
           </div>
 
-          {!isPaidPilot && <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
-            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>Pagos mensuales</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 999, background: automaticPayment?.automaticEnabled ? COLORS.success : COLORS.warning }} />
-              <span style={{ fontSize: 13.5, fontWeight: 700 }}>Pago en línea disponible</span>
-            </div>
-            <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.6, margin: 0 }}>
-              Elige PSE, tarjeta, Nequi o Bancolombia en Wompi. La licencia se actualiza únicamente después de la confirmación del pago.
-            </p>
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${COLORS.borderSoft}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-                <ShieldCheck size={15} color={automaticPayment?.automaticEnabled ? COLORS.success : COLORS.textMuted} />
-                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
-                  {automaticPayment?.automaticEnabled ? 'Cobro automatico activo' : 'Cobro automatico opcional'}
-                </span>
-              </div>
-              <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.55, margin: '0 0 12px' }}>
-                {automaticPayment?.automaticEnabled && automaticLabel
-                  ? `Wompi cobrara cada renovacion con ${automaticLabel}. El pago manual sigue disponible como alternativa.`
-                  : 'Activalo con una tarjeta guardada en Wompi. PQRS Services no almacena los datos de tu tarjeta.'}
-              </p>
-              {automaticAvailable ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button type="button" onClick={() => void setAutomaticRenewal(!automaticPayment?.automaticEnabled)} disabled={automaticLoading} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', color: COLORS.textPrimary, borderRadius: RADIUS.pill, padding: '10px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
-                    {automaticPayment?.automaticEnabled ? 'Desactivar cobro' : 'Activar cobro'}
+          {/* El cobro automático es lo que le quita el problema de encima al
+              administrador, asi que deja de ser una nota al pie debajo de un
+              divisor y pasa a ser una tarjeta con peso propio. Activo = estado
+              tranquilo en verde; sin activar = invitacion con boton solido. */}
+          {!isPaidPilot && (
+            automaticPayment?.automaticEnabled && automaticLabel ? (
+              <div style={{ background: COLORS.successSoft, border: `1px solid ${COLORS.success}`, borderRadius: 18, padding: 22 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <ShieldCheck size={18} color={COLORS.success} />
+                  <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.success }}>Cobro automático activo</span>
+                </div>
+                <p style={{ fontSize: 13, color: COLORS.success, fontWeight: 500, lineHeight: 1.6, margin: '0 0 6px' }}>
+                  No tienes que hacer nada. Cada mes se cobra solo con {automaticLabel}.
+                </p>
+                <p style={{ fontSize: 12, color: COLORS.success, fontWeight: 500, lineHeight: 1.55, margin: '0 0 16px', opacity: 0.85 }}>
+                  Próximo cobro: {shortDate(license?.nextPaymentDueDate)}. Si algo falla, siempre puedes pagar a mano.
+                </p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => void setAutomaticRenewal(false)} disabled={automaticLoading} style={{ flex: 1, minWidth: 130, border: `1.5px solid ${COLORS.success}`, background: 'transparent', color: COLORS.success, borderRadius: RADIUS.pill, padding: '10px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
+                    {automaticLoading ? 'Guardando…' : 'Desactivar'}
                   </button>
-                  <button type="button" onClick={() => void removeAutomaticPaymentMethod()} disabled={automaticLoading} style={{ border: 'none', background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.pill, padding: '10px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
-                    Desvincular tarjeta
+                  <button type="button" onClick={() => void removeAutomaticPaymentMethod()} disabled={automaticLoading} style={{ flex: 1, minWidth: 130, border: 'none', background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: RADIUS.pill, padding: '10px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
+                    Quitar tarjeta
                   </button>
                 </div>
-              ) : (
-                <button type="button" onClick={() => void openAutomaticSetup()} disabled={automaticLoading} style={{ width: '100%', border: `1.5px solid ${COLORS.inputBorder}`, background: '#FFFFFF', color: COLORS.navy, borderRadius: RADIUS.pill, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
-                  <ShieldCheck size={15} />{automaticLoading ? 'Preparando Wompi...' : 'Activar cobro automatico'}
+              </div>
+            ) : (
+              <div style={{ background: COLORS.navy, borderRadius: 18, padding: 22 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <ShieldCheck size={18} color={COLORS.white} />
+                  <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.white }}>Olvídate de pagar cada mes</span>
+                </div>
+                <p style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 500, lineHeight: 1.6, margin: '0 0 16px' }}>
+                  Registra una tarjeta y la licencia se renueva sola. Se acaban los recordatorios, la mora y el riesgo de que se te suspenda el acceso.
+                </p>
+                <button type="button" onClick={() => automaticAvailable ? void setAutomaticRenewal(true) : void openAutomaticSetup()} disabled={automaticLoading} style={{ width: '100%', border: 'none', background: COLORS.white, color: COLORS.navy, borderRadius: RADIUS.pill, padding: '13px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, cursor: automaticLoading ? 'wait' : 'pointer' }}>
+                  <ShieldCheck size={16} />{automaticLoading ? 'Preparando…' : 'Activar cobro automático'}
                 </button>
-              )}
+                <p style={{ fontSize: 11.5, color: COLORS.navyMuted2, fontWeight: 500, lineHeight: 1.5, margin: '12px 0 0', textAlign: 'center' }}>
+                  La tarjeta la guarda Wompi, no nosotros. Puedes desactivarlo cuando quieras.
+                </p>
+              </div>
+            )
+          )}
+
+          {!isPaidPilot && (
+            <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: '16px 18px' }}>
+              <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 600, lineHeight: 1.6 }}>
+                También puedes pagar a mano con PSE, tarjeta, Nequi o Bancolombia. La licencia se actualiza solo cuando el pago queda confirmado.
+              </div>
             </div>
-          </div>}
+          )}
         </div>
       </div>
 
@@ -395,7 +410,7 @@ export default function ModuloLicenciasPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 5 }}>WOMPI</div>
-            <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.015em' }}>Activar cobro automatico</h2>
+            <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.015em' }}>Activar cobro automático</h2>
           </div>
           <CloseButton onClick={() => setAutomaticSheetOpen(false)} />
         </div>
@@ -423,7 +438,7 @@ export default function ModuloLicenciasPage() {
           ) : null}
         </form>
         <p style={{ color: COLORS.textMuted, fontSize: 11.5, lineHeight: 1.55, margin: '16px 0 0' }}>
-          Puedes desactivar el cobro automatico o eliminar la tarjeta guardada en cualquier momento desde esta pagina.
+          Puedes desactivar el cobro automático o eliminar la tarjeta guardada en cualquier momento desde esta pagina.
         </p>
       </Sheet>
 
