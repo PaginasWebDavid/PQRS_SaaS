@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { requireTenantRole } from "@/lib/authorization";
+import { assertSessionClaimsCurrent, AuthorizationError, requireAuthenticatedUser } from "@/lib/authorization";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
 import { createWompiCheckoutForTenant, WompiBillingError } from "@/domains/billing/wompi.service";
 
@@ -10,7 +10,18 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   let identity;
   try {
-    identity = await requireTenantRole(session, "ADMIN");
+    // Un conjunto PENDING_PAYMENT o SUSPENDED debe poder abrir el checkout para
+    // pagar y recuperar acceso. El resto de APIs conserva requireTenantRole,
+    // que exige licencia activa. Esta excepcion sigue comprobando sesion vigente,
+    // membresia ADMIN activa y tenant seleccionado, y nunca permite CANCELLED.
+    if (!session) throw new AuthorizationError("UNAUTHENTICATED");
+    identity = await requireAuthenticatedUser(session);
+    assertSessionClaimsCurrent(session, identity);
+    if (!identity.tenantId || !identity.membershipId) throw new AuthorizationError("TENANT_REQUIRED");
+    if (identity.role !== "ADMIN") throw new AuthorizationError("FORBIDDEN");
+    if (identity.tenantStatus === "CANCELLED" || identity.subscriptionStatus === "CANCELLED") {
+      throw new AuthorizationError("TENANT_INACTIVE");
+    }
   } catch (error) {
     const response = getAuthorizationErrorResponse(error);
     if (response) return response;
