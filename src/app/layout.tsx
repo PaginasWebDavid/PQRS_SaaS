@@ -8,9 +8,24 @@ import "./globals.css";
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600", "700", "800"] });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500"] });
 
+// Esto es lo que ve un administrador en la pestaña del navegador y en Google.
+// Antes decia "PQRS SaaS" y "plataforma multi-tenant": vocabulario interno de
+// desarrollo que no significa nada para quien administra un conjunto.
 export const metadata: Metadata = {
-  title: "PQRS SaaS",
-  description: "Plataforma multi-tenant para gestion de PQRS.",
+  title: {
+    default: "PQRS Services · Gestión de PQRS para conjuntos residenciales",
+    template: "%s · PQRS Services",
+  },
+  description:
+    "Software para que la administración de un conjunto residencial reciba, atienda y cierre las PQRS de sus residentes con trazabilidad y reportes para el consejo.",
+  applicationName: "PQRS Services",
+  openGraph: {
+    title: "PQRS Services · Gestión de PQRS para conjuntos residenciales",
+    description:
+      "Centraliza las solicitudes que hoy viven entre WhatsApp, Excel y correo. Cada una radicada, asignada y cerrada con evidencia.",
+    locale: "es_CO",
+    type: "website",
+  },
 };
 
 // Sin esto, los navegadores moviles renderizan la pagina a un ancho virtual de ~980px
