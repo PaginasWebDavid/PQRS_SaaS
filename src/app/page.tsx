@@ -27,19 +27,17 @@ const TIER_LABELS = [
   "Portafolios",
 ];
 
-function formatCop(cents: number): string {
-  return `$${Math.round(cents / 100).toLocaleString("es-CO")}`;
-}
-
 function formatRange(minUnits: number, maxUnits: number | null): string {
   return maxUnits == null ? `${minUnits}+` : `${minUnits}-${maxUnits}`;
 }
 
 async function getPricingTiers(): Promise<PricingTier[]> {
+  // Solo los limites del tramo. El precio no se selecciona: lo que no sale de
+  // la base no puede terminar en el HTML de una pagina publica.
   const rules = await prisma.pricingRule.findMany({
     where: { type: "MONTHLY", isActive: true },
     orderBy: { minUnits: "asc" },
-    select: { minUnits: true, maxUnits: true, priceCents: true },
+    select: { minUnits: true, maxUnits: true },
   });
 
   // El tramo "mas comun" se destaca visualmente. Se marca el segundo porque es
@@ -49,7 +47,6 @@ async function getPricingTiers(): Promise<PricingTier[]> {
   return rules.map((rule, index) => ({
     label: TIER_LABELS[index] ?? "A la medida",
     range: formatRange(rule.minUnits, rule.maxUnits),
-    price: formatCop(rule.priceCents),
     popular: index === popularIndex,
   }));
 }
