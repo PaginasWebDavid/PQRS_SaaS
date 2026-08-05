@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { createNotification } from "@/domains/notifications/notification.service";
 import { sendEmailSafe, renderEmailLayout } from "@/lib/email";
+import { getLegalConfig } from "@/lib/legal";
 
 function escapeSupportHtml(value: string | null | undefined): string {
   return (value ?? "")
@@ -58,7 +59,66 @@ export async function createSupportTicket({
     metadata: { subject, category },
   });
 
+  await notifySupportTicketCreated(ticket.id);
+
   return ticket;
+}
+
+// Sin esto, abrir un ticket no avisaba a nadie: quedaba guardado esperando a que
+// alguien entrara al panel de Super Admin a mirar. Un conjunto que paga escribe
+// pidiendo ayuda y el operador no se entera. Ademas la politica de pagos promete
+// responder reclamos en quince dias habiles, y ese plazo corre desde que el
+// cliente escribe, no desde que alguien revisa la pantalla.
+//
+// El aviso va al canal de contacto publicado en los documentos legales, que es
+// el mismo buzon que se monitorea. SUPPORT_ALERT_EMAIL permite separarlos si
+// algun dia el correo de soporte deja de ser el de avisos internos.
+async function notifySupportTicketCreated(ticketId: string): Promise<void> {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: {
+      id: true,
+      subject: true,
+      message: true,
+      category: true,
+      createdAt: true,
+      tenantId: true,
+      tenant: { select: { name: true } },
+      createdBy: { select: { name: true, email: true } },
+    },
+  });
+  if (!ticket) return;
+
+  const to = process.env.SUPPORT_ALERT_EMAIL?.trim() || getLegalConfig().supportEmail;
+  if (!to) return;
+
+  const safeSubject = escapeSupportHtml(ticket.subject);
+  const safeMessage = escapeSupportHtml(ticket.message).replace(/\r?\n/g, "<br />");
+  const safeTenant = escapeSupportHtml(ticket.tenant?.name);
+  const safeAuthor = escapeSupportHtml(ticket.createdBy?.name);
+  const safeEmail = escapeSupportHtml(ticket.createdBy?.email);
+
+  // sendEmailSafe no lanza: si el correo falla, el ticket ya quedo creado y no
+  // se pierde. Fallar aqui seria peor que no avisar.
+  await sendEmailSafe({
+    to,
+    subject: `Nuevo soporte · ${safeTenant || "conjunto"} · ${sanitizeEmailSubject(ticket.subject)}`,
+    html: renderEmailLayout({
+      accent: ticket.category === "PRIVACY_SECURITY" ? "warning" : "navy",
+      eyebrow: "Soporte",
+      heading: "Entró una solicitud de soporte",
+      bodyHtml: `
+        <p><strong>${safeTenant || "Conjunto sin nombre"}</strong> abrió una solicitud.</p>
+        <p style="color:#6E6E73;font-size:14px;margin:0 0 4px;">De: ${safeAuthor || "sin nombre"} &lt;${safeEmail}&gt;</p>
+        <p style="color:#6E6E73;font-size:14px;margin:0 0 16px;">Categoría: ${escapeSupportHtml(ticket.category)}</p>
+        <p><strong>${safeSubject}</strong></p>
+        <div style="background:#F5F5F7;border-radius:12px;padding:16px 18px;margin:16px 0;color:#1D1D1F;">${safeMessage}</div>
+      `,
+      footerNote: "Respóndela desde el panel de Super Admin, en Soporte. Responder desde aquí no la registra en la plataforma.",
+    }),
+    tenantId: ticket.tenantId,
+    template: "support_ticket_created_alert",
+  });
 }
 
 export async function listSupportTicketsForUser({ tenantId, userId }: { tenantId: string; userId: string }) {
