@@ -3,6 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "@/domains/platform/audit.service";
 import { isFeatureEnabled } from "@/domains/platform/platform-setting.service";
 import { classifyProviderHttpStatus, sanitizeOutboxErrorCode, type BillingFailureStatus } from "@/domains/billing/billing-outbox-policy";
+import { getLegalConfig } from "@/lib/legal";
+
+// Los correos salen desde notificaciones@, que es un remitente sin buzon.
+// Sin Reply-To, cuando un residente o un administrador responde una
+// notificacion de PQRS el mensaje se pierde y nadie se entera de que existio.
+// Se apunta al mismo canal de contacto que publican los documentos legales,
+// para que no haya dos direcciones distintas que mantener sincronizadas.
+function getReplyToAddress(): string {
+  return process.env.RESEND_REPLY_TO_EMAIL?.trim() || getLegalConfig().supportEmail;
+}
 
 interface Attachment {
   filename: string;
@@ -98,12 +108,14 @@ export async function sendEmail({ to, subject, html, attachments, tenantId, temp
   const payload: {
     from: string;
     to: string[];
+    reply_to: string;
     subject: string;
     html: string;
     attachments?: ResendAttachment[];
   } = {
     from,
     to: [to],
+    reply_to: getReplyToAddress(),
     subject: safeSubject,
     html,
   };
@@ -286,7 +298,7 @@ export async function sendBillingOutboxEmail({
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to: [to], subject, html }),
+      body: JSON.stringify({ from, to: [to], reply_to: getReplyToAddress(), subject, html }),
     });
 
     if (!response.ok) {
