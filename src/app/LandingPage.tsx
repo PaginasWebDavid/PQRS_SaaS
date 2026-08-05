@@ -120,10 +120,12 @@ function useReveal() {
   return { revealRef, revealStyle };
 }
 
+// Sin monto a proposito: la landing muestra el tramo y un boton para cotizar.
+// El precio ni siquiera se envia al navegador, porque ocultarlo con CSS lo
+// dejaria igual de visible en el codigo fuente de la pagina.
 export type PricingTier = {
   label: string;
   range: string;
-  price: string;
   popular: boolean;
 };
 
@@ -902,7 +904,16 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
             ref={revealRef('pricingCards')}
             style={{ maxWidth: 1024, margin: '0 auto', padding: `0 22px ${sizes.sectionBottom}px`, ...revealStyle('pricingCards', 100) }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: sizes.fourCols, gap: 14 }}>
+            {/* auto-fit en vez de un numero fijo de columnas: los tramos salen
+                de la base y pueden ser 4, 5 o 6. Con 'repeat(4, 1fr)' el quinto
+                tramo caia solo en una segunda fila y se veia roto. */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(160px, 1fr))',
+                gap: 14,
+              }}
+            >
               {pricingTiers.map(tier => (
                 <div
                   key={tier.range}
@@ -919,12 +930,12 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 600, color: tier.mutedColor, marginBottom: 6 }}>{tier.label}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{tier.price}</div>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: tier.mutedColor, margin: '4px 0 22px' }}>
-                    al mes · {tier.range} unidades
-                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{tier.range}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: tier.mutedColor, margin: '4px 0 22px' }}>unidades</div>
+                  {/* El asunto lleva el tramo: asi el correo que llega ya dice
+                      de que tamano es el conjunto, sin tener que preguntarlo. */}
                   <a
-                    href="#demo"
+                    href={`mailto:hola@pqrsservices.com?subject=${encodeURIComponent(`Cotización para un conjunto de ${tier.range} unidades`)}`}
                     className="opacity-hover"
                     style={{
                       marginTop: 'auto',
