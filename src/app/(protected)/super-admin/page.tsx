@@ -189,6 +189,56 @@ function resolveRuleForUnits(rules: ApiPricingRule[], units: number, type: 'MONT
     .sort((a, b) => a.minUnits - b.minUnits)[0] || null;
 }
 
+// Sugerencia de precio para conjuntos por encima del ultimo tramo.
+//
+// Arriba de 600 unidades no hay regla automatica a proposito: esos conjuntos se
+// cotizan a mano y el precio acordado se registra al crear el conjunto. Pero
+// cotizar sin referencia lleva a improvisar, asi que se calcula una banda.
+//
+// Los numeros NO estan inventados: salen de la propia tabla. Se mide cuanto
+// sube el precio por unidad adicional en cada salto ya definido
+// (por ejemplo, de 400-600 a 201-400: 50.000 / 200 = 250 pesos por unidad) y
+// se usan el menor, el promedio y el mayor de esos incrementos. Si manana se
+// cambia un tramo, la banda se recalcula sola.
+//
+// Devuelve null cuando hay menos de dos tramos: con uno solo no hay ningun
+// salto que medir, y preferimos no sugerir nada antes que inventar una cifra.
+function estimateAboveTopTier(rules: ApiPricingRule[], units: number, type: 'MONTHLY' | 'PILOT') {
+  const active = rules
+    .filter((r) => r.type === type && r.isActive && r.maxUnits != null)
+    .sort((a, b) => a.minUnits - b.minUnits);
+  if (active.length < 2) return null;
+
+  const top = active[active.length - 1];
+  const topMax = top.maxUnits as number;
+  if (units <= topMax) return null;
+
+  const marginals: number[] = [];
+  for (let i = 1; i < active.length; i += 1) {
+    const prev = active[i - 1];
+    const curr = active[i];
+    const extraUnits = (curr.maxUnits as number) - (prev.maxUnits as number);
+    if (extraUnits > 0) marginals.push((curr.priceCents - prev.priceCents) / extraUnits);
+  }
+  if (!marginals.length) return null;
+
+  const extra = units - topMax;
+  const min = Math.min(...marginals);
+  const max = Math.max(...marginals);
+  const avg = marginals.reduce((sum, value) => sum + value, 0) / marginals.length;
+
+  return {
+    fromRule: top,
+    extraUnits: extra,
+    perUnitMinCents: Math.round(min),
+    perUnitAvgCents: Math.round(avg),
+    perUnitMaxCents: Math.round(max),
+    minCents: Math.round(top.priceCents + extra * min),
+    avgCents: Math.round(top.priceCents + extra * avg),
+    maxCents: Math.round(top.priceCents + extra * max),
+  };
+}
+
 // Detecta configuraciones que hacen impredecible el cobro: dos reglas activas
 // que cubren las mismas unidades, o tramos de unidades sin ninguna regla.
 function analyzeRuleCoverage(rules: ApiPricingRule[], type: 'MONTHLY' | 'PILOT') {
@@ -1107,6 +1157,11 @@ export default function DashboardSuperAdminPage() {
   const simPilotRule = simValid ? resolveRuleForUnits(tiers, simUnitsNumber, 'PILOT') : null;
   const simAnnualListCents = simMonthlyRule ? simMonthlyRule.priceCents * 12 : null;
   const simAnnualCents = simAnnualListCents ? applyBasisPointDiscount(simAnnualListCents, ANNUAL_DISCOUNT_BPS) : null;
+  // Solo aplica cuando las unidades superan el ultimo tramo y por eso no hubo
+  // regla que resolver: ahi el simulador deja de mostrar "Sin regla" en rojo y
+  // pasa a sugerir el rango a negociar.
+  const simMonthlyEstimate = simValid && !simMonthlyRule ? estimateAboveTopTier(tiers, simUnitsNumber, 'MONTHLY') : null;
+  const simPilotEstimate = simValid && !simPilotRule ? estimateAboveTopTier(tiers, simUnitsNumber, 'PILOT') : null;
 
   const alertTenants = tenants.filter((t) => t.group === 'grace' || t.group === 'trial' || t.group === 'pending_payment');
   const primaryKpis = [
@@ -1742,33 +1797,80 @@ export default function DashboardSuperAdminPage() {
                   {
                     key: 'pilot',
                     label: `Piloto ${PILOT_ACCESS_DAYS} días`,
-                    value: simPilotRule ? formatMoney(simPilotRule.priceCents, simPilotRule.currency) : 'Sin regla',
-                    note: simPilotRule ? `Pago único · rango ${ruleRangeLabel(simPilotRule)}` : 'No hay regla de piloto activa que cubra estas unidades',
-                    missing: !simPilotRule,
+                    value: simPilotRule
+                      ? formatMoney(simPilotRule.priceCents, simPilotRule.currency)
+                      : simPilotEstimate
+                        ? `${formatMoney(simPilotEstimate.avgCents)} sugerido`
+                        : 'Sin regla',
+                    note: simPilotRule
+                      ? `Pago único · rango ${ruleRangeLabel(simPilotRule)}`
+                      : simPilotEstimate
+                        ? `A cotizar · entre ${formatMoney(simPilotEstimate.minCents)} y ${formatMoney(simPilotEstimate.maxCents)}`
+                        : 'No hay regla de piloto activa que cubra estas unidades',
+                    missing: !simPilotRule && !simPilotEstimate,
+                    estimate: !simPilotRule && Boolean(simPilotEstimate),
                   },
                   {
                     key: 'monthly',
                     label: 'Plan mensual',
-                    value: simMonthlyRule ? `${formatMoney(simMonthlyRule.priceCents, simMonthlyRule.currency)}/mes` : 'Sin regla',
-                    note: simMonthlyRule ? `Recurrente · rango ${ruleRangeLabel(simMonthlyRule)}` : 'No hay regla mensual activa que cubra estas unidades',
-                    missing: !simMonthlyRule,
+                    value: simMonthlyRule
+                      ? `${formatMoney(simMonthlyRule.priceCents, simMonthlyRule.currency)}/mes`
+                      : simMonthlyEstimate
+                        ? `${formatMoney(simMonthlyEstimate.avgCents)}/mes sugerido`
+                        : 'Sin regla',
+                    note: simMonthlyRule
+                      ? `Recurrente · rango ${ruleRangeLabel(simMonthlyRule)}`
+                      : simMonthlyEstimate
+                        ? `A cotizar · entre ${formatMoney(simMonthlyEstimate.minCents)} y ${formatMoney(simMonthlyEstimate.maxCents)}`
+                        : 'No hay regla mensual activa que cubra estas unidades',
+                    missing: !simMonthlyRule && !simMonthlyEstimate,
+                    estimate: !simMonthlyRule && Boolean(simMonthlyEstimate),
                   },
                   {
                     key: 'annual',
                     label: 'Plan anual',
-                    value: simAnnualCents ? formatMoney(simAnnualCents) : 'Sin regla',
+                    value: simAnnualCents
+                      ? formatMoney(simAnnualCents)
+                      : simMonthlyEstimate
+                        ? `${formatMoney(applyBasisPointDiscount(simMonthlyEstimate.avgCents * 12, ANNUAL_DISCOUNT_BPS))} sugerido`
+                        : 'Sin regla',
                     note: simAnnualCents && simAnnualListCents
                       ? `12 meses con ${bpsToPercent(ANNUAL_DISCOUNT_BPS)} % dto. · ahorra ${formatMoney(simAnnualListCents - simAnnualCents)}`
-                      : 'Depende de la regla mensual',
-                    missing: !simAnnualCents,
+                      : simMonthlyEstimate
+                        ? `Sobre el mensual sugerido, con ${bpsToPercent(ANNUAL_DISCOUNT_BPS)} % dto.`
+                        : 'Depende de la regla mensual',
+                    missing: !simAnnualCents && !simMonthlyEstimate,
+                    estimate: !simAnnualCents && Boolean(simMonthlyEstimate),
                   },
                 ].map((card) => (
                   <div key={card.key} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.stat, padding: '14px 16px' }}>
                     <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: COLORS.navyMuted2, marginBottom: 8 }}>{card.label}</div>
-                    <div style={{ fontSize: card.missing ? 15 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: card.missing ? '#F8B4B4' : COLORS.white, marginBottom: 5 }}>{card.value}</div>
+                    {/* Tres estados distintos y con color propio: precio de regla
+                        (blanco), sugerencia a negociar (ambar) y falta de regla
+                        real (rojo). Antes una sugerencia se habria visto igual
+                        que un error de configuracion. */}
+                    <div style={{ fontSize: card.missing ? 15 : card.estimate ? 19 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: card.missing ? '#F8B4B4' : card.estimate ? '#F4C77B' : COLORS.white, marginBottom: 5 }}>{card.value}</div>
                     <div style={{ fontSize: 11, fontWeight: 500, lineHeight: 1.45, color: COLORS.navyMuted }}>{card.note}</div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {simMonthlyEstimate && (
+              <div style={{ marginTop: 16, background: 'rgba(244,199,123,0.12)', border: '1px solid rgba(244,199,123,0.35)', borderRadius: RADIUS.stat, padding: '13px 15px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#F4C77B', marginBottom: 5 }}>
+                  Más de {simMonthlyEstimate.fromRule.maxUnits} unidades: se cotiza a mano
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.55, color: COLORS.navyMuted }}>
+                  Son {simMonthlyEstimate.extraUnits} unidades por encima del último tramo. La sugerencia parte de{' '}
+                  {formatMoney(simMonthlyEstimate.fromRule.priceCents)} y suma entre{' '}
+                  {formatMoney(simMonthlyEstimate.perUnitMinCents)} y {formatMoney(simMonthlyEstimate.perUnitMaxCents)} por
+                  unidad adicional, que es lo que sube tu propia tabla en cada salto.
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.55, color: COLORS.navyMuted, marginTop: 6 }}>
+                  El valor que acuerdes lo escribes al crear el conjunto, junto con el motivo. Ese precio es el que
+                  cobra el sistema: no hay tarifa automática arriba de {simMonthlyEstimate.fromRule.maxUnits} unidades.
+                </div>
               </div>
             )}
           </div>
