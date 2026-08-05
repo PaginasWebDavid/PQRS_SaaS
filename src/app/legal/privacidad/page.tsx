@@ -128,7 +128,14 @@ export default function PrivacyPage() {
         'Validación del tipo real de cada archivo cargado, no solo de su extensión.',
         'Cifrado en tránsito mediante HTTPS en toda la aplicación.',
         'Registro de auditoría con actor, acción y fecha de las operaciones relevantes.',
-        'Copias de respaldo administradas por el proveedor de base de datos.',
+        // Aqui decia "Copias de respaldo administradas por el proveedor de base
+        // de datos". Se retiro porque era falso: el proyecto esta en el plan
+        // gratuito de Supabase, que no genera copias de respaldo. Afirmar en una
+        // politica de privacidad un control que no existe es exactamente el tipo
+        // de declaracion que la SIC puede reprochar.
+        //
+        // RESTAURAR esta linea al pasar a un plan con respaldos automaticos, que
+        // es lo que corresponde antes de operar con datos de conjuntos reales.
         'Acceso a la administración de la plataforma restringido a personal autorizado.',
       ]} />
       <p>
