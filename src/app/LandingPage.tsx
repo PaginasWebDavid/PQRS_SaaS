@@ -246,7 +246,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
     },
     {
       q: '¿Cómo funciona el cobro?',
-      a: 'Una tarifa por conjunto según su número de unidades, sin cobros por usuario. Puedes pagarla mes a mes o de forma anual con 10% de descuento. Sin permanencia mínima: cancelas cuando quieras.',
+      a: 'Una tarifa por conjunto según su número de unidades, sin cobros por usuario. El contrato y su duración se acuerdan por escrito; el conjunto puede pagar mensual de forma manual o automática, o pagar el año anticipado con 10% de descuento.',
     },
     {
       q: '¿Y si administro varios conjuntos?',

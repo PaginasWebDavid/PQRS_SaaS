@@ -1,235 +1,58 @@
-# PQRS Services
+# Documentación de PQRS Services
 
-> Administra fácil. Vive tranquilo.
+Este directorio contiene contexto operativo, decisiones técnicas, pruebas, planes y borradores legales del proyecto.
 
----
+## Empieza aquí
 
-# Objetivo
+1. [README público y guía técnica](../README.md)
+2. [Contexto canónico de producto y negocio](programa-mejora/00-contexto/PQRS_SERVICES_NEGOCIO_ACTUAL.md)
+3. [Guía de pruebas](TESTING.md)
 
-Este proyecto busca transformar la aplicación actual de PQRS, que hoy funciona para un único conjunto residencial, en una plataforma capaz de administrar múltiples conjuntos desde una única instalación.
+El contexto canónico describe el funcionamiento vigente de los cuatro roles, cada pestaña, los módulos, facturación, seguridad, operación comercial y límites manuales.
 
-No se busca reescribir el sistema.
+## Organización
 
-Se busca evolucionarlo manteniendo la mayor cantidad posible del código existente.
+### programa-mejora
 
----
+Contiene auditorías, prompts, respuestas, decisiones, implementaciones y cierres por fase.
 
-# Estado actual
+Estos documentos son evidencia histórica. Pueden describir estados anteriores del producto. Si existe una contradicción, el orden de autoridad es:
 
-Actualmente el sistema cuenta con:
+1. código y migraciones aplicadas;
+2. contexto canónico actualizado;
+3. documentación de la fase más reciente;
+4. documentación histórica.
 
-- Next.js 14 (App Router)
-- TypeScript
-- Prisma
-- PostgreSQL
-- NextAuth
-- TailwindCSS
-- Dashboard funcional
-- Gestión completa de PQRS
-- Roles
-- Reportes
-- Correos
-- Historial
-- Evidencias
+### legal
 
-El sistema funciona correctamente para un único conjunto residencial.
+Contiene borradores de trabajo:
 
----
+- Contrato marco de prestación del servicio.
+- Acuerdo de referidos y gestión comercial.
 
-# Objetivo final
+Los archivos marcados BORRADOR no están autorizados para firma o publicación. Requieren revisión de abogado colombiano y contador, completar datos de las partes y verificar la operación tributaria.
 
-El proyecto deberá convertirse en una plataforma donde múltiples conjuntos residenciales compartan la misma infraestructura, pero cada uno tenga completamente aislada su información.
+Las páginas legales que ve el usuario están implementadas en src/app/legal y su configuración está en src/lib/legal.ts.
 
-Cada conjunto será un **Tenant**.
+### superpowers
 
-Todos utilizarán exactamente el mismo código.
+Conserva planes técnicos y de diseño utilizados durante fases de implementación.
 
----
+## Reglas de mantenimiento
 
-# Principios
+- No guardar secretos, tokens, contraseñas ni datos personales reales.
+- No presentar una capacidad manual como automática.
+- Actualizar el contexto canónico cuando cambie un rol, módulo, proveedor, precio, estado, flujo o política legal.
+- Mantener separados el negocio acordado por contrato y la cobertura técnica que la aplicación registra.
+- No borrar evidencia histórica para ocultar una decisión anterior; marcarla como superada y enlazar el estado vigente.
+- No usar documentos legales sin validación profesional.
 
-## 1. Nunca romper el módulo de PQRS
+## Estado comercial actual
 
-Toda la lógica actual de PQRS debe conservarse.
+PQRS Services se vende a conjuntos mediante propuesta y contrato. El plazo contractual puede ser de uno o varios años. Las formas de pago admitidas son:
 
-Solo debe adaptarse para funcionar con múltiples Tenant.
+- mensual manual;
+- mensual automática por Wompi;
+- anual anticipada con 10 % de descuento.
 
----
-
-## 2. Nunca crear versiones diferentes por cliente
-
-Solo existirá un código.
-
-Nunca habrá forks.
-
----
-
-## 3. Configuración antes que código
-
-Todo aquello que pueda configurarse desde el panel del SUPER_ADMIN no debe quedar escrito en el código.
-
-Ejemplos:
-
-- precios
-- planes
-- cantidad de unidades
-- períodos de gracia
-- branding
-- módulos habilitados
-
----
-
-## 4. Todo pertenece a un Tenant
-
-Excepto los datos propios de la plataforma.
-
----
-
-## 5. El SUPER_ADMIN administra el negocio
-
-No deberá volver a ser necesario modificar código para:
-
-- crear conjuntos
-- cambiar precios
-- suspender clientes
-- habilitar módulos
-- activar licencias
-
----
-
-# Tecnologías
-
-Frontend
-
-- Next.js
-
-Backend
-
-- Next.js Route Handlers
-
-ORM
-
-- Prisma
-
-Base de datos
-
-- Supabase PostgreSQL
-
-Archivos
-
-- Supabase Storage
-
-Hosting
-
-- Vercel
-
-Emails
-
-- Resend
-
-Pagos
-
-- Mercado Pago
-
-Autenticación
-
-- NextAuth
-
----
-
-# Estructura esperada
-
-```
-apps/
-
-    web/
-
-docs/
-
-```
-
----
-
-# Documentación
-
-Este directorio contiene únicamente la información necesaria para desarrollar el proyecto correctamente con ayuda de Codex.
-
-No pretende ser documentación corporativa.
-
-Pretende servir como guía técnica.
-
----
-
-# Flujo de trabajo
-
-Cada cambio deberá seguir este orden.
-
-1. Leer documentación.
-
-2. Implementar una única tarea.
-
-3. Ejecutar pruebas.
-
-4. Verificar que no se rompió funcionalidad existente.
-
-5. Continuar con la siguiente tarea.
-
-Nunca implementar varias tareas grandes simultáneamente.
-
----
-
-# Roadmap
-
-Fase 1
-
-- Preparar proyecto
-
-Fase 2
-
-- Multi-Tenant
-
-Fase 3
-
-- SUPER_ADMIN
-
-Fase 4
-
-- Billing
-
-Fase 5
-
-- Migrar PQRS
-
-Fase 6
-
-- Dashboard SaaS
-
-Fase 7
-
-- Producción
-
----
-
-# Reglas para Codex
-
-Siempre asumir que:
-
-- existe código funcionando.
-- debe reutilizarse el mayor porcentaje posible.
-- no debe reescribir componentes sin necesidad.
-- no debe cambiar diseño salvo que la tarea lo indique.
-- cada cambio debe ser incremental.
-
----
-## Principio fundamental
-
-El proyecto ya existe y funciona.
-
-El objetivo es evolucionarlo, no reconstruirlo.
-
-Cada cambio debe ser incremental.
-
-Cada commit debe mantener la aplicación funcional.
-# Meta
-
-Al finalizar el proyecto será posible administrar decenas o cientos de conjuntos residenciales desde una única plataforma, manteniendo un único código, una única infraestructura y una administración completamente centralizada desde el panel del SUPER_ADMIN.
+La duración contractual y la forma de pago no son equivalentes. La aplicación gestiona cobertura y cobros; el documento firmado conserva las condiciones particulares de cada cliente.

@@ -15,7 +15,9 @@ export const LEGAL_PATHS = {
 //          aplicable, reembolsos, y acuerdo de encargo de datos (Ley 1581).
 //   2.1 -> modalidad de pago anual con descuento, y regla de reembolso al
 //          cancelar una anualidad antes de cumplir los doce meses.
-export const LEGAL_DOCUMENT_VERSION = '2.1';
+//   3.0 -> separa el plazo contractual de la periodicidad de cobro, reconoce
+//          la orden/contrato firmado y regula no renovacion y salida anticipada.
+export const LEGAL_DOCUMENT_VERSION = '3.0';
 
 // Topes contractuales que tambien viven en codigo. Se declaran aca para que el
 // texto legal y el comportamiento real no puedan divergir en silencio.
@@ -23,6 +25,8 @@ export const LEGAL_MIN_GRACE_DAYS = 5;
 export const LEGAL_TRIAL_DAYS = 15;
 export const LEGAL_PRICE_CHANGE_NOTICE_DAYS = 30;
 export const LEGAL_LIABILITY_CAP_MONTHS = 3;
+export const LEGAL_NON_RENEWAL_NOTICE_DAYS = 30;
+export const LEGAL_EARLY_TERMINATION_CAP_MONTHS = 2;
 
 const MONTHS_ES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

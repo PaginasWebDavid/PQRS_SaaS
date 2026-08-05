@@ -1,354 +1,569 @@
-# PQRS Services — Documentación del negocio
+# PQRS Services: contexto canónico de producto y negocio
 
-> Este documento describe cómo funciona el negocio HOY, tal como está construido en el código. No es una aspiración ni un plan — es un espejo del sistema real, para que cualquier decisión de producto o de negocio parta de hechos y no de suposiciones. Si algo cambia en el código, este documento debe actualizarse.
+**Última actualización:** 5 de agosto de 2026
 
----
+**Estado:** documento vigente
 
-## 1. Qué es el negocio y quién lo usa
+**Marca:** PQRS Services
 
-**PQRS Services** es una plataforma SaaS multi-conjunto (multi-tenant) para que conjuntos residenciales en Colombia gestionen PQRS (Peticiones, Quejas, Reclamos y Sugerencias) de sus residentes. Cada conjunto residencial es un **tenant** independiente: sus datos, usuarios y PQRS nunca se mezclan con los de otro conjunto.
+**Mercado inicial:** propiedad horizontal, principalmente conjuntos residenciales de Bogotá y Colombia
 
-Hay cuatro roles:
+> Este documento es la fuente principal para entender qué vende PQRS Services, cómo funciona la aplicación y qué reglas operativas deben respetarse. Describe el estado real del repositorio. Cuando una política comercial todavía no está automatizada, se indica expresamente.
 
-| Rol | Quién es | Para qué existe |
-|---|---|---|
-| **SUPER_ADMIN** | El dueño del negocio (una sola persona, sin equipo) | Opera la plataforma completa: crea conjuntos, cobra, fija precios, da soporte, ve analítica de todo el negocio |
-| **ADMIN** | El administrador del conjunto residencial (cliente que paga) | Gestiona las PQRS de su conjunto, invita usuarios, paga la licencia |
-| **CONSEJO** | El consejo de administración del conjunto (cliente, sin costo adicional) | Supervisa las PQRS y ve reportes — rol de solo lectura, no gestiona nada |
-| **RESIDENTE** | Los residentes del conjunto (usuarios finales) | Radican PQRS y hacen seguimiento a las propias |
+## 1. Resumen ejecutivo
 
-**No existe autorregistro.** Nadie puede crear una cuenta por su cuenta — todo acceso nace de una invitación (el Super Admin invita al primer ADMIN al crear el conjunto; el ADMIN invita a CONSEJO/RESIDENTE/otros ADMIN). La página `auth/registro` es informativa y solo explica esta regla.
+PQRS Services es una plataforma web multi-conjunto para que una copropiedad gestione solicitudes de residentes, trazabilidad administrativa, reportes y, cuando se contratan, reservas de zonas comunes y pagos de residentes.
 
----
+El servicio se vende directamente a cada conjunto. El proceso comercial esperado es:
 
-## 2. Ciclo de vida de un conjunto (tenant)
+1. Contacto y demostración.
+2. Propuesta y definición de alcance.
+3. Revisión y firma de una orden de servicio o contrato.
+4. Activación del conjunto.
+5. Invitación del ADMIN principal.
+6. Configuración y onboarding.
+7. Operación continua, soporte, cobro y renovación.
 
-Un conjunto pasa por estos estados exactos (`TenantStatus` / `SubscriptionStatus`, siempre sincronizados entre sí):
+La duración contractual y la forma de pago son independientes. Un contrato puede durar uno o varios años y pagarse mensual manual, mensual automático o anual anticipado.
 
-```
-TRIAL → ACTIVE → GRACE_PERIOD → SUSPENDED → CANCELLED
-                     ↑              ↓
-                     └── (pago) ────┘
-```
+La plataforma comparte una infraestructura y una base de código, pero cada conjunto conserva aislamiento lógico de usuarios, PQRS, archivos, reservas, pagos y actividad.
 
-También existe `PENDING_PAYMENT`, heredado de una versión anterior del producto (ver más abajo, sección 10).
+## 2. Qué problema resuelve
 
-### 2.1 Nacimiento del conjunto — TRIAL
+La operación tradicional de un conjunto suele dispersar solicitudes entre WhatsApp, correo, llamadas y documentos. Eso dificulta saber qué se recibió, quién respondió, cuánto tardó, qué evidencia existe y qué puede supervisar el consejo.
 
-El Super Admin crea el conjunto desde su panel (Conjuntos → "+ Crear conjunto"), ingresando nombre, ciudad, número de unidades y los datos del primer ADMIN (nombre + correo). Al crearse:
+PQRS Services centraliza:
 
-- El tenant y su suscripción nacen en estado **`TRIAL`**, no en `PENDING_PAYMENT`.
-- Se calcula el precio mensual según el número de unidades (ver sección 3).
-- `trialEndsAt` y `currentPeriodEnd` se fijan en **hoy + 15 días** — el conjunto tiene acceso completo a la plataforma durante ese período **sin pagar nada**.
-- Se envía automáticamente una invitación por correo al ADMIN para que active su cuenta.
-- No se crea ningún pago; el trial es gratis de verdad.
+- radicación y seguimiento de PQRS;
+- categorías y flujos configurables;
+- responsables, prioridades, notas, fases y cierre;
+- evidencias privadas;
+- notificaciones y correos transaccionales;
+- reportes PDF y Excel;
+- usuarios e invitaciones por conjunto;
+- actividad y auditoría;
+- reservas de zonas comunes como módulo opcional;
+- cartera y pagos de residentes como módulo opcional;
+- licencia, pagos del servicio y renovación;
+- operación global de conjuntos desde SUPER_ADMIN.
 
-Este comportamiento (trial real de 15 días) se implementó en esta sesión de trabajo — antes, los conjuntos nacían bloqueados (`PENDING_PAYMENT`) y debían pagar de inmediato para poder usar la plataforma.
+## 3. Identidad del negocio
 
-### 2.2 De TRIAL a pago — el "Pagar ahora"
+- **Nombre comercial:** PQRS Services.
+- **Prestador:** persona natural identificada con los datos configurados en NEXT_PUBLIC_LEGAL_*.
+- **Cliente:** la persona jurídica de propiedad horizontal o entidad identificada en la orden o contrato.
+- **Usuario contratante:** el representante autorizado que firma o acepta la orden.
+- **Usuarios de la plataforma:** ADMIN, CONSEJO y RESIDENTE invitados por un usuario autorizado.
+- **Proveedor principal de pago en línea:** Wompi.
+- **Infraestructura principal:** Vercel, Supabase PostgreSQL, Supabase Storage y Resend.
 
-Desde **Licencias y pagos** (panel de ADMIN), el botón "Pagar ahora" crea una suscripción recurrente en Mercado Pago (Preapproval — cobro automático mensual) y redirige al ADMIN a la pasarela de pago.
+La invitación de una persona a la plataforma no la convierte automáticamente en representante contractual del conjunto. La obligación comercial nace de la propuesta, orden o contrato firmado por quien tenga facultades.
 
-Reglas duras de Mercado Pago que **no son configurables por el negocio** (son requisitos de la pasarela, no bugs):
-- Si la cuenta de Mercado Pago del negocio es real (token de producción `APP_USR-...`), el correo del pagador (el ADMIN) **debe corresponder a una cuenta ya registrada en Mercado Pago**. Mercado Pago rechaza el cobro recurrente si el pagador no existe como usuario suyo — esto es una limitación externa de su producto de "Suscripciones", no un error de la plataforma.
-- El precio que se cobra es el vigente para el número de unidades del conjunto en ese momento.
+## 4. Modelo comercial aprobado
 
-Cuando Mercado Pago confirma un pago **aprobado** (vía webhook), recién ahí:
-- La suscripción pasa a **`ACTIVE`**.
-- El período vigente se extiende 30 días desde el mayor entre "hoy" y el fin del período anterior (así, pagar durante el trial no le "quita" días de trial ya corridos).
-- El tenant nunca se marca `ACTIVE` solo porque Mercado Pago "autorizó" el cobro recurrente (`preapproval.status = authorized`) — eso solo significa que el pagador aceptó el cobro automático, no que ya se le cobró. Se exige al menos un `Payment` con `status: APPROVED` antes de activar.
+### 4.1 Precio
 
-### 2.3 Vencimiento — de ACTIVE/TRIAL a GRACE_PERIOD
+La tarifa de lista depende del número de unidades y del alcance contratado. Las reglas se guardan en base de datos y las administra SUPER_ADMIN; la landing consulta los rangos activos y no contiene precios escritos a mano.
 
-Un proceso automático (`applyOverdueLicenseRules`, corrido por un cron) revisa todas las suscripciones y:
+No se cobra por usuario. El número de ADMIN, CONSEJO y RESIDENTE permitidos se rige por el alcance comercial y las políticas de invitación, no por una tarifa individual en la interfaz.
 
-1. Si una suscripción `ACTIVE` o `TRIAL` tiene `currentPeriodEnd` ya vencido (pasó la fecha), pasa a **`GRACE_PERIOD`** con `graceEndsAt = hoy + días de gracia`.
-2. Si una suscripción ya en `GRACE_PERIOD` tiene `graceEndsAt` vencido, pasa a **`SUSPENDED`**.
+Los módulos RESERVATIONS y RESIDENT_PAYMENTS son add-ons con entitlement por conjunto. Pueden estar DISABLED, SETUP, ACTIVE o SUSPENDED.
 
-**Días de gracia por defecto: 5.** Este valor es **configurable por el Super Admin** desde Licencias y pagos → Licencia → "Período de gracia global" — cambia el comportamiento de este cron para *todos* los conjuntos a la vez.
+### 4.2 Duración y periodos
 
-> ⚠️ Ver hallazgo en el documento de consultoría: el webhook de Mercado Pago usa un valor de gracia **hardcodeado en 5 días**, separado del que configura el Super Admin — pueden divergir si el Super Admin cambia el valor global.
+- El plazo se fija en la orden o contrato y puede ser de uno o varios años.
+- Un contrato multianual se divide en periodos anuales de servicio.
+- La periodicidad de pago no modifica el plazo.
+- El precio del periodo anual en curso se respeta, salvo cambio solicitado de unidades o módulos, impuestos exigibles o acuerdo escrito.
+- Una renovación automática del contrato debe quedar pactada expresamente.
+- La no renovación se comunica con al menos 30 días calendario, salvo plazo diferente en la orden.
 
-### 2.4 Reactivación
+### 4.3 Modalidades de pago
 
-El Super Admin puede reactivar manualmente un conjunto suspendido, pero **solo si existe un pago `APPROVED` cuyo período todavía cubre la fecha de hoy** (`periodEnd >= ahora`). Un conjunto que pagó una vez, se atrasó y fue suspendido **no puede reactivarse gratis** solo por tener un pago viejo — se exige un pago vigente.
+1. **Mensual manual:** el conjunto transfiere o paga por el canal acordado y SUPER_ADMIN confirma el pago.
+2. **Mensual automática:** el ADMIN registra y autoriza un medio de pago en Wompi; el cron genera cobros periódicos.
+3. **Anual anticipada:** se pagan doce mensualidades con 10 % de descuento. Puede iniciarse mediante checkout Wompi o confirmación manual autorizada.
 
-El ADMIN también puede "renovar" pagando de nuevo desde Licencias y pagos, lo cual dispara el mismo flujo de Mercado Pago.
+Revocar un medio de pago automático cambia el mecanismo de cobro, pero no termina el contrato.
 
-### 2.5 Cancelación
+### 4.4 Anualidad
 
-El Super Admin puede cancelar un conjunto desde el panel de detalle del tenant (acción "Cancelar conjunto", con doble confirmación por ser irreversible desde la UI). Al cancelar: el tenant queda `CANCELLED`, se registra `cancelledAt`.
+La función annualTerms() calcula:
 
-La política pública de cancelación (`legal/pagos`) dice que el ADMIN debe solicitarla "por el canal contractual" indicando conjunto, cuenta y fecha deseada — **hoy no existe un flujo de autoservicio para que el ADMIN cancele su propio conjunto**; solo el Super Admin puede hacerlo.
+- valor de lista: tarifa mensual por 12;
+- descuento: ANNUAL_DISCOUNT_BPS = 1000;
+- valor efectivo: 90 % del valor anual de lista;
+- cobertura: doce meses calendario.
 
-### 2.6 Qué bloquea el acceso y qué no
+El descuento anual no se acumula con descuentos comerciales sobre el mismo periodo. El webhook aprobado es quien aplica la cobertura; una redirección al checkout no activa por sí sola la licencia.
 
-| Estado | ¿Bloquea el acceso? | Mensaje que ve el usuario |
-|---|---|---|
-| `TRIAL` | No | — |
-| `ACTIVE` | No | — |
-| `GRACE_PERIOD` | **No** — el conjunto sigue operando con normalidad mientras está en gracia | — |
-| `PENDING_PAYMENT` | Sí | "Debes completar el pago de tu primera licencia para poder usar la plataforma." |
-| `SUSPENDED` | Sí | "La licencia de esta copropiedad se encuentra suspendida. Contacta al equipo administrador para reactivar el servicio." |
-| `CANCELLED` | Sí | "La licencia de esta copropiedad fue cancelada. Contacta al equipo administrador para reactivar el servicio." |
-| Usuario desactivado (`isActive:false`) | Sí, para ese usuario puntual | "Tu cuenta se encuentra desactivada. Contacta al administrador de tu conjunto." |
+### 4.5 Terminación anticipada
 
-El SUPER_ADMIN nunca queda bloqueado por estado de tenant (no pertenece a ningún tenant).
+La política pública vigente aplica estas reglas, sujetas a la orden firmada y revisión profesional:
 
----
+- mensual con beneficio sustancial de permanencia expresamente pactado: compensación máxima igual al menor valor entre dos mensualidades netas y lo pendiente del periodo anual actual;
+- si el beneficio o la compensación no aparecen expresamente en la orden, no se presumen;
+- anual anticipado: los meses completos consumidos se reliquidan a tarifa mensual de lista y se reembolsan los meses completos no utilizados;
+- no se acumula una segunda penalidad sobre una anualidad reliquidada;
+- si PQRS Services incumple de forma grave y no subsana, no hay compensación y procede devolución proporcional de saldos no prestados;
+- se respetan los derechos imperativos que resulten aplicables.
 
-## 3. Precio y reglas de facturación
+### 4.6 Pilotos
 
-### 3.1 Cómo se calcula el precio de un conjunto
+La aplicación soporta dos caminos que no deben ofrecerse como automáticos a todos:
 
-El precio mensual depende **únicamente del número de unidades** del conjunto, mediante **rangos de precio** (`PricingRule`) que administra el Super Admin desde "Reglas de precio":
+- una prueba técnica de 15 días para altas directas;
+- un piloto guiado pagado de 45 días con preparación, lanzamiento, evaluación y decisión.
 
-- Cada regla define: unidades **desde**, unidades **hasta** (o "sin límite"), precio mensual en COP, y si está activa.
-- Al calcular el precio de un conjunto, se busca la primera regla activa cuyo rango cubra el número de unidades.
-- Si ninguna regla cubre esas unidades, la operación falla ("No hay regla de precio activa para N unidades") — **hay que mantener cobertura completa de rangos** (p. ej. sin un "hueco" entre 50 y 60 unidades) para no romper la creación de conjuntos o renovaciones.
+La propuesta u orden debe indicar si existe prueba o piloto. La política legal no concede un trial universal.
 
-**Reglas que se validan al crear/editar un rango de precio:**
-- El precio debe estar dentro de los **topes globales** (por defecto COP 50.000 a COP 1.000.000 mensuales, configurables por el Super Admin en "Topes de precio").
-- Los rangos activos **no pueden solaparse** entre sí.
-- El precio debe ser **monotónico**: un conjunto con más unidades nunca puede pagar menos que uno con menos unidades (ni al revés). El sistema lo valida automáticamente al guardar un rango.
-- Cambiar los topes globales de precio (mínimo/máximo) se rechaza si dejaría a alguna regla activa **fuera** de los nuevos topes — hay que ajustar o desactivar esa regla primero.
+### 4.7 Referidos
 
-### 3.2 Cambios de unidades o de tarifa en un conjunto existente
+La regla comercial acordada para la persona que refiere conjuntos es:
 
-Si el Super Admin edita un conjunto y cambia el número de unidades (lo que puede cambiar su precio), el cambio **no se cobra de inmediato**: queda "programado" (`pendingUnitsSnapshot`/`pendingPriceCents`) y **se aplica automáticamente en la siguiente renovación** (cuando `currentPeriodEnd` se cumpla). Si el conjunto tiene una suscripción activa en Mercado Pago, el monto del cobro recurrente ahí también se actualiza para que coincida.
+- una comisión equivalente a una mensualidad neta por cada año completo contratado;
+- un contrato de varios años no anticipa todas las comisiones;
+- cada comisión futura se causa en el aniversario correspondiente si el contrato sigue vigente y ese periodo fue pagado;
+- para pago mensual, la primera comisión se paga después del segundo pago aprobado;
+- para pago anual, se paga cuando el ingreso esté firme y hayan pasado 30 días sin devolución;
+- una renovación solo genera comisión si hubo participación material y documentada de la persona referidora;
+- una renovación automática sin intervención no genera comisión nueva;
+- la persona referidora no representa a PQRS Services ni puede prometer precios, descuentos o condiciones;
+- debe revelar conflictos si llega a participar en la decisión de una copropiedad referida.
 
-### 3.3 Facturación recurrente (Mercado Pago)
+**Estado de automatización:** la base actual guarda una comisión y su estado por perfil comercial. El calendario de comisiones multianuales y por renovación todavía requiere control manual; no debe afirmarse que está automatizado.
 
-- Cobro **mensual** automático (frecuencia: 1 mes) vía Mercado Pago Preapproval (suscripciones).
-- Cada pago recibido por webhook es **idempotente**: si Mercado Pago reintenta la notificación del mismo pago, no se duplica (se identifica por `mercadoPagoPaymentId`, único en la base de datos).
-- Un pago **aprobado** extiende el período 30 días y activa el conjunto; un pago **rechazado o pendiente** manda la suscripción a `GRACE_PERIOD` con sus 5 días de gracia (valor hardcodeado en esta ruta, ver 2.3).
-- El ADMIN puede **desactivar la renovación automática** desde Licencias y pagos (cancela el cobro recurrente en Mercado Pago, pero no cambia el estado actual del conjunto — simplemente no se le volverá a cobrar automáticamente).
+## 5. Roles y límites
 
-### 3.4 Qué ve y puede hacer el ADMIN (Licencias y pagos)
+| Rol | Alcance | Puede modificar | No puede |
+| --- | --- | --- | --- |
+| SUPER_ADMIN | Toda la plataforma | conjuntos, estado comercial, licencias, precios, pagos manuales, add-ons, soporte y configuración global | usar una membresía de tenant como sustituto de autorización |
+| ADMIN | Su conjunto activo | PQRS, usuarios permitidos, invitaciones, configuración operativa, reservas y cartera si están contratadas | acceder a otro conjunto, crear SUPER_ADMIN, cambiar precios globales |
+| CONSEJO | Su conjunto activo | su perfil y solicitudes de soporte permitidas | operar PQRS, usuarios, licencia, configuración, reservas o cartera |
+| RESIDENTE | Su membresía y datos propios | sus PQRS editables, reservas propias, comprobantes y perfil | ver datos de otros residentes o módulos administrativos |
 
-- Estado de la licencia, plan contratado, próxima fecha de renovación.
-- Historial de pagos (filtrable: todas / pagadas / pendientes).
-- Botón "Pagar ahora" (o "Renovar/actualizar el pago" si ya está vencido).
-- Detalle de la próxima factura, incluida cualquier tarifa nueva ya programada para la siguiente renovación.
-- Activar/desactivar la renovación automática.
+La interfaz oculta acciones no permitidas, pero la seguridad principal está en APIs y servicios. Los IDs enviados por el cliente no reemplazan el tenantId, membershipId ni el rol resueltos desde la sesión.
 
-### 3.5 Qué ve y puede hacer el Super Admin (financiero y precios)
+## 6. Acceso, invitaciones y membresías
 
-- **Resumen financiero:** ingresos del mes (MRR), pagos aprobados, pagos pendientes, próximas renovaciones, conjuntos en mora, conjuntos suspendidos.
-- **Analítica de negocio:** crecimiento de MRR, churn del mes, ingreso promedio por conjunto (ARPU), % de conversión de trial a pago, tiempo promedio de cierre de PQRS, distribución de PQRS por tipo, conjuntos en riesgo (en mora), concentración de ingresos (top conjuntos por tarifa).
-- **Reglas de precio:** crear/editar/activar/desactivar rangos, y ajustar los topes globales.
-- **Acciones sobre conjuntos:** suspender, reactivar, cancelar, y correr manualmente "Actualizar estados por mora" (el mismo proceso que corre el cron).
-- **Configuración operativa:** período de gracia global, SLA de cierre de PQRS en días, estado de integraciones (Resend, Supabase Storage, Mercado Pago), y feature flags (soporte habilitado, envío automático de correos).
+No existe autorregistro público. /auth/registro informa que el acceso es por invitación.
 
----
+Flujo:
 
-## 4. Máquina de estados de una PQRS
+1. SUPER_ADMIN crea el conjunto o confirma el hito comercial que habilita la invitación del ADMIN.
+2. ADMIN invita por correo a otros ADMIN, CONSEJO o RESIDENTE de su conjunto.
+3. También puede cargar un lote de invitaciones por archivo.
+4. El servidor genera un token aleatorio y solo guarda su hash.
+5. El correo incluye el nombre del conjunto y el enlace de aceptación.
+6. El destinatario establece contraseña y acepta la versión legal vigente.
+7. La invitación crea o asocia una membresía con tenant y rol ya definidos.
+8. El token aceptado, cancelado o vencido no puede reutilizarse.
 
-Una PQRS tiene solo tres estados posibles: **`EN_ESPERA`** (recién creada) → **`EN_PROGRESO`** (tomada por administración) → **`TERMINADO`** (cerrada). No existe un estado de "vencida" guardado en base de datos — es una condición calculada al vuelo (ver 4.5).
+Un usuario puede pertenecer a varios conjuntos mediante TenantMembership. La selección activa se guarda en una cookie firmada y se verifica contra membresías activas. Cambios sensibles incrementan sessionVersion para invalidar sesiones anteriores.
 
-### 4.1 Creación
+## 7. Recorridos por rol
 
-- Puede crearla un **ADMIN** (en nombre de cualquier residente, escribiendo nombre/bloque/apto a mano) o un **RESIDENTE** (para sí mismo). CONSEJO y SUPER_ADMIN no pueden crear PQRS.
-- Categoría (asunto) es **obligatoria si la crea un residente**, opcional si la crea el ADMIN. Las 9 categorías válidas: Área común, Área privada, Contabilidad, Convivencia, y 5 subtipos de Humedad (Cubierta, Depósito, Ventanas, Fachada, Garaje).
-- La descripción tiene un tope de **300 palabras**.
-- El residente puede adjuntar hasta **3 fotos** (JPG/PNG/WEBP, máx. 1MB cada una) al crear.
-- Al crearse, se notifica en la app a todos los ADMIN del conjunto, se envía correo de alerta a los ADMIN que tengan activado "avisarme por correo ante una nueva PQRS", y si la creó un residente, recibe un correo de confirmación.
+### 7.1 SUPER_ADMIN
 
-### 4.2 Primer contacto (EN_ESPERA → EN_PROGRESO)
+#### Resumen
 
-Acción de "Confirmar recepción" por parte de administración (ADMIN). Requiere:
-- Categoría (si no se fijó al crear).
-- Prioridad (Alta/Media/Baja).
-- Una nota de primer contacto (obligatoria).
+Presenta KPIs globales derivados del backend: conjuntos por estado, usuarios, PQRS, ingresos mensuales, pagos, renovaciones, alertas y actividad. No usa datos de muestra para las cifras operativas.
 
-Al confirmarse: se genera el **número de radicación** (`AÑO-NNNN`, por ejemplo `2026-0042`), se registra quién la está gestionando, y se calcula cuántos días tardó el primer contacto. El residente recibe una notificación y un correo con su número de radicación.
+#### Conjuntos
 
-**Este es el punto de no retorno para el residente**: a partir de aquí (o desde que se le asigna gestor o se le pone número de radicación) la PQRS se considera "tomada por administración" y el residente ya no puede editarla (ver 4.6).
+Permite listar, buscar, filtrar, paginar, crear, abrir detalle, editar datos autorizados, suspender, reactivar, cancelar y exportar un conjunto. El detalle reúne suscripción, usuarios, PQRS, pagos, actividad, ficha comercial, piloto, implementación, referido y módulos contratados.
 
-### 4.3 Las 5 fases de gestión (mientras está EN_PROGRESO)
+#### Licencias y pagos
 
-Una PQRS tomada avanza por hasta 5 fases con nombres y **tiempos objetivo en días hábiles**:
+Permite revisar cartera SaaS, pagos aprobados, pendientes y rechazados, vencimientos, mora y periodos. Incluye renovación manual, extensión de cortesía auditada y actualización de estados por mora. Una cortesía no se registra como ingreso.
 
-| Fase | Nombre | Días hábiles objetivo |
-|---|---|---|
-| 1 | Inspección de campo | 2 |
-| 2 | Adquisición de insumos | 2 |
-| 3 | Firma de contrato con proveedor | 15 |
-| 4 | Ejecución | 5 |
-| 5 | Terminado | 0 |
+#### Reglas de precio
 
-Desde la fase 1, el caso se bifurca en dos rutas exclusivas y **excluyentes entre sí**:
-- **Ruta INSUMOS**: fase 1 → 2 → 4.
-- **Ruta PROVEEDOR**: fase 1 → 3 → 4.
+Gestiona reglas mensuales y de piloto, topes y cobertura de rangos. El backend evita rangos activos superpuestos, precios inválidos y cambios que rompan la política.
 
-Una vez elegida una ruta (`faseTipo`), **no se puede cambiar** — es una decisión de una sola vez.
+#### Analítica
 
-**Cada fase exige una nota antes de poder avanzar a la siguiente.** Un semáforo de color (verde/ámbar/rojo) indica si el caso va a tiempo, cerca del límite, o ya se pasó del tiempo objetivo de la fase.
+Calcula tendencias de ingresos, conjuntos, tiempos de cierre, PQRS, conversión de pilotos, riesgo y concentración de ingresos con datos persistidos.
 
-### 4.4 Cierre (EN_PROGRESO → TERMINADO)
+#### Usuarios
 
-Requiere:
-- No se puede cerrar sin haber pasado primero por "primer contacto" (no se puede saltar de EN_ESPERA directo a cerrada).
-- "Acción tomada" es siempre obligatoria.
-- Si el caso **no** completó las 5 fases, también es obligatorio explicar "¿Qué se hizo para cerrar?".
-- **Evidencia de cierre obligatoria**: texto y/o un archivo (imagen o PDF, máx. 2MB).
+Consulta usuarios globales por conjunto, rol y estado. Las acciones administrativas respetan membresías y no convierten un usuario de tenant en SUPER_ADMIN.
 
-Al cerrar: se notifica al residente y se le envía un correo con el número de radicación, la acción tomada y la evidencia adjunta (si es un archivo permitido).
+#### Auditoría
 
-### 4.5 Regla de "vencida" (SLA)
+Consulta eventos persistidos con actor, tenant, acción, recurso, identificador, fecha y metadata acotada.
 
-Una PQRS se considera vencida si:
-- **Cerrada:** tardó **más** días de los que dicta el SLA configurado (el límite exacto cuenta como a tiempo, no como vencido).
-- **Abierta:** ya lleva **más** días abiertos que el SLA, contados desde que se recibió.
+#### Soporte
 
-El SLA (en días) lo configura el Super Admin (Configuración → "SLA de cierre de PQRS"). Esta regla es una sola función compartida en todo el sistema — reportes, analítica y alertas usan siempre el mismo cálculo, para que "vencida" signifique lo mismo en todas las pantallas.
+Gestiona la cola global de tickets, responde y cierra solicitudes. ADMIN, CONSEJO y RESIDENTE solo ven el alcance permitido.
 
-### 4.6 Reglas de una sola vez / inmutabilidad
+#### Configuración
 
-- **Edición del residente**: puede editar la descripción de su propia PQRS **una sola vez en la vida**, y solo mientras no haya sido tomada por administración. Una vez tomada, o una vez usada esa única edición, queda bloqueada.
-- **Ruta de fase (`faseTipo`)**: una vez elegida INSUMOS o PROVEEDOR, no se puede cambiar.
-- **Número de radicación y fecha de primer contacto**: se fijan una sola vez, al confirmar recepción.
-- No existe forma de **borrar** una PQRS — no hay endpoint de eliminación.
+Muestra configuración operativa, estado de integraciones, SLA y controles seguros. No expone secretos ni permite leer llaves privadas desde el navegador.
 
-### 4.7 Evidencia y archivos — dónde viven
+#### Mi cuenta
 
-Las fotos y archivos de evidencia se guardan en almacenamiento externo (Supabase Storage), nunca en la base de datos como texto/base64. **Ningún rol** (ni ADMIN ni CONSEJO) recibe jamás la URL directa del archivo desde la API — todo acceso pasa por rutas propias (`/fotos`, `/evidencia`) que verifican que quien pide el archivo pertenece al mismo conjunto y tiene permiso, antes de servirlo.
+Gestiona perfil, avatar y contraseña de la cuenta global.
 
----
+### 7.2 ADMIN
 
-## 5. Matriz de permisos por rol
+#### Inicio
 
-| Acción | SUPER_ADMIN | ADMIN | CONSEJO | RESIDENTE |
-|---|---|---|---|---|
-| Crear una PQRS | ❌ | ✅ (para cualquier residente) | ❌ | ✅ (solo para sí mismo) |
-| Ver PQRS | ❌ (no opera PQRS de conjuntos) | ✅ Todas las del conjunto | ✅ Todas las del conjunto (solo lectura) | ✅ Solo las propias |
-| Gestionar fases / cerrar PQRS | ❌ | ✅ | ❌ | ❌ (solo puede editar su propia descripción una vez) |
-| Ver actividad/auditoría | — | ✅ Todas las categorías (PQRS, Usuarios, Licencia) | ✅ Solo categoría PQRS | ❌ |
-| Invitar usuarios | ❌ (invita solo al primer ADMIN al crear el conjunto) | ✅ (ADMIN, CONSEJO o RESIDENTE) | ❌ | ❌ |
-| Gestionar usuarios (rol, activar/desactivar) | ❌ | ✅ | ❌ | ❌ |
-| Ver/editar reglas de precio | ✅ | ❌ | ❌ | ❌ |
-| Suspender/reactivar/cancelar conjuntos | ✅ | ❌ | ❌ | ❌ |
-| Crear tickets de soporte | ❌ | ✅ | ✅ | ✅ |
-| Responder/cerrar tickets de soporte | ✅ (único rol que puede) | ❌ | ❌ | ❌ |
-| Ver reportes/exportar Excel/PDF | — | ✅ | ✅ | ❌ |
+Muestra métricas del conjunto seleccionado: PQRS nuevas, en gestión y cerradas, tiempos, usuarios, licencia, próxima renovación y actividad. Los accesos rápidos llevan a módulos reales.
 
-**Nota importante sobre CONSEJO**: aunque técnicamente ve las mismas PQRS que el ADMIN (todo el conjunto, no solo las propias), el rol es **puramente de supervisión** — no puede crear, tomar, avanzar fases ni cerrar ninguna PQRS. La interfaz lo refuerza explícitamente ("Vista de solo lectura — la gestión de esta solicitud la realiza la administración").
+#### PQRS
 
----
+El ADMIN puede:
 
-## 6. Invitaciones y onboarding
+- listar, buscar y filtrar solicitudes de su conjunto;
+- crear una solicitud administrativa;
+- abrir el detalle con historial y evidencias;
+- confirmar el primer contacto;
+- clasificar categoría, prioridad y responsable;
+- avanzar por el workflow SIMPLE o MAINTENANCE;
+- agregar notas y evidencia;
+- cerrar con resultado y soporte;
+- corregir campos auditables mediante el flujo autorizado.
 
-### 6.1 Invitaciones
+Cada transición se valida en backend. El historial registra actor, estado anterior, estado posterior, nota y fecha. Las notificaciones al residente se generan a partir de eventos reales.
 
-- Solo el **ADMIN** puede invitar, y solo dentro de su propio conjunto.
-- Puede invitar a otro **ADMIN**, a **CONSEJO** o a **RESIDENTE**. Nunca puede invitar a un SUPER_ADMIN.
-- El token de invitación **expira en 72 horas** y es de **un solo uso** (garantizado con una transacción atómica: si dos personas intentan usar el mismo enlace a la vez, solo una lo logra).
-- **Reenviar una invitación rota el token anterior** — genera uno nuevo y reinicia las 72 horas. El enlace viejo deja de servir.
-- Si el correo invitado ya pertenece a un usuario **activo** (de cualquier conjunto, no solo el propio), el sistema rechaza la invitación con un mensaje genérico ("Este correo ya pertenece a un usuario activo") — **deliberadamente no dice a qué conjunto pertenece**, para no filtrar información entre conjuntos distintos a un ADMIN curioso.
-- Se puede invitar en lote (varios correos a la vez, mismo rol para todos), con un tope de 500 filas por archivo Excel y 2MB de tamaño de archivo.
+#### Usuarios
 
-### 6.2 Aceptar una invitación
+Lista usuarios del conjunto, permite consultar detalle, editar campos autorizados, activar o desactivar membresías y asignar roles permitidos. ADMIN no puede crear SUPER_ADMIN ni administrar un usuario fuera de su tenant.
 
-Quien recibe el enlace crea su cuenta ahí mismo: nombre completo, contraseña (mínimo 8 caracteres, con al menos una letra y un número), y si es RESIDENTE, también bloque y apartamento. Debe aceptar explícitamente los términos y la política de privacidad (checkbox obligatorio) antes de poder crear la cuenta.
+#### Reservas
 
-### 6.3 Onboarding (primeros pasos después de aceptar)
+Solo aparece con RESERVATIONS activo. ADMIN crea y configura zonas, horarios, capacidad, reglas y bloqueos; revisa solicitudes y aprueba o rechaza. La base evita solapamientos de reservas aprobadas.
 
-**ADMIN** (4 pasos): bienvenida → confirmar nombre y ciudad del conjunto (las unidades no son editables por el ADMIN, solo por el Super Admin) → invitar opcionalmente al primer usuario adicional (se puede omitir) → pantalla final "todo listo" que lleva al dashboard.
+#### Pagos
 
-**RESIDENTE** (3 pasos): bienvenida → confirmar nombre completo, teléfono, bloque y apartamento (obligatorios para continuar) → tips de uso ("cómo crear una solicitud") → lleva al inicio de la app.
+Este módulo se refiere a **cartera de residentes**, no a la licencia de PQRS Services. Solo aparece con RESIDENT_PAYMENTS activo. ADMIN puede crear cargos, registrar pagos manuales, revisar comprobantes, importar movimientos, cancelar cargos y revertir movimientos con trazabilidad.
 
-Ambos onboardings solo se muestran una vez; si ya se completaron, la app redirige directo al panel correspondiente.
+#### Reportes
 
----
+Consulta indicadores de PQRS por periodo, estado, categoría, prioridad, responsable y tiempos. Genera exportaciones reales en Excel y PDF con los filtros aplicados.
 
-## 7. Página por página
+#### Licencias y pagos
 
-### 7.1 SUPER_ADMIN (el fundador)
+Este módulo sí corresponde al servicio PQRS Services. Muestra estado, vigencia, unidades, tarifa, historial, piloto o plan comercial, próxima renovación y documento descargable. Permite:
 
-Un único panel con navegación por secciones:
+- iniciar checkout mensual o anual en Wompi;
+- consultar el resultado de pago;
+- configurar o revocar el medio para cobro automático;
+- elegir anualidad con el ahorro calculado;
+- descargar resumen, resultado o comprobante operativo.
 
-- **Resumen**: KPIs de la plataforma completa (conjuntos totales/activos/en prueba, usuarios, PQRS abiertas/cerradas), alertas de conjuntos en mora o con trial por vencer, conjuntos y actividad reciente, resumen ejecutivo (crecimiento MRR, churn, tiempo promedio de cierre).
-- **Conjuntos**: tabla de todos los conjuntos con búsqueda/filtro, ver/editar/suspender-reactivar por fila, botón para crear un conjunto nuevo, y botón para correr manualmente el proceso de mora.
-- **Licencias y pagos**: como se describió en 3.5 (licencia y pagos, con el ajuste global de días de gracia).
-- **Reglas de precio**: como se describió en 3.1.
-- **Analítica**: métricas de negocio detalladas (ver 3.5).
-- **Usuarios**: selector de conjunto → lista de sus usuarios (solo lectura, no gestiona nada aquí — eso lo hace cada ADMIN en su propio conjunto).
-- **Auditoría**: registro de toda la plataforma, filtrable por categoría (Conjuntos, Facturación, Administración, Usuarios, PQRS, Notificaciones, Soporte).
-- **Soporte**: todos los tickets de todos los conjuntos, con posibilidad de responder y/o cerrar cada uno — el Super Admin es el único que atiende soporte.
-- **Configuración**: nombre de marca, estado de integraciones (Resend/Supabase/Mercado Pago), SLA de cierre, y feature flags.
-- **Mi cuenta**: datos personales y cambio de contraseña.
+El PDF interno no es factura electrónica ni documento tributario.
 
-### 7.2 ADMIN (cliente que administra el conjunto)
+#### Invitaciones
 
-- **Dashboard**: saludo, métricas rápidas del conjunto, atajos.
-- **PQRS**: lista con filtros por estado, buscador, y panel de detalle con toda la gestión descrita en la sección 4 (confirmar recepción, avanzar fases, cerrar).
-- **Usuarios**: gestión de usuarios del conjunto (cambiar rol, activar/desactivar) — con la protección de que **siempre debe quedar al menos un ADMIN activo** (ver 10.3).
-- **Invitaciones**: crear, reenviar, cancelar invitaciones.
-- **Reportes**: tablero con KPIs, gráficos de tendencia, y exportación a Excel/PDF.
-- **Licencias y pagos**: como en 3.4.
-- **Actividad**: bitácora completa del conjunto (PQRS, Usuarios, Licencia).
-- **Configuración**: datos del conjunto (nombre, ciudad, dirección) — no puede cambiar el número de unidades, eso lo controla el Super Admin.
-- **Mi cuenta**: perfil, seguridad, y preferencia de notificación por correo ante nuevas PQRS.
-- **Ayuda**: FAQ + formulario de soporte (categorías: Técnico, Facturación, Mi cuenta, Otro) + historial de sus propias solicitudes.
+Crea invitaciones individuales o masivas, consulta estados, reenvía pendientes y cancela. El tenant y rol se fijan antes de enviar el correo.
 
-### 7.3 CONSEJO (supervisión, sin costo adicional)
+#### Actividad
 
-Mismas pantallas que ADMIN en PQRS/Reportes/Actividad/Cuenta/Ayuda, pero **todo en modo solo lectura** y sin acceso a Usuarios, Invitaciones ni Licencias. La actividad solo muestra la categoría PQRS. El formulario de ayuda no ofrece la categoría "Facturación" (no le compete).
+Presenta eventos reales y persistidos del conjunto, con enlaces cuando el recurso sigue disponible.
 
-### 7.4 RESIDENTE (usuario final)
+#### Configuración
 
-App simplificada, navegación inferior de 4 secciones:
-- **Inicio**: crear una nueva solicitud, ver y filtrar las propias (Todas/Recibidas/En gestión/Resueltas), con seguimiento visual de 3 pasos (Radicada → Primer contacto → Resuelta) y fecha estimada de resolución (calculada con el SLA configurado).
-- **Alertas**: notificaciones propias.
-- **Perfil**: datos personales; **bloque y apartamento se pueden corregir una sola vez** (con confirmación explícita, ya que después queda bloqueado).
-- **Ayuda**: formulario de soporte (siempre categoría "Otro") + historial propio.
+Permite actualizar nombre permitido, dirección, ciudad, contacto y preferencias operativas. También configura categorías y su workflow. No permite alterar unidades, precio, reglas globales o secretos.
 
----
+#### Mi cuenta
 
-## 8. Notificaciones, soporte y auditoría
+Permite editar datos globales permitidos, avatar y contraseña. Bloque y apartamento pertenecen a la membresía del conjunto, no al perfil global.
 
-### 8.1 Notificaciones (en la app)
+#### Ayuda
 
-Tipos que existen hoy: creación/actualización/cierre de PQRS, invitación recibida/aceptada, pago aprobado, licencia por vencer, licencia suspendida, y respuesta a un ticket de soporte.
+Crea tickets de soporte y consulta su estado o respuesta. La categoría de facturación está disponible para ADMIN.
 
-En la práctica, las que sí se disparan activamente son las de **PQRS** (creación, avance de fase, cierre) y las de **invitaciones** (creada, aceptada). Ver en el documento de consultoría el hallazgo sobre las notificaciones de licencia, que están declaradas pero no se encontró que se disparen en ningún flujo real.
+### 7.3 CONSEJO
 
-### 8.2 Soporte (tickets)
+CONSEJO es un rol de supervisión y lectura:
 
-- Cualquier usuario que no sea SUPER_ADMIN puede crear un ticket (si la función está habilitada por feature flag).
-- Categorías: Técnico, Facturación (solo visible para ADMIN), Mi cuenta, Otro.
-- Estados: Abierta → Respondida / Cerrada.
-- **Solo el Super Admin responde y cierra tickets** — coherente con ser una operación de una sola persona; no hay "agentes de soporte" ni cola de asignación.
-- Al responder, se notifica y se envía correo a quien creó el ticket.
+- **PQRS:** consulta listado, filtros, detalle, responsable, fases, historial y evidencias.
+- **Reservas:** consulta zonas y reservas cuando el módulo está contratado; no aprueba, rechaza ni configura.
+- **Pagos:** consulta información agregada de cartera cuando el módulo está contratado; no registra ni revierte movimientos.
+- **Reportes:** consulta indicadores y descarga Excel o PDF.
+- **Actividad:** ve actividad de su conjunto.
+- **Mi cuenta:** administra su perfil y contraseña.
+- **Ayuda:** crea y consulta tickets técnicos permitidos.
 
-### 8.3 Auditoría
+La ausencia de botones de escritura coincide con controles de autorización en backend. CONSEJO no puede crear, editar, cerrar o reasignar PQRS; tampoco invita usuarios ni modifica la licencia.
 
-Cada acción relevante (creación de PQRS, cambios de estado de tenant, pagos, invitaciones, cambios de usuario, cambios de reglas de precio, etc.) queda registrada con quién la hizo, cuándo, y datos relevantes — visible por el ADMIN (su conjunto) y el Super Admin (toda la plataforma), cada uno con las categorías que le corresponden (ver matriz de permisos).
+### 7.4 RESIDENTE
 
----
+#### Inicio o Centro de Estado
 
-## 9. Documentos legales vigentes
+Muestra únicamente solicitudes propias: activas, en gestión, resueltas y última actualización. Desde aquí se abre una nueva solicitud.
 
-La plataforma tiene 4 documentos legales publicados (`legal/terminos`, `legal/privacidad`, `legal/cookies`, `legal/pagos`), todos con versión `1.0`:
+#### Nueva solicitud
 
-- **Términos y condiciones**: define el servicio, cuentas por invitación, responsabilidades del conjunto sobre los datos que sube, usos prohibidos (acceso cruzado entre conjuntos, contenido ilegal, scraping/pruebas de seguridad no autorizadas, spam). Remite pago/renovación/suspensión/cancelación a la política de pagos y "al contrato individual" — sin números propios aquí.
-- **Política de datos**: el conjunto es el responsable del tratamiento; PQRS Services es el "encargado" (procesador técnico). Lista subencargados nombrados: **Supabase, Vercel, Resend y Mercado Pago** (algunos operan fuera de Colombia). No define un plazo fijo de retención en días.
-- **Cookies**: declara únicamente cookies estrictamente necesarias (sesión/seguridad) — sin analítica ni publicidad activas hoy.
-- **Pagos, renovación y cancelación**: el documento más operativo. Cobro mensual automático; ante un pago rechazado, "el período de gracia establecido en el contrato" permite regularizar antes de suspender; la cancelación detiene renovaciones futuras pero **no revierte cargos ya procesados**; reembolsos se manejan "según el contrato, la ley aplicable y las reglas del proveedor de pago".
+El residente selecciona categoría, ubicación, título o descripción y puede adjuntar evidencias válidas. Al guardar:
 
-> ⚠️ **Los datos de la entidad legal (razón social, NIT, dirección) y la fecha de vigencia están vacíos/placeholder en el código** (se llenan por variables de entorno que hoy no están configuradas con valores reales). Ver el documento de consultoría para el impacto de esto.
+- se crea la PQRS dentro de su tenant y membresía;
+- se asigna un identificador;
+- se notifica a la administración;
+- la nueva solicitud aparece sin recargar manualmente.
 
----
+El residente puede editar mientras la administración no haya iniciado gestión, asignado responsable o radicado formalmente. La restricción se aplica en backend.
 
-## 10. Casos límite y comportamientos especiales
+#### Detalle
 
-1. **Reactivación de un conjunto suspendido**: exige un pago aprobado con período vigente — no basta un pago histórico.
-2. **Webhook de Mercado Pago duplicado**: es idempotente por `mercadoPagoPaymentId`; un reintento no genera un segundo cobro ni una segunda extensión de período.
-3. **Último ADMIN activo**: un conjunto siempre debe conservar al menos un ADMIN activo. Si se intenta desactivar o cambiar de rol al único ADMIN activo restante, la operación se rechaza. Esta verificación está protegida contra condiciones de carrera (dos solicitudes simultáneas no pueden dejar al conjunto sin ningún ADMIN).
-4. **Un ADMIN no puede modificarse a sí mismo** para quitarse el rol de ADMIN ni desactivar su propia cuenta.
-5. **Edición de residente**: una sola vez, solo antes de ser tomada por administración (sección 4.6).
-6. **Corrección de bloque/apartamento del residente**: una sola vez, con confirmación explícita.
-7. **Sesión y roles obsoletos**: si a un usuario le cambian el rol o lo desactivan, la sesión activa se refresca en la siguiente llamada a la API (la ventana de desfase es mínima); además, la sesión completa expira a las 12 horas como tope de seguridad.
-8. **`PENDING_PAYMENT`**: estado heredado de la arquitectura anterior (antes del trial de 15 días). Ya no se usa para crear conjuntos nuevos, pero sigue existiendo en el enum y en conjuntos creados antes de este cambio.
-9. **No hay endpoint para borrar una PQRS** — solo se cierra, nunca se elimina.
-10. **Las fotos/evidencias nunca exponen su URL real** al cliente, para ningún rol — todo acceso pasa por rutas que verifican pertenencia al conjunto.
+Muestra estado, timeline, descripción, ubicación, evidencias, respuestas, fechas y resolución final. Una URL o ID de otra persona se rechaza.
+
+#### Alertas
+
+Lista notificaciones internas propias y permite marcarlas como leídas.
+
+#### Reservas
+
+Con RESERVATIONS activo, consulta disponibilidad, solicita una franja y cancela una reserva propia cuando las reglas lo permiten.
+
+#### Pagos
+
+Con RESIDENT_PAYMENTS activo, consulta cargos de su unidad, detalle, saldo y movimientos. Puede cargar comprobante y retirar uno propio todavía pendiente de revisión.
+
+#### Perfil
+
+Actualiza nombre, teléfono, avatar y datos permitidos. Un cambio de ubicación sensible se confirma y queda asociado a la membresía correspondiente.
+
+#### Ayuda
+
+Permite crear y consultar tickets técnicos propios.
+
+## 8. Núcleo PQRS
+
+### 8.1 Estados
+
+- EN_ESPERA: solicitud recibida.
+- EN_PROGRESO: administración confirmó recepción e inició gestión.
+- TERMINADO: gestión cerrada.
+
+La condición de vencimiento se calcula con el SLA; no reemplaza el estado persistido.
+
+### 8.2 Workflows
+
+- **SIMPLE:** primer contacto, gestión y cierre.
+- **MAINTENANCE:** primer contacto y fases operativas de mantenimiento antes del cierre.
+
+El conjunto configura categorías activas, orden y workflow. Cada PQRS conserva snapshots para que un cambio posterior de configuración no reescriba su historia.
+
+### 8.3 Evidencias
+
+Los archivos viven en un bucket privado de Supabase Storage. El servidor valida propietario, tenant, rol, tamaño, extensión y firma real del archivo antes de entregar o eliminar. No se publican URLs permanentes.
+
+### 8.4 Reportes
+
+Los reportes usan datos del tenant activo. Las exportaciones neutralizan contenido que podría convertirse en fórmula de Excel y registran auditoría.
+
+## 9. Reservas
+
+Reservas es un módulo opcional. Incluye:
+
+- zonas comunes;
+- horarios, duración, capacidad y reglas;
+- consulta de disponibilidad;
+- bloqueos administrativos;
+- solicitud del residente;
+- aprobación o rechazo por ADMIN;
+- cancelación con permisos;
+- historial y notificaciones.
+
+API, servicio y layout verifican el entitlement. Ocultar el menú no es el único control.
+
+## 10. Pagos de residentes
+
+Este módulo opcional es independiente de la facturación SaaS. Modela:
+
+- unidades residenciales;
+- cargos y vencimientos;
+- pagos y reversos;
+- comprobantes privados;
+- revisión o rechazo de soportes;
+- importaciones conciliables;
+- resumen de cartera.
+
+ADMIN opera; CONSEJO supervisa agregados; RESIDENTE solo ve su unidad y sus comprobantes.
+
+## 11. Licencia y facturación SaaS
+
+### 11.1 Estados
+
+Tenant y Subscription usan estados coordinados:
+
+- TRIAL;
+- PENDING_PAYMENT;
+- ACTIVE;
+- GRACE_PERIOD;
+- SUSPENDED;
+- CANCELLED.
+
+TRIAL, ACTIVE y GRACE_PERIOD permiten operar mientras la vigencia sea válida. PENDING_PAYMENT, SUSPENDED y CANCELLED bloquean módulos del tenant, pero el ADMIN conserva el acceso necesario para regularizar un pago cuando corresponde.
+
+### 11.2 Wompi
+
+El flujo principal es:
+
+1. ADMIN solicita checkout.
+2. El servidor recalcula monto y modalidad.
+3. Se crea Payment PENDING y una referencia única.
+4. Wompi procesa el pago.
+5. El webhook valida firma, referencia, monto, moneda y estado.
+6. Un pago APPROVED aplica cobertura de forma transaccional e idempotente.
+7. REJECTED queda visible como rechazado; PENDING no se convierte en rechazo definitivo.
+8. El evento se audita y encola notificación/correo.
+
+El cobro automático usa una fuente tokenizada de Wompi. El cron intenta renovaciones elegibles y no duplica pagos ante concurrencia o reintentos.
+
+### 11.3 Mercado Pago
+
+La integración histórica permanece en el código para compatibilidad, pero Wompi es el proveedor principal del negocio actual. No se debe iniciar una nueva venta en Mercado Pago salvo decisión operativa expresa.
+
+### 11.4 Cron y mora
+
+El cron de reglas vencidas aplica precedencia de estados, CAS y transacciones para evitar que dos ejecuciones dupliquen efectos. El cron de Wompi procesa cobros automáticos elegibles. Ambos requieren CRON_SECRET y observabilidad en Vercel.
+
+### 11.5 Outbox
+
+Los eventos económicos generan filas de outbox dentro de la misma transacción del cambio financiero. Los intentos de correo y notificación son idempotentes; un fallo de Resend no revierte el pago.
+
+## 12. Arquitectura
+
+| Capa | Tecnología |
+| --- | --- |
+| Frontend y servidor | Next.js 14 App Router |
+| Lenguaje | TypeScript |
+| Autenticación | NextAuth/Auth.js con credenciales y JWT |
+| Dominio y API | Route Handlers y servicios por dominio |
+| ORM | Prisma 5 |
+| Base de datos | PostgreSQL en Supabase |
+| Archivos | Supabase Storage privado |
+| Correo | Resend |
+| Pagos | Wompi; Mercado Pago legado |
+| Despliegue | Vercel |
+| Reportes | ExcelJS, jsPDF y jspdf-autotable |
+
+Los dominios principales están en src/domains: account, billing, commercial, notifications, organizations, payments, platform, pqrs, reservations y support.
+
+## 13. Seguridad y aislamiento
+
+- autorización centralizada por sesión, rol, membresía y tenant;
+- rutas protegidas por middleware y verificación adicional en servidor;
+- selección multi-conjunto firmada;
+- contraseñas con bcrypt;
+- tokens de invitación y recuperación almacenados como hash;
+- revocación de sesión mediante sessionVersion;
+- consultas y mutaciones acotadas al tenant;
+- reglas de propietario para PQRS, evidencias, reservas y comprobantes;
+- service role y llaves privadas solo en servidor;
+- webhooks con validación de firma;
+- idempotencia y transacciones para efectos económicos;
+- auditoría persistente con metadata saneada;
+- RLS habilitado como defensa adicional en tablas públicas;
+- respuestas de error sin stack, SQL, host o credenciales.
+
+SUPER_ADMIN es global y no debe recibir un tenantId implícito desde el cliente. ADMIN, CONSEJO y RESIDENTE requieren una membresía activa.
+
+## 14. Datos principales
+
+- Tenant y TenantMembership: conjunto y pertenencia multi-conjunto.
+- User, Account, Session y VerificationToken: identidad y sesión.
+- Pqrs, PqrsFoto, HistorialPqrs, PqrsCategory y PqrsCorrection: solicitudes y trazabilidad.
+- Invitation, Notification, EmailLog y BillingNotificationOutbox: acceso y comunicaciones.
+- Subscription, Payment, WompiPaymentMethod y WebhookEvent: licencia y pagos SaaS.
+- TenantCommercialProfile, CommercialOperation y TenantFeatureEntitlement: venta, piloto y alcance.
+- CommonArea, Reservation y CommonAreaBlock: reservas.
+- ResidentUnit, ResidentCharge, ResidentPayment, PaymentReceipt y PaymentImportBatch: cartera.
+- SupportTicket: soporte.
+- AuditLog y PlatformSetting: control global.
+
+## 15. Documentos legales y contractuales
+
+### 15.1 Públicos en la aplicación
+
+- /legal/terminos
+- /legal/privacidad
+- /legal/cookies
+- /legal/pagos
+
+La versión vigente es 3.0. Los términos separan aceptación de uso y representación contractual; pagos distingue plazo y periodicidad; privacidad define al conjunto como Responsable y a PQRS Services como Encargado para datos operativos.
+
+### 15.2 Borradores internos
+
+- docs/legal/contratos/Contrato_marco_servicios_PQRS_Services_BORRADOR.docx
+- docs/legal/contratos/Acuerdo_referidos_gestion_comercial_BORRADOR.docx
+
+Los dos archivos son borradores. No deben firmarse ni publicarse sin revisión de abogado colombiano y contador. Deben completarse con identidad del prestador, identificación del conjunto, representante, alcance, precio, plazo, forma de pago, impuestos y anexos.
+
+### 15.3 Comprobantes
+
+El PDF de Licencias y pagos es un comprobante operativo. No es factura electrónica ni documento tributario. La obligación tributaria y el mecanismo de facturación deben validarse con contador según RUT, responsabilidades y volumen real.
+
+## 16. Operación antes de activar un conjunto
+
+1. Verificar facultades del firmante.
+2. Firmar orden o contrato y anexos aplicables.
+3. Registrar plazo, precio, unidades, módulos y modalidad de pago.
+4. Confirmar que los textos legales tienen identidad y fecha vigentes.
+5. Crear el conjunto sin duplicarlo.
+6. Configurar categorías y workflow.
+7. Activar únicamente los entitlements vendidos.
+8. Invitar al ADMIN principal.
+9. Completar onboarding.
+10. Probar correo, Storage y Wompi en el entorno correcto.
+11. Confirmar webhook y cron.
+12. Entregar canal de soporte y procedimiento de privacidad.
+
+## 17. Variables y secretos
+
+Las variables están documentadas en .env.example. Nunca deben aparecer en frontend, documentación pública, logs o commits:
+
+- DATABASE_URL y DIRECT_URL;
+- NEXTAUTH_SECRET;
+- SUPABASE_SERVICE_ROLE_KEY;
+- RESEND_API_KEY;
+- llaves privadas, secretos de integridad y eventos de Wompi;
+- tokens y secretos de Mercado Pago;
+- CRON_SECRET.
+
+Las variables NEXT_PUBLIC_LEGAL_* sí son públicas por diseño y deben contener exclusivamente información legal publicable.
+
+## 18. Pruebas y despliegue
+
+Comandos de referencia:
+
+- npm test: suite serializada con base de prueba protegida;
+- npx tsc --noEmit: typecheck;
+- npm run lint: lint;
+- npm run build: Prisma generate y build Next.js;
+- npm run db:migrate:deploy: migraciones aditivas;
+- npm run release:check: validación Prisma y build.
+
+La base real contiene información que no debe resetearse. En producción se usa prisma migrate deploy; nunca se acepta un reset ni se usa db push sobre Supabase productivo.
+
+## 19. Límites y trabajo manual vigente
+
+La aplicación está funcional, pero estas capacidades no deben presentarse como automáticas:
+
+1. No existe un modelo Contract u OrderService que persista todas las cláusulas y versiones firmadas.
+2. La duración arbitraria de varios años vive en el contrato; contractedPeriodEndsAt representa el periodo comercial/cobertura registrado, no sustituye el documento firmado.
+3. Las comisiones de referidos multianuales y por renovación se controlan manualmente.
+4. La firma electrónica de contratos no se ejecuta dentro de la aplicación.
+5. El comprobante PDF no sustituye facturación tributaria.
+6. Los textos legales versión 3.0 requieren revisión profesional y un plan de comunicación o nueva aceptación para usuarios existentes.
+7. Las condiciones reales de producción dependen de dominio de Resend, llaves Wompi, webhooks, cron, respaldo y monitoreo correctamente configurados.
+
+## 20. Regla de mantenimiento
+
+Este archivo se actualiza cuando cambie cualquiera de estos puntos:
+
+- rol o permiso;
+- pestaña o flujo;
+- modelo comercial;
+- proveedor de pago;
+- estado o regla de licencia;
+- módulo contratado;
+- documento legal;
+- arquitectura o despliegue;
+- riesgo conocido que afecte una promesa comercial.
+
+Los documentos de docs/programa-mejora son evidencia histórica. Si contradicen este contexto, prevalecen el código actual, las migraciones aplicadas y este documento actualizado.

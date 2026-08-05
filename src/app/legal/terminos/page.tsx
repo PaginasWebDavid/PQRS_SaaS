@@ -1,6 +1,7 @@
 import { LegalLayout, LegalList, LegalSection } from '@/components/legal/LegalLayout';
 import {
   LEGAL_LIABILITY_CAP_MONTHS,
+  LEGAL_NON_RENEWAL_NOTICE_DAYS,
   LEGAL_PRICE_CHANGE_NOTICE_DAYS,
   getLegalConfig,
 } from '@/lib/legal';
@@ -12,7 +13,7 @@ export default function TermsPage() {
 
   return <LegalLayout
     title="Términos y condiciones"
-    intro="Este documento es el contrato entre PQRS Services y el conjunto residencial que contrata el servicio. Al crear la cuenta y usar la plataforma, el conjunto acepta estas condiciones."
+    intro="Estas condiciones regulan el uso de PQRS Services y complementan la propuesta, orden de servicio o contrato comercial firmado con cada conjunto."
   >
     <LegalSection title="1. Quién presta el servicio">
       <p>
@@ -27,15 +28,29 @@ export default function TermsPage() {
       </p>
     </LegalSection>
 
-    <LegalSection title="2. Aceptación del contrato">
+    <LegalSection title="2. Documentos contractuales y aceptación">
       <p>
-        Estas condiciones se aceptan de forma electrónica cuando el usuario acepta la invitación y activa su cuenta.
-        La plataforma registra la fecha, la hora y la versión del documento aceptado. Conforme a la Ley 527 de 1999,
-        esa aceptación electrónica tiene la misma validez que una firma manuscrita y sirve como prueba del acuerdo.
+        La relación comercial se perfecciona mediante la propuesta aceptada, orden de servicio o contrato firmado por
+        el representante autorizado del conjunto. Ese documento particular identifica, como mínimo, el alcance, el
+        precio, la duración, la modalidad de pago y la fecha de inicio. Estas condiciones generales y la política de
+        pagos lo complementan.
       </p>
       <p>
-        Quien acepta en nombre del conjunto declara que está facultado para obligarlo, sea por su cargo de
-        administrador o por autorización del consejo o la asamblea.
+        La aceptación de una invitación por un ADMIN, CONSEJO o RESIDENTE regula el uso personal de su cuenta, la
+        confidencialidad y el tratamiento de sus datos, pero <strong>no convierte por sí sola a ese usuario en
+        representante contractual del conjunto</strong>. Quien firme o acepte la orden en nombre del conjunto declara
+        que cuenta con las facultades o autorizaciones necesarias.
+      </p>
+      <p>
+        Podemos conservar como evidencia la firma, el mensaje de datos, la fecha, la hora, la identidad disponible y
+        la versión aceptada. De acuerdo con la Ley 527 de 1999, no se negarán efectos jurídicos a una manifestación por
+        el solo hecho de constar en un mensaje de datos, siempre que el método utilizado permita identificar a su autor
+        y expresar su aprobación de forma confiable.
+      </p>
+      <p>
+        Si existe una diferencia, la orden de servicio o contrato firmado prevalece sobre estas condiciones respecto
+        de las condiciones comerciales particulares. Estas condiciones prevalecen respecto de las reglas generales de
+        uso, seguridad y operación que no hayan sido modificadas expresamente por escrito.
       </p>
     </LegalSection>
 
@@ -46,8 +61,9 @@ export default function TermsPage() {
         evidencias, notificaciones por correo y reportes de gestión.
       </p>
       <p>
-        El precio, el número de unidades contratadas y cualquier módulo adicional constan en la pantalla de
-        contratación y en la sección <em>Licencias y pagos</em> de la cuenta del conjunto.
+        El precio, el número de unidades contratadas, el plazo y los módulos incluidos constan en la orden de servicio
+        o contrato. La sección <em>Licencias y pagos</em> permite consultar el estado operativo registrado en la
+        plataforma; si existe una diferencia documental, debe reportarse para corregirla antes del siguiente cobro.
       </p>
     </LegalSection>
 
@@ -88,16 +104,18 @@ export default function TermsPage() {
 
     <LegalSection title="7. Precio, impuestos y cambios de tarifa">
       <p>
-        La tarifa vigente se informa antes de confirmar la suscripción y depende del número de unidades del conjunto.
+        La tarifa se informa en la propuesta u orden antes de contratar y depende del número de unidades y del alcance
+        habilitado para el conjunto.
         {legal.isVatResponsible
           ? ' Los precios mostrados no incluyen IVA, salvo que se indique expresamente; el impuesto se liquida y se discrimina en la factura conforme a la ley.'
           : ' A la fecha de vigencia de este documento el prestador no es responsable de IVA, por lo que el precio mostrado es el valor total a pagar. Si esa condición cambia por disposición legal o por el volumen de operaciones, se informará antes de aplicar el impuesto.'}
       </p>
       <p>
-        Podemos ajustar la tarifa. Todo cambio de precio se comunicará al correo del administrador con al menos{' '}
-        <strong>{LEGAL_PRICE_CHANGE_NOTICE_DAYS} días calendario</strong> de anticipación y solo se aplicará a partir
-        del siguiente periodo de facturación. Si el conjunto no acepta la nueva tarifa, puede cancelar antes de que
-        entre en vigor, sin penalidad.
+        La tarifa pactada se mantiene durante el periodo anual de servicio en curso, salvo cambio solicitado en
+        unidades o módulos, impuestos exigibles o acuerdo escrito entre las partes. Todo ajuste para una renovación se
+        comunicará al correo del administrador con al menos <strong>{LEGAL_PRICE_CHANGE_NOTICE_DAYS} días
+        calendario</strong> de anticipación y se aplicará desde el siguiente periodo anual, no retroactivamente. El
+        conjunto puede comunicar su decisión de no renovar antes de que el nuevo precio entre en vigor.
       </p>
       <p>
         Las condiciones de cobro, periodo de gracia, suspensión, cancelación y reembolso están en la{' '}
@@ -170,12 +188,26 @@ export default function TermsPage() {
 
     <LegalSection title="13. Vigencia y terminación">
       <p>
-        El contrato rige desde la activación de la cuenta y se renueva por periodos sucesivos según el plan
-        contratado. Cualquiera de las partes puede terminarlo conforme a la política de pagos.
+        El contrato rige por el plazo indicado en la orden de servicio o contrato firmado. Puede ser de uno o varios
+        años y, para efectos de precio, renovación y terminación, se organiza en periodos anuales de servicio. La
+        periodicidad del cobro —mensual manual, mensual automática o anual anticipada— <strong>no modifica ni reduce
+        el plazo contratado</strong>.
+      </p>
+      <p>
+        La renovación automática del contrato solo opera si fue pactada expresamente. En caso contrario, las partes
+        acordarán la renovación por escrito. Cuando exista renovación automática, cualquiera de las partes puede
+        comunicar su decisión de no renovar con al menos <strong>{LEGAL_NON_RENEWAL_NOTICE_DAYS} días
+        calendario</strong> de anticipación al vencimiento del periodo en curso, salvo que la orden establezca un plazo
+        distinto.
+      </p>
+      <p>
+        La terminación antes del vencimiento se rige por la <a href="/legal/pagos" style={linkStyle}>política de
+        pagos</a>. Desactivar un cobro automático no termina por sí mismo el contrato ni extingue valores ya causados.
       </p>
       <p>
         Podemos terminar el contrato de forma anticipada por falta de pago sostenida o por incumplimiento grave de la
-        sección 8, previo aviso al administrador. Al terminar, el conjunto puede solicitar la exportación de su
+        sección 8, previo requerimiento y oportunidad razonable de subsanar cuando el incumplimiento sea corregible.
+        Al terminar, el conjunto puede solicitar la exportación de su
         información dentro de los <strong>30 días calendario</strong> siguientes, después de los cuales procederemos a
         su eliminación conforme a la política de privacidad.
       </p>
@@ -183,10 +215,11 @@ export default function TermsPage() {
 
     <LegalSection title="14. Cambios en estas condiciones">
       <p>
-        Podemos actualizar este documento por razones legales u operativas. Los cambios relevantes se comunicarán al
-        correo del administrador con al menos {LEGAL_PRICE_CHANGE_NOTICE_DAYS} días calendario de anticipación y se
-        publicará la nueva versión con su fecha de vigencia. El uso del servicio después de esa fecha implica la
-        aceptación de la nueva versión.
+        Podemos actualizar este documento por razones legales, de seguridad u operativas. Los cambios relevantes se
+        comunicarán al correo del administrador con al menos {LEGAL_PRICE_CHANGE_NOTICE_DAYS} días calendario de
+        anticipación y se publicará la nueva versión con su fecha de vigencia. Un cambio general no altera de forma
+        retroactiva el precio, el plazo ni un beneficio comercial pactado para el periodo anual en curso. Cuando una
+        modificación requiera aceptación expresa, se solicitará antes de aplicarla.
       </p>
     </LegalSection>
 
