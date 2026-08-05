@@ -42,9 +42,10 @@ export default function PrivacyPage() {
         'Datos de contrato y pago del conjunto: plan, unidades, facturación y estado de la suscripción.',
       ]} />
       <p>
-        <strong>No solicitamos ni almacenamos datos sensibles</strong> (salud, biometría, origen étnico, convicciones)
-        ni datos de niños, niñas y adolescentes. Tampoco almacenamos números completos de tarjetas: los datos de pago
-        se procesan directamente en la pasarela y nunca pasan por nuestros servidores.
+        <strong>No solicitamos intencionalmente datos sensibles</strong> (salud, biometría, origen étnico,
+        convicciones) ni datos de niños, niñas y adolescentes, y esos datos están fuera del alcance autorizado del
+        servicio. Tampoco almacenamos números completos de tarjetas: los datos de pago se procesan directamente en la
+        pasarela y nunca pasan por nuestros servidores.
       </p>
       <p>
         El conjunto no debe cargar datos sensibles en las PQRS ni en las evidencias. Si lo hace, asume la
@@ -76,7 +77,7 @@ export default function PrivacyPage() {
         'Supabase — base de datos y almacenamiento de archivos.',
         'Vercel — alojamiento y ejecución de la aplicación.',
         'Resend — envío de correos transaccionales.',
-        'Wompi (Bancolombia) — procesamiento de pagos.',
+        'Wompi (Bancolombia) y, cuando corresponda, Mercado Pago — procesamiento de pagos.',
       ]} />
       <p>
         Algunos de estos proveedores operan servidores fuera de Colombia. Estas transferencias se amparan en la
@@ -139,8 +140,10 @@ export default function PrivacyPage() {
     <LegalSection title="8. Incidentes de seguridad">
       <p>
         Si detectamos un incidente que afecte datos personales bajo nuestro tratamiento, informaremos al conjunto
-        afectado <strong>sin dilación indebida y a más tardar dentro de las 72 horas</strong> siguientes a su
-        confirmación, indicando qué ocurrió, qué información pudo verse comprometida y qué medidas se adoptaron.
+        afectado <strong>sin dilación indebida</strong>, conforme a los plazos y deberes que resulten aplicables. Como
+        objetivo operativo procuraremos emitir una comunicación inicial dentro de las 72 horas siguientes a su
+        confirmación, cuando sea razonablemente posible, indicando qué ocurrió, qué información pudo verse comprometida
+        y qué medidas se adoptaron.
       </p>
       <p>
         Como Encargado, apoyaremos al conjunto en el reporte del incidente a la Superintendencia de Industria y

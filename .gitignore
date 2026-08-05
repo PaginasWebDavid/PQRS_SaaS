@@ -7,7 +7,10 @@
 .yarn/install-state.gz
 
 # testing
-/coverage
+/coverage/
+/test-results/
+/playwright-report/
+/blob-report/
 
 # next.js
 /.next/
@@ -18,33 +21,47 @@
 
 # misc
 .DS_Store
+Thumbs.db
+~$*
 *.pem
+*.key
+*.p12
+*.pfx
 
 # debug
+*.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# local env files
+# local env files and secrets
 .env
-.env*.local
+.env.*
+!.env.example
+!.env.test.example
 # archivos de configuracion de la base de datos de pruebas (nunca versionar credenciales)
 .env.test
 
 # vercel
-.vercel
+.vercel/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-
-.vercel
-
 # git worktrees for isolated feature work
 .worktrees/
 
-# local dev server log
-.next-dev.log
-.next-dev-*.log
-.next-dev-*.err.log
+# local tool state and generated caches
+.impeccable/
+__pycache__/
+*.py[cod]
+
+# local databases and backups
+*.db
+*.db-journal
+*.dump
+*.backup
+/backups/
