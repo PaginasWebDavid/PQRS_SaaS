@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyOverdueLicenseRules, isCronAuthorizationValid } from "@/domains/billing/billing.service";
+import { applyOverdueLicenseRules, createAnnualRenewalReminders, isCronAuthorizationValid } from "@/domains/billing/billing.service";
 import { runWompiAutomaticRenewals } from "@/domains/billing/wompi.service";
 
 export async function GET(req: NextRequest) {
@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   // despues se aplican las reglas de gracia/suspension, evitando que una
   // licencia vigente pierda acceso antes de que Wompi reciba su intento.
   const automaticRenewals = await runWompiAutomaticRenewals();
+  const annualRenewalReminders = await createAnnualRenewalReminders();
   const overdueRules = await applyOverdueLicenseRules(null);
-  return NextResponse.json({ automaticRenewals, overdueRules });
+  return NextResponse.json({ automaticRenewals, annualRenewalReminders, overdueRules });
 }

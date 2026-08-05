@@ -861,6 +861,70 @@ export interface CronRunSummary {
   outboxDispatch: BillingOutboxDispatchSummary;
 }
 
+export interface AnnualRenewalReminderSummary {
+  examined: number;
+  notified: number;
+  skipped: number;
+  errors: number;
+}
+
+// La fecha limite vive en Subscription.currentPeriodEnd. Una anualidad aprobada
+// la mueve doce meses, por lo que el cron ordinario no la trata como mensual.
+// La cola usa esa misma frontera como dedupe key: cada periodo anual solo recibe
+// un recordatorio, aun si el cron corre varias veces en la ventana de 30 dias.
+export async function createAnnualRenewalReminders(now = new Date()): Promise<AnnualRenewalReminderSummary> {
+  const windowEnd = addDays(now, 30);
+  const summary: AnnualRenewalReminderSummary = { examined: 0, notified: 0, skipped: 0, errors: 0 };
+  const candidates = await prisma.subscription.findMany({
+    where: {
+      status: "ACTIVE",
+      currentPeriodEnd: { gt: now, lte: windowEnd },
+      tenant: {
+        status: { not: "CANCELLED" },
+        commercialProfile: { is: { billingMode: "ANNUAL" } },
+      },
+    },
+    select: { id: true, tenantId: true, currentPeriodEnd: true },
+    orderBy: [{ currentPeriodEnd: "asc" }, { id: "asc" }],
+    take: 100,
+  });
+
+  for (const candidate of candidates) {
+    summary.examined += 1;
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const subscription = await tx.subscription.findFirst({
+          where: {
+            id: candidate.id,
+            tenantId: candidate.tenantId,
+            status: "ACTIVE",
+            currentPeriodEnd: candidate.currentPeriodEnd,
+          },
+          select: { id: true, tenantId: true, currentPeriodEnd: true },
+        });
+        if (!subscription) return null;
+        const profile = await tx.tenantCommercialProfile.findUnique({
+          where: { tenantId: subscription.tenantId },
+          select: { billingMode: true },
+        });
+        if (profile?.billingMode !== "ANNUAL") return null;
+        return createBillingOutboxIntentsForTransition(tx, {
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          eventType: BillingOutboxEventType.ANNUAL_RENEWAL_REMINDER,
+          boundary: subscription.currentPeriodEnd,
+          periodEndsAt: subscription.currentPeriodEnd,
+        });
+      });
+      if (created?.created) summary.notified += 1;
+      else summary.skipped += 1;
+    } catch {
+      summary.errors += 1;
+    }
+  }
+  return summary;
+}
+
 // `options.tenantIds` acota la corrida a un subconjunto de tenants. Produccion lo
 // omite (barrido global, comportamiento sin cambios en ambas rutas que lo llaman);
 // se normaliza, deduplica y limita antes de construir la consulta. Los limites

@@ -25,6 +25,17 @@ type AutomaticPaymentSetup = AutomaticPaymentState & {
   publicKey: string;
   agreements: { termsUrl: string; personalDataUrl: string };
 };
+type AnnualCheckoutOffer = {
+  eligible: boolean;
+  currency?: string;
+  monthlyListPriceCents?: number;
+  listAmountCents?: number;
+  discountBps?: number;
+  amountCents?: number;
+  savingsCents?: number;
+  startsAfterCurrentPeriod?: boolean;
+  isPilotConversion?: boolean;
+};
 
 function money(cents = 0, currency = 'COP') { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(cents / 100); }
 function shortDate(value?: string | null) { return value ? new Date(value).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
@@ -66,6 +77,7 @@ export default function ModuloLicenciasPage() {
   const [me, setMe] = useState<MeData | null>(null);
   const [loadError, setLoadError] = useState('');
   const [payLoading, setPayLoading] = useState(false);
+  const [annualOffer, setAnnualOffer] = useState<AnnualCheckoutOffer | null>(null);
   const [automaticPayment, setAutomaticPayment] = useState<AutomaticPaymentState | null>(null);
   const [automaticSetup, setAutomaticSetup] = useState<AutomaticPaymentSetup | null>(null);
   const [automaticLoading, setAutomaticLoading] = useState(false);
@@ -85,13 +97,23 @@ export default function ModuloLicenciasPage() {
       setLoadError('No se pudo cargar la información de la licencia.');
     }
   };
+  const loadAnnualOffer = async () => {
+    try {
+      const response = await fetch('/api/billing/wompi/checkout', { cache: 'no-store' });
+      if (!response.ok) throw new Error('annual-offer');
+      setAnnualOffer(await response.json() as AnnualCheckoutOffer);
+    } catch {
+      setAnnualOffer(null);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     let timeout: number | undefined;
     const returnedFromWompi = new URLSearchParams(window.location.search).get('payment') === 'wompi';
 
     const refresh = async (attempt = 0): Promise<void> => {
-      await load();
+      await Promise.all([load(), loadAnnualOffer()]);
       if (cancelled || !returnedFromWompi) return;
       if (attempt >= 3) {
         window.history.replaceState({}, '', '/admin/licencias');
@@ -152,13 +174,16 @@ export default function ModuloLicenciasPage() {
   });
   const rows = filter === 'all' ? invoices : invoices.filter((i) => i.group === filter);
 
-  async function payNow() {
+  async function payNow(billingMode: 'MONTHLY' | 'ANNUAL' = 'MONTHLY') {
     setPayLoading(true);
     try {
       const res = await fetch('/api/billing/wompi/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operationId: `wompi_${crypto.randomUUID().replaceAll('-', '')}` }),
+        body: JSON.stringify({
+          operationId: `${billingMode === 'ANNUAL' ? 'wompi_annual' : 'wompi'}_${crypto.randomUUID().replaceAll('-', '')}`,
+          billingMode,
+        }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.checkoutUrl) throw new Error(body?.error || 'No se pudo iniciar el pago');
@@ -247,6 +272,10 @@ export default function ModuloLicenciasPage() {
   const statusLabel = license ? (STATUS_LABEL[license.status] || license.status) : 'Sin licencia';
   const statusDot = license ? (STATUS_DOT[license.status] || COLORS.textMuted) : COLORS.textMuted;
   const isPaidPilot = ['PILOT_PREPARATION', 'PILOT_ACTIVE', 'PILOT_EVALUATION'].includes(me?.commercial?.status || '');
+  const isAnnualPlan = me?.commercial?.billingMode === 'ANNUAL';
+  const canBuyAnnual = annualOffer?.eligible === true && !isAnnualPlan;
+  const annualAmount = annualOffer?.amountCents || 0;
+  const annualCurrency = annualOffer?.currency || me?.commercial?.currency || license?.currency;
   const needsPayment = license ? NEEDS_PAYMENT.has(license.status) && !isPaidPilot : false;
   const visibleStatusLabel = isPaidPilot ? 'Piloto guiado' : statusLabel;
   const activeAddOns = [me?.entitlements?.reservations ? 'Reservas' : null, me?.entitlements?.residentPayments ? 'Pagos de residentes' : null].filter(Boolean) as string[];
@@ -276,7 +305,7 @@ export default function ModuloLicenciasPage() {
           <div><div style={{ fontSize: 11.5, color: COLORS.navyText, fontWeight: 600, marginBottom: 6 }}>{isPaidPilot ? 'Finaliza el piloto' : 'Próxima renovación'}</div><div style={{ fontSize: 16, fontWeight: 800 }}>{shortDate(isPaidPilot ? me?.commercial?.pilotAccessEndsAt : license?.currentPeriodEnd)}</div></div>
         </div>
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.14)', fontSize: 12.5, color: COLORS.navyText, fontWeight: 600 }}>
-          Plan Gestión · {activeAddOns.length ? `Add-ons: ${activeAddOns.join(', ')}` : 'sin add-ons contratados'}
+          Plan Gestión · {isAnnualPlan ? 'facturación anual' : 'facturación mensual'} · {activeAddOns.length ? `Add-ons: ${activeAddOns.join(', ')}` : 'sin add-ons contratados'}
           {isPaidPilot && me?.commercial?.postPilotPriceCents ? ` · Precio posterior: ${money(me.commercial.postPilotPriceCents, me.commercial.currency || license?.currency)}` : ''}
         </div>
       </div>
@@ -314,16 +343,33 @@ export default function ModuloLicenciasPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
-            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{isPaidPilot ? 'Precio posterior al piloto' : needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(isPaidPilot ? (me?.commercial?.postPilotPriceCents || 0) : (license?.priceCents || 0), me?.commercial?.currency || license?.currency)}</div>
-            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{isPaidPilot ? 'Precio posterior al piloto' : isAnnualPlan ? 'Renovación anual' : needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(isPaidPilot ? (me?.commercial?.postPilotPriceCents || 0) : isAnnualPlan && annualAmount ? annualAmount : (license?.priceCents || 0), isAnnualPlan ? annualCurrency : me?.commercial?.currency || license?.currency)}</div>
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : isAnnualPlan ? `Cubre 12 meses. Renueva el ${shortDate(license?.currentPeriodEnd)}` : needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
             <button type="button" onClick={() => setDocumentOpen(true)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}><FileText size={16} />Ver resumen de licencia</button>
             {isPaidPilot ? null : needsPayment ? (
-              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Pagar mensualidad'}</button>
+              <button type="button" onClick={() => void payNow(isAnnualPlan ? 'ANNUAL' : 'MONTHLY')} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : isAnnualPlan ? 'Pagar plan anual' : 'Pagar mensualidad'}</button>
             ) : (
-              <button type="button" onClick={payNow} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : 'Renovar o actualizar el pago'}</button>
+              <button type="button" onClick={() => void payNow(isAnnualPlan ? 'ANNUAL' : 'MONTHLY')} disabled={payLoading} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${COLORS.inputBorder}`, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : isAnnualPlan ? 'Renovar plan anual' : 'Renovar o actualizar el pago'}</button>
             )}
           </div>
+
+          {canBuyAnnual && (
+            <div style={{ background: COLORS.successSoft, border: `1px solid ${COLORS.success}`, borderRadius: 18, padding: 22 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.success }}>Plan anual</span>
+                <span style={{ ...badgeStyle('#FFFFFF', COLORS.success), border: `1px solid ${COLORS.success}` }}>10% de ahorro</span>
+              </div>
+              <div style={{ fontSize: 23, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>{money(annualAmount, annualCurrency)}</div>
+              <p style={{ fontSize: 12.5, color: COLORS.success, fontWeight: 600, lineHeight: 1.55, margin: '0 0 14px' }}>
+                12 meses por el valor de {money(annualOffer?.listAmountCents || 0, annualCurrency)}. Ahorras {money(annualOffer?.savingsCents || 0, annualCurrency)}.
+                {annualOffer?.isPilotConversion ? ' Al aprobarse, tu piloto pasa al plan anual.' : annualOffer?.startsAfterCurrentPeriod ? ' La anualidad empieza cuando termine tu periodo vigente.' : ''}
+              </p>
+              <button type="button" onClick={() => void payNow('ANNUAL')} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', border: 'none', borderRadius: RADIUS.pill, padding: '11px 12px', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}>
+                {payLoading ? 'Abriendo el portal de pagos…' : isPaidPilot ? 'Pasar a plan anual' : 'Pagar plan anual'}
+              </button>
+            </div>
+          )}
 
           {/* El cobro automático es lo que le quita el problema de encima al
               administrador, asi que deja de ser una nota al pie debajo de un
@@ -337,7 +383,7 @@ export default function ModuloLicenciasPage() {
                   <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.success }}>Cobro automático activo</span>
                 </div>
                 <p style={{ fontSize: 13, color: COLORS.success, fontWeight: 500, lineHeight: 1.6, margin: '0 0 6px' }}>
-                  No tienes que hacer nada. Cada mes se cobra solo con {automaticLabel}.
+                  No tienes que hacer nada. {isAnnualPlan ? 'Cada año' : 'Cada mes'} se cobra solo con {automaticLabel}.
                 </p>
                 <p style={{ fontSize: 12, color: COLORS.success, fontWeight: 500, lineHeight: 1.55, margin: '0 0 16px', opacity: 0.85 }}>
                   Próximo cobro: {shortDate(license?.nextPaymentDueDate)}. Si algo falla, siempre puedes pagar a mano.
@@ -355,10 +401,10 @@ export default function ModuloLicenciasPage() {
               <div style={{ background: COLORS.navy, borderRadius: 18, padding: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <ShieldCheck size={18} color={COLORS.white} />
-                  <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.white }}>Olvídate de pagar cada mes</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.white }}>{isAnnualPlan ? 'Renueva sin pendientes cada año' : 'Olvídate de pagar cada mes'}</span>
                 </div>
                 <p style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 500, lineHeight: 1.6, margin: '0 0 16px' }}>
-                  Registra una tarjeta y la licencia se renueva sola. Se acaban los recordatorios, la mora y el riesgo de que se te suspenda el acceso.
+                  Registra una tarjeta y la licencia se renueva sola {isAnnualPlan ? 'cada año' : 'cada mes'}. Se acaban los recordatorios, la mora y el riesgo de que se te suspenda el acceso.
                 </p>
                 <button type="button" onClick={() => automaticAvailable ? void setAutomaticRenewal(true) : void openAutomaticSetup()} disabled={automaticLoading} style={{ width: '100%', border: 'none', background: COLORS.white, color: COLORS.navy, borderRadius: RADIUS.pill, padding: '13px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, cursor: automaticLoading ? 'wait' : 'pointer' }}>
                   <ShieldCheck size={16} />{automaticLoading ? 'Preparando…' : 'Activar cobro automático'}

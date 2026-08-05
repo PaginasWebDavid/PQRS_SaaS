@@ -6,6 +6,12 @@ import { createBillingOutboxIntentsForTransition } from "./billing-outbox.servic
 import { BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
 import { buildPaymentEffectKey, sanitizeWebhookMetadata } from "./webhook-metadata";
 import { decidePaymentRowTransition, providerStatusLabel, truncateProviderStatus, type KnownPaymentStatus } from "./precedence";
+import {
+  ASSISTED_IMPLEMENTATION_FEE_CENTS,
+  MAX_FOUNDER_CUSTOMERS,
+  addCalendarMonths,
+  annualTerms,
+} from "@/domains/commercial/commercial-policy";
 
 const WOMPI_PROVIDER = "WOMPI";
 const WOMPI_CHECKOUT_URL = "https://checkout.wompi.co/p/";
@@ -108,27 +114,88 @@ function checkoutUrl(config: Config, reference: string, amountCents: number, cur
   return `${WOMPI_CHECKOUT_URL}?${params.toString()}`;
 }
 
-export async function createWompiCheckoutForTenant(input: { actorUserId: string; tenantId: string; operationId?: unknown }) {
+type CheckoutBillingMode = "MONTHLY" | "ANNUAL";
+
+type CommercialCheckoutSnapshot = {
+  commercialStatus: string;
+  billingMode: "MONTHLY" | "ANNUAL" | null;
+  postPilotListPriceCents: number | null;
+  pilotAccessEndsAt: Date | null;
+} | null;
+
+function parseCheckoutBillingMode(value: unknown): CheckoutBillingMode {
+  if (value === undefined || value === null || value === "MONTHLY") return "MONTHLY";
+  if (value === "ANNUAL") return "ANNUAL";
+  throw new WompiBillingError("El plan seleccionado no es valido", "BILLING_MODE_INVALID");
+}
+
+function isPilotConversion(status: string | null | undefined) {
+  return status === "PILOT_ACTIVE" || status === "PILOT_EVALUATION";
+}
+
+function annualCheckoutAllowed(commercial: CommercialCheckoutSnapshot) {
+  if (!commercial) return true;
+  return ["LEGACY_REVIEW", "CONVERTED_MONTHLY", "CONVERTED_ANNUAL", "PILOT_ACTIVE", "PILOT_EVALUATION"].includes(commercial.commercialStatus);
+}
+
+function monthlyCheckoutAllowed(commercial: CommercialCheckoutSnapshot) {
+  return !commercial || ["LEGACY_REVIEW", "CONVERTED_MONTHLY"].includes(commercial.commercialStatus);
+}
+
+function resolveAnnualTerms(subscription: { priceCents: number; pendingPriceCents: number | null; currency: string; pendingCurrency: string | null }, commercial: CommercialCheckoutSnapshot) {
+  const monthlyListPriceCents = commercial?.postPilotListPriceCents ?? subscription.pendingPriceCents ?? subscription.priceCents;
+  const currency = subscription.pendingCurrency || subscription.currency;
+  if (!Number.isSafeInteger(monthlyListPriceCents) || monthlyListPriceCents <= 0 || currency !== "COP") {
+    throw new WompiBillingError("La licencia no tiene un valor anual valido", "ANNUAL_BILLING_TERMS_INVALID");
+  }
+  return { monthlyListPriceCents, currency, ...annualTerms(monthlyListPriceCents) };
+}
+
+export async function getWompiAnnualCheckoutOffer(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: { subscription: true, commercialProfile: { select: { commercialStatus: true, billingMode: true, postPilotListPriceCents: true, pilotAccessEndsAt: true } } },
+  });
+  if (!tenant?.subscription) throw new WompiBillingError("El conjunto no tiene una licencia disponible para pago", "SUBSCRIPTION_NOT_FOUND");
+  const commercial = tenant.commercialProfile;
+  if (!annualCheckoutAllowed(commercial)) return { eligible: false as const };
+  const terms = resolveAnnualTerms(tenant.subscription, commercial);
+  return {
+    eligible: true as const,
+    currency: terms.currency,
+    monthlyListPriceCents: terms.monthlyListPriceCents,
+    listAmountCents: terms.listPriceCents,
+    discountBps: terms.discountBps,
+    amountCents: terms.effectivePriceCents,
+    savingsCents: terms.listPriceCents - terms.effectivePriceCents,
+    startsAfterCurrentPeriod: !isPilotConversion(commercial?.commercialStatus) && tenant.subscription.currentPeriodEnd > new Date(),
+    isPilotConversion: isPilotConversion(commercial?.commercialStatus),
+  };
+}
+
+export async function createWompiCheckoutForTenant(input: { actorUserId: string; tenantId: string; operationId?: unknown; billingMode?: unknown }) {
   const config = wompiConfig();
   const requestOperationId = operationId(input.operationId);
+  const billingMode = parseCheckoutBillingMode(input.billingMode);
   const [tenant, actor, commercial] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: input.tenantId }, include: { subscription: true } }),
     prisma.user.findUnique({ where: { id: input.actorUserId }, select: { email: true, name: true, isActive: true } }),
-    prisma.tenantCommercialProfile.findUnique({ where: { tenantId: input.tenantId }, select: { commercialStatus: true } }),
+    prisma.tenantCommercialProfile.findUnique({ where: { tenantId: input.tenantId }, select: { commercialStatus: true, billingMode: true, postPilotListPriceCents: true, pilotAccessEndsAt: true } }),
   ]);
   if (!tenant?.subscription) throw new WompiBillingError("El conjunto no tiene una licencia disponible para pago", "SUBSCRIPTION_NOT_FOUND");
   if (!actor?.isActive || !actor.email) throw new WompiBillingError("No se pudo identificar la cuenta que realiza el pago", "ACTOR_NOT_FOUND");
-  if (commercial && !["LEGACY_REVIEW", "CONVERTED_MONTHLY"].includes(commercial.commercialStatus)) {
+  if ((billingMode === "ANNUAL" && !annualCheckoutAllowed(commercial)) || (billingMode === "MONTHLY" && !monthlyCheckoutAllowed(commercial))) {
     throw new WompiBillingError("Este conjunto debe continuar su proceso comercial antes de pagar en linea", "COMMERCIAL_PAYMENT_BLOCKED");
   }
   const subscription = tenant.subscription;
-  const amountCents = subscription.pendingPriceCents ?? subscription.priceCents;
-  const currency = subscription.pendingCurrency || subscription.currency;
+  const annual = billingMode === "ANNUAL" ? resolveAnnualTerms(subscription, commercial) : null;
+  const amountCents = annual?.effectivePriceCents ?? subscription.pendingPriceCents ?? subscription.priceCents;
+  const currency = annual?.currency ?? subscription.pendingCurrency ?? subscription.currency;
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "COP") {
     throw new WompiBillingError("La licencia no tiene un valor de cobro valido", "BILLING_TERMS_INVALID");
   }
   if (subscription.status === "CANCELLED") throw new WompiBillingError("La licencia esta cancelada. Contacta a PQRS Services para reactivarla", "SUBSCRIPTION_CANCELLED");
-  const requestHash = crypto.createHash("sha256").update(JSON.stringify({ tenantId: input.tenantId, subscriptionId: subscription.id, amountCents, currency, requestOperationId })).digest("hex");
+  const requestHash = crypto.createHash("sha256").update(JSON.stringify({ tenantId: input.tenantId, subscriptionId: subscription.id, billingMode, amountCents, currency, requestOperationId })).digest("hex");
   const payment = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wompi-checkout:${input.tenantId}:${requestOperationId}`}, 0))`;
     const existing = await tx.payment.findUnique({ where: { tenantId_operationId: { tenantId: input.tenantId, operationId: requestOperationId } } });
@@ -148,15 +215,17 @@ export async function createWompiCheckoutForTenant(input: { actorUserId: string;
     const now = new Date();
     const created = await tx.payment.create({ data: {
       tenantId: input.tenantId, subscriptionId: subscription.id, amountCents, currency,
-      status: "PENDING", provider: "WOMPI", dueDate: now, periodStart: now, periodEnd: now,
+      concept: billingMode === "ANNUAL" ? "SUBSCRIPTION_ANNUAL" : "SUBSCRIPTION_MONTHLY",
+      listAmountCents: annual?.listPriceCents ?? null, discountBps: annual?.discountBps ?? 0,
+      status: "PENDING", provider: "WOMPI", dueDate: now, periodStart: now, periodEnd: annual ? addCalendarMonths(now, 12) : now,
       operationId: requestOperationId, requestHash, recordedByUserId: input.actorUserId, rawStatus: "CHECKOUT_CREATED",
     } });
-    const reference = `WOMPI_${created.id}`;
+    const reference = billingMode === "ANNUAL" ? `WOMPI_ANNUAL_${created.id}` : `WOMPI_${created.id}`;
     const updated = await tx.payment.update({ where: { id: created.id }, data: { externalReference: reference } });
     await registerAuditLog({
       actorUserId: input.actorUserId, tenantId: input.tenantId, action: AuditAction.WOMPI_CHECKOUT_CREATED,
       targetType: "Payment", targetId: updated.id,
-      metadata: { provider: WOMPI_PROVIDER, paymentId: updated.id, reference, amountCents, currency, operationId: requestOperationId, environment: config.env },
+      metadata: { provider: WOMPI_PROVIDER, paymentId: updated.id, reference, billingMode, concept: updated.concept, amountCents, listAmountCents: updated.listAmountCents, discountBps: updated.discountBps, currency, operationId: requestOperationId, environment: config.env },
     }, tx);
     return updated;
   });
@@ -469,6 +538,8 @@ type AutomaticPaymentIntent = {
   currency: string;
   customerEmail: string;
   reference: string;
+  billingMode: CheckoutBillingMode;
+  concept: "SUBSCRIPTION_MONTHLY" | "SUBSCRIPTION_ANNUAL";
 };
 
 type AutomaticPaymentIntentResult =
@@ -496,6 +567,13 @@ async function reserveAutomaticWompiPayment(input: { subscriptionId: string; ten
       select: { id: true, providerSourceId: true, customerEmail: true },
     });
     if (!method) return { kind: "SKIPPED", reason: "PAYMENT_METHOD_NOT_AVAILABLE" };
+    const commercial = await tx.tenantCommercialProfile.findUnique({
+      where: { tenantId: subscription.tenantId },
+      select: { commercialStatus: true, billingMode: true, postPilotListPriceCents: true, pilotAccessEndsAt: true },
+    });
+    const annual = commercial?.billingMode === "ANNUAL" ? resolveAnnualTerms(subscription, commercial) : null;
+    const billingMode: CheckoutBillingMode = annual ? "ANNUAL" : "MONTHLY";
+    const concept = annual ? "SUBSCRIPTION_ANNUAL" as const : "SUBSCRIPTION_MONTHLY" as const;
     const operationId = automaticOperationId(subscription.id, method.id, subscription.currentPeriodEnd);
     const previousAttempt = await tx.payment.findUnique({ where: { tenantId_operationId: { tenantId: subscription.tenantId, operationId } }, select: { id: true } });
     if (previousAttempt) return { kind: "DUPLICATE" };
@@ -504,15 +582,18 @@ async function reserveAutomaticWompiPayment(input: { subscriptionId: string; ten
       select: { id: true },
     });
     if (pendingPayment) return { kind: "SKIPPED", reason: "PAYMENT_ALREADY_PENDING" };
-    const amountCents = subscription.pendingPriceCents ?? subscription.priceCents;
-    const currency = subscription.pendingCurrency || subscription.currency;
+    const amountCents = annual?.effectivePriceCents ?? subscription.pendingPriceCents ?? subscription.priceCents;
+    const currency = annual?.currency ?? subscription.pendingCurrency ?? subscription.currency;
     if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "COP") return { kind: "SKIPPED", reason: "INVALID_BILLING_TERMS" };
-    const requestHash = crypto.createHash("sha256").update(JSON.stringify({ tenantId: subscription.tenantId, subscriptionId: subscription.id, methodId: method.id, amountCents, currency, operationId })).digest("hex");
+    const requestHash = crypto.createHash("sha256").update(JSON.stringify({ tenantId: subscription.tenantId, subscriptionId: subscription.id, methodId: method.id, billingMode, amountCents, currency, operationId })).digest("hex");
     const payment = await tx.payment.create({ data: {
       tenantId: subscription.tenantId,
       subscriptionId: subscription.id,
       wompiPaymentMethodId: method.id,
       amountCents,
+      concept,
+      listAmountCents: annual?.listPriceCents ?? null,
+      discountBps: annual?.discountBps ?? 0,
       currency,
       status: "PENDING",
       provider: "WOMPI",
@@ -523,7 +604,7 @@ async function reserveAutomaticWompiPayment(input: { subscriptionId: string; ten
       requestHash,
       rawStatus: "AUTOMATIC_CHARGE_CREATED",
     } });
-    const reference = `WOMPI_${payment.id}`;
+    const reference = annual ? `WOMPI_ANNUAL_${payment.id}` : `WOMPI_${payment.id}`;
     const updated = await tx.payment.update({ where: { id: payment.id }, data: { externalReference: reference } });
     await registerAuditLog({
       actorUserId: null,
@@ -531,9 +612,9 @@ async function reserveAutomaticWompiPayment(input: { subscriptionId: string; ten
       action: AuditAction.WOMPI_AUTOMATIC_CHARGE_CREATED,
       targetType: "Payment",
       targetId: payment.id,
-      metadata: { provider: WOMPI_PROVIDER, paymentId: payment.id, reference, amountCents, currency, methodId: method.id },
+      metadata: { provider: WOMPI_PROVIDER, paymentId: payment.id, reference, billingMode, concept, amountCents, listAmountCents: annual?.listPriceCents ?? null, discountBps: annual?.discountBps ?? 0, currency, methodId: method.id },
     }, tx);
-    return { kind: "READY", intent: { paymentId: updated.id, paymentMethodId: method.id, providerSourceId: method.providerSourceId, amountCents, currency, customerEmail: method.customerEmail, reference } };
+    return { kind: "READY", intent: { paymentId: updated.id, paymentMethodId: method.id, providerSourceId: method.providerSourceId, amountCents, currency, customerEmail: method.customerEmail, reference, billingMode, concept } };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
@@ -753,7 +834,138 @@ async function billingTransaction<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
   throw new WompiBillingError("No se pudo confirmar el pago en este momento", "WOMPI_TRANSACTION_FAILED");
 }
 
+async function applyAnnualApproved(tx: Tx, paymentId: string, tenantId: string, subscriptionId: string, now: Date) {
+  const [payment, subscription, commercial] = await Promise.all([
+    tx.payment.findUniqueOrThrow({ where: { id: paymentId } }),
+    tx.subscription.findUniqueOrThrow({ where: { id: subscriptionId } }),
+    tx.tenantCommercialProfile.findUnique({ where: { tenantId } }),
+  ]);
+  if (payment.tenantId !== tenantId || payment.subscriptionId !== subscriptionId || subscription.tenantId !== tenantId) {
+    throw new WompiBillingError("La referencia de pago no coincide con la licencia", "PAYMENT_TENANT_MISMATCH");
+  }
+  if (payment.concept !== "SUBSCRIPTION_ANNUAL") throw new WompiBillingError("El pago no corresponde a una anualidad", "ANNUAL_PAYMENT_CONCEPT_INVALID");
+  const checkoutProfile: CommercialCheckoutSnapshot = commercial ? {
+    commercialStatus: commercial.commercialStatus,
+    billingMode: commercial.billingMode,
+    postPilotListPriceCents: commercial.postPilotListPriceCents,
+    pilotAccessEndsAt: commercial.pilotAccessEndsAt,
+  } : null;
+  if (!annualCheckoutAllowed(checkoutProfile)) {
+    throw new WompiBillingError("La anualidad ya no coincide con el estado comercial del conjunto", "ANNUAL_COMMERCIAL_STATE_CHANGED");
+  }
+  const terms = resolveAnnualTerms(subscription, checkoutProfile);
+  if (payment.amountCents !== terms.effectivePriceCents || payment.listAmountCents !== terms.listPriceCents || payment.discountBps !== terms.discountBps || payment.currency !== terms.currency) {
+    throw new WompiBillingError("Los terminos de la anualidad no coinciden con la cotizacion original", "ANNUAL_PAYMENT_TERMS_MISMATCH");
+  }
+  const paymentClaim = await tx.payment.updateMany({
+    where: { id: paymentId, status: "APPROVED", approvedEffectAppliedAt: null, approvedEffectReconciliationRequired: false },
+    data: { approvedEffectAppliedAt: now },
+  });
+  if (paymentClaim.count !== 1) return { effectApplied: false as const, payment };
+
+  const periodStart = isPilotConversion(commercial?.commercialStatus) && commercial?.pilotAccessEndsAt && commercial.pilotAccessEndsAt > now
+    ? commercial.pilotAccessEndsAt
+    : subscription.currentPeriodEnd > now ? subscription.currentPeriodEnd : now;
+  const periodEnd = addCalendarMonths(periodStart, 12);
+  const economics = await tx.subscription.updateMany({
+    where: {
+      id: subscription.id, tenantId: subscription.tenantId, status: subscription.status,
+      currentPeriodStart: subscription.currentPeriodStart, currentPeriodEnd: subscription.currentPeriodEnd,
+      unitsSnapshot: subscription.unitsSnapshot, priceCents: subscription.priceCents, currency: subscription.currency,
+      pendingUnitsSnapshot: subscription.pendingUnitsSnapshot, pendingPriceCents: subscription.pendingPriceCents,
+      pendingCurrency: subscription.pendingCurrency, pendingPriceEffectiveAt: subscription.pendingPriceEffectiveAt,
+    },
+    data: {
+      status: subscription.status === "CANCELLED" ? "CANCELLED" : "ACTIVE",
+      currentPeriodStart: periodStart, currentPeriodEnd: periodEnd,
+      priceCents: terms.monthlyListPriceCents, currency: terms.currency,
+      pendingUnitsSnapshot: null, pendingPriceCents: null, pendingCurrency: null, pendingPriceEffectiveAt: null,
+      graceEndsAt: null, trialEndsAt: null, lastWebhookAt: now,
+    },
+  });
+  if (economics.count !== 1) throw new WompiEconomicConflictError();
+  await tx.payment.update({ where: { id: payment.id }, data: { periodStart, periodEnd } });
+
+  if (commercial && isPilotConversion(commercial.commercialStatus)) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('commercial:founder-slots', 0))`;
+    let founderNumber = commercial.founderNumber;
+    let founderGrantedAt = commercial.founderGrantedAt;
+    let isFounderCustomer = commercial.isFounderCustomer;
+    if (!isFounderCustomer) {
+      const assigned = await tx.tenantCommercialProfile.count({ where: { isFounderCustomer: true } });
+      if (assigned < MAX_FOUNDER_CUSTOMERS) {
+        isFounderCustomer = true;
+        founderNumber = assigned + 1;
+        founderGrantedAt = now;
+      }
+    }
+    const founderData = isFounderCustomer ? {
+      isFounderCustomer: true, founderNumber, founderGrantedAt,
+      priceProtectedUntil: commercial.priceProtectedUntil || addCalendarMonths(founderGrantedAt || now, 12),
+      implementationType: "FOUNDER_WAIVED" as const, implementationFeeWaived: true,
+      implementationListFeeCents: commercial.implementationListFeeCents || ASSISTED_IMPLEMENTATION_FEE_CENTS,
+      implementationEffectiveFeeCents: 0, implementationStatus: "WAIVED" as const,
+    } : {};
+    const referralStatus = commercial.referralAgreementType === "NONE" ? "NOT_APPLICABLE" : "MANUAL_REVIEW";
+    const updated = await tx.tenantCommercialProfile.update({ where: { tenantId }, data: {
+      commercialStatus: "CONVERTED_ANNUAL", billingMode: "ANNUAL", convertedAt: now, contractedPeriodEndsAt: periodEnd,
+      postPilotContractPriceCents: commercial.postPilotListPriceCents,
+      discountBps: terms.discountBps, discountListPriceCents: terms.listPriceCents, discountEffectivePriceCents: terms.effectivePriceCents,
+      discountReason: "Descuento anual del 10 %", discountStartsAt: periodStart, discountEndsAt: periodEnd,
+      discountApprovedById: payment.recordedByUserId, commissionStatus: referralStatus,
+      nextAction: "Acompanhar adopcion y renovacion", nextActionDueAt: periodEnd, ...founderData,
+    } });
+    await registerAuditLog({
+      actorUserId: payment.recordedByUserId, tenantId, action: AuditAction.PILOT_CONVERTED,
+      targetType: "TenantCommercialProfile", targetId: updated.id,
+      metadata: { paymentId: payment.id, billingMode: "ANNUAL", provider: WOMPI_PROVIDER, listAmountCents: terms.listPriceCents, effectiveAmountCents: terms.effectivePriceCents, discountBps: terms.discountBps, periodStart: periodStart.toISOString(), periodEnd: periodEnd.toISOString(), founderNumber: updated.founderNumber },
+    }, tx);
+  } else if (commercial) {
+    const updated = await tx.tenantCommercialProfile.update({ where: { tenantId }, data: {
+      commercialStatus: ["CONVERTED_MONTHLY", "LEGACY_REVIEW"].includes(commercial.commercialStatus) ? "CONVERTED_ANNUAL" : commercial.commercialStatus,
+      billingMode: "ANNUAL", convertedAt: commercial.convertedAt || now, contractedPeriodEndsAt: periodEnd,
+      postPilotContractPriceCents: commercial.postPilotListPriceCents || terms.monthlyListPriceCents,
+      discountBps: terms.discountBps, discountListPriceCents: terms.listPriceCents, discountEffectivePriceCents: terms.effectivePriceCents,
+      discountReason: "Descuento anual del 10 %", discountStartsAt: periodStart, discountEndsAt: periodEnd,
+      discountApprovedById: payment.recordedByUserId,
+      nextAction: "Renovacion anual autogestionada", nextActionDueAt: periodEnd,
+    } });
+    await registerAuditLog({
+      actorUserId: payment.recordedByUserId, tenantId, action: AuditAction.COMMERCIAL_PROFILE_CHANGED,
+      targetType: "TenantCommercialProfile", targetId: updated.id,
+      metadata: { paymentId: payment.id, billingMode: "ANNUAL", provider: WOMPI_PROVIDER, periodEnd: periodEnd.toISOString() },
+    }, tx);
+  } else {
+    const created = await tx.tenantCommercialProfile.create({ data: {
+      tenantId, commercialStatus: "CONVERTED_ANNUAL", billingMode: "ANNUAL", convertedAt: now, contractedPeriodEndsAt: periodEnd,
+      postPilotListPriceCents: terms.monthlyListPriceCents, postPilotContractPriceCents: terms.monthlyListPriceCents,
+      currency: terms.currency, discountBps: terms.discountBps, discountListPriceCents: terms.listPriceCents,
+      discountEffectivePriceCents: terms.effectivePriceCents, discountReason: "Descuento anual del 10 %",
+      discountStartsAt: periodStart, discountEndsAt: periodEnd, discountApprovedById: payment.recordedByUserId,
+      nextAction: "Renovacion anual autogestionada", nextActionDueAt: periodEnd,
+    } });
+    await registerAuditLog({
+      actorUserId: payment.recordedByUserId, tenantId, action: AuditAction.COMMERCIAL_PROFILE_CHANGED,
+      targetType: "TenantCommercialProfile", targetId: created.id,
+      metadata: { paymentId: payment.id, billingMode: "ANNUAL", provider: WOMPI_PROVIDER, profileCreated: true, periodEnd: periodEnd.toISOString() },
+    }, tx);
+  }
+  const accessRestored = subscription.status !== "CANCELLED";
+  if (accessRestored) await tx.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE", cancelledAt: null } });
+  return {
+    effectApplied: true as const,
+    payment: await tx.payment.findUniqueOrThrow({ where: { id: paymentId } }),
+    periodEnd,
+    accessRestored,
+    accessPreserved: !accessRestored,
+  };
+}
+
 async function applyApproved(tx: Tx, paymentId: string, tenantId: string, subscriptionId: string, now: Date) {
+  const sourcePayment = await tx.payment.findUniqueOrThrow({ where: { id: paymentId }, select: { concept: true } });
+  if (sourcePayment.concept === "SUBSCRIPTION_ANNUAL") {
+    return applyAnnualApproved(tx, paymentId, tenantId, subscriptionId, now);
+  }
   const subscription = await tx.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
   if (subscription.tenantId !== tenantId) throw new WompiBillingError("La referencia de pago no coincide con la licencia", "PAYMENT_TENANT_MISMATCH");
   const next = computeNextPeriod({ currentPeriodEnd: subscription.currentPeriodEnd, now, periodDays: BILLING_PERIOD_DAYS, pending: {

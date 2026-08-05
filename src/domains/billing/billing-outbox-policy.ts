@@ -10,6 +10,7 @@ export type BillingOutboxChannelValue = "IN_APP" | "EMAIL";
 export type BillingOutboxEventValue =
   | "BILLING_GRACE_STARTED"
   | "BILLING_SUSPENDED"
+  | "ANNUAL_RENEWAL_REMINDER"
   | "SAAS_PAYMENT_APPROVED"
   | "SAAS_PAYMENT_REJECTED"
   | "COURTESY_EXTENSION_GRANTED";
@@ -132,6 +133,18 @@ export function getBillingOutboxContent(eventType: BillingOutboxEventValue, payl
       message: "El periodo de gracia termino sin pago y el servicio quedo suspendido. Paga desde Licencias y pagos para reactivarlo.",
       emailBodyHtml: "El periodo de gracia termino sin que se registrara el pago, asi que el servicio de tu conjunto quedo suspendido. Puedes reactivarlo pagando desde Licencias y pagos en cualquier momento.",
       accent: "danger" as const,
+    };
+  }
+  if (eventType === "ANNUAL_RENEWAL_REMINDER") {
+    const coverage = payload.periodEndsAt
+      ? ` Tu periodo anual actual termina el ${new Date(payload.periodEndsAt).toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}.`
+      : "";
+    return {
+      notificationType: "LICENSE_EXPIRING",
+      title: "Tu renovacion anual se acerca",
+      message: `Faltan 30 dias para la renovacion anual de la licencia de tu conjunto.${coverage} Revisa el plan y el medio de pago desde Licencias y pagos.`,
+      emailBodyHtml: `Faltan <strong>30 dias</strong> para la renovacion anual de la licencia de tu conjunto.${coverage} Puedes revisar el plan, renovar manualmente o activar el cobro automatico desde Licencias y pagos.`,
+      accent: "warning" as const,
     };
   }
   if (eventType === "SAAS_PAYMENT_APPROVED") {
