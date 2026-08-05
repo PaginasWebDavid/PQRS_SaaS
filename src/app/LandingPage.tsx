@@ -971,6 +971,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
                       type="button"
                       onClick={() => setOpenFaq(current => (current === index ? -1 : index))}
                       aria-expanded={open}
+                      aria-controls={`faq-panel-${index}`}
                       style={{
                         width: '100%',
                         display: 'flex',
@@ -1000,7 +1001,24 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
                         ＋
                       </span>
                     </button>
-                    {open && <p style={{ margin: 0, padding: '0 24px 20px', fontSize: 14, color: '#6E6E73', fontWeight: 500, lineHeight: 1.65 }}>{faq.a}</p>}
+                    {/* La respuesta se renderiza siempre y se colapsa con CSS.
+                        Antes se montaba solo al abrir ({open && ...}), asi que
+                        ninguna respuesta existia en el HTML servido y Google no
+                        podia indexar el FAQ: justo las preguntas que escribe una
+                        administradora al buscar. El truco de grid 0fr -> 1fr
+                        anima la altura sin fijar un maximo a mano. */}
+                    <div
+                      id={`faq-panel-${index}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateRows: open ? '1fr' : '0fr',
+                        transition: 'grid-template-rows 250ms cubic-bezier(.2,.7,.2,1)',
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden' }}>
+                        <p style={{ margin: 0, padding: '0 24px 20px', fontSize: 14, color: '#6E6E73', fontWeight: 500, lineHeight: 1.65 }}>{faq.a}</p>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
