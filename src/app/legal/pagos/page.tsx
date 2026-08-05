@@ -1,4 +1,7 @@
 import { LegalLayout, LegalList, LegalSection } from '@/components/legal/LegalLayout';
+// El porcentaje anual sale de la misma constante que usa el cobro, para que
+// el contrato no pueda prometer un descuento distinto al que aplica el sistema.
+import { ANNUAL_DISCOUNT_BPS, bpsToPercent } from '@/domains/commercial/commercial-policy.constants';
 import {
   LEGAL_MIN_GRACE_DAYS,
   LEGAL_PRICE_CHANGE_NOTICE_DAYS,
@@ -43,16 +46,25 @@ export default function PaymentsPage() {
       </p>
     </LegalSection>
 
-    <LegalSection title="3. Cobro mensual y renovación automática">
+    <LegalSection title="3. Modalidades de pago y renovación automática">
       <p>
-        Al activar la suscripción, el conjunto autoriza el <strong>cobro automático mensual</strong> del valor vigente
-        sobre el medio de pago registrado, de forma recurrente, hasta que solicite la cancelación. La autorización se
-        otorga de forma expresa en la pantalla de configuración del pago automático.
+        El conjunto puede pagar en dos modalidades, que se acuerdan por escrito antes del primer cobro:
+      </p>
+      <LegalList items={[
+        'Mensual: se cobra el valor vigente cada periodo de treinta (30) días.',
+        `Anual: se cobran doce (12) meses por anticipado con un descuento del ${bpsToPercent(ANNUAL_DISCOUNT_BPS)} % sobre la tarifa de lista. La cobertura va desde el pago y por doce meses.`,
+      ]} />
+      <p>
+        Al activar la suscripción, el conjunto autoriza el <strong>cobro automático recurrente</strong> del valor
+        vigente, según la modalidad contratada, sobre el medio de pago registrado, hasta que solicite la cancelación.
+        La autorización se otorga de forma expresa en la pantalla de configuración del pago automático.
       </p>
       <LegalList items={[
         'El conjunto debe mantener un medio de pago válido y con fondos suficientes.',
         'La fecha del siguiente cobro se muestra siempre en la sección Licencias y pagos.',
+        'En la modalidad anual se avisa al correo del administrador antes de la renovación, para que pueda decidir con tiempo.',
         'El conjunto puede desactivar el cobro automático en cualquier momento desde esa misma sección, sin llamar ni escribir a nadie.',
+        'El descuento anual no es acumulable con otros descuentos comerciales sobre el mismo periodo.',
         'Los datos de la tarjeta se procesan directamente en la pasarela de pagos y no se almacenan en nuestros servidores.',
       ]} />
     </LegalSection>
@@ -103,8 +115,15 @@ export default function PaymentsPage() {
         el conjunto puede solicitar el reembolso proporcional a los días afectados.
       </p>
       <p>
-        Fuera de estos dos casos, los periodos ya iniciados no son reembolsables. Cualquier reembolso está sujeto a las
-        reglas operativas de la pasarela de pagos.
+        <strong>Cancelación de un plan anual.</strong> Si el conjunto cancela antes de terminar los doce meses
+        pagados, puede elegir entre mantener el servicio activo hasta el final del periodo ya pagado, o solicitar el
+        reembolso de los <strong>meses completos no utilizados</strong>. En el segundo caso, los meses ya consumidos se
+        liquidan a la tarifa mensual de lista, porque el descuento anual se otorga a cambio de la permanencia de doce
+        meses. Nunca se cobra más de lo que el conjunto ya había pagado.
+      </p>
+      <p>
+        Fuera de estos casos, los periodos mensuales ya iniciados no son reembolsables. Cualquier reembolso está sujeto
+        a las reglas operativas de la pasarela de pagos.
       </p>
     </LegalSection>
 

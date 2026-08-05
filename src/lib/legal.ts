@@ -13,7 +13,9 @@ export const LEGAL_PATHS = {
 //   1.0 -> borrador inicial, delegaba todo a "el contrato" (nunca publicado).
 //   2.0 -> documentos autosuficientes: limite de responsabilidad, ley
 //          aplicable, reembolsos, y acuerdo de encargo de datos (Ley 1581).
-export const LEGAL_DOCUMENT_VERSION = '2.0';
+//   2.1 -> modalidad de pago anual con descuento, y regla de reembolso al
+//          cancelar una anualidad antes de cumplir los doce meses.
+export const LEGAL_DOCUMENT_VERSION = '2.1';
 
 // Topes contractuales que tambien viven en codigo. Se declaran aca para que el
 // texto legal y el comportamiento real no puedan divergir en silencio.
