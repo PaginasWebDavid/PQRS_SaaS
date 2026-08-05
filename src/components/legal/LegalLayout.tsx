@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useIsMobile } from '@/components/shell/Sheet';
-import { LEGAL_PATHS, getLegalConfig } from '@/lib/legal';
+import { LEGAL_DOCUMENT_VERSION, LEGAL_PATHS, getLegalConfig } from '@/lib/legal';
+
+const isProduction = process.env.NODE_ENV === 'production';
 
 export function LegalLayout({ title, intro, children }: { title: string; intro: string; children: ReactNode }) {
   const legal = getLegalConfig();
@@ -21,16 +23,26 @@ export function LegalLayout({ title, intro, children }: { title: string; intro: 
       </header>
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '48px 24px 80px' }}>
-        {!legal.isComplete && (
+        {/* El aviso de configuracion incompleta es para nosotros, no para el
+            cliente: en produccion un banner que dice "esto es un borrador"
+            desacredita el contrato frente a quien lo va a firmar. */}
+        {!legal.isComplete && !isProduction && (
           <div role="note" style={{ background: '#FBF3DF', color: '#8A5A00', border: '1px solid #E8D9AC', borderRadius: 12, padding: '12px 14px', fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, marginBottom: 28 }}>
-            Este documento es una base de trabajo. Antes de publicar, completa la identidad legal, el NIT, la direccion y la fecha de vigencia en las variables de entorno, y valida el texto con un profesional en Colombia.
+            Solo visible en desarrollo: faltan variables de identidad legal (NEXT_PUBLIC_LEGAL_NAME, _NIT, _ADDRESS, _EFFECTIVE_DATE). Complétalas antes de publicar.
           </div>
         )}
 
         <div style={{ maxWidth: 720 }}>
-          <div style={{ fontSize: 12, color: '#6E6E73', fontWeight: 700, marginBottom: 12 }}>PQRS SERVICES / INFORMACION LEGAL</div>
+          <div style={{ fontSize: 12, color: '#6E6E73', fontWeight: 700, marginBottom: 12 }}>PQRS SERVICES / INFORMACIÓN LEGAL</div>
           <h1 style={{ fontSize: 'clamp(28px, 5vw, 40px)', lineHeight: 1.1, letterSpacing: '-0.025em', fontWeight: 800, margin: '0 0 14px' }}>{title}</h1>
-          <p style={{ fontSize: 15, color: '#6E6E73', fontWeight: 500, lineHeight: 1.65, margin: '0 0 34px' }}>{intro}</p>
+          <p style={{ fontSize: 15, color: '#6E6E73', fontWeight: 500, lineHeight: 1.65, margin: '0 0 22px' }}>{intro}</p>
+          {(legal.effectiveDate || legal.legalName) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: 12.5, color: '#6E6E73', fontWeight: 600, borderTop: '1px solid #E8E8ED', borderBottom: '1px solid #E8E8ED', padding: '12px 0', margin: '0 0 34px' }}>
+              {legal.effectiveDate && <span>Vigente desde el {legal.effectiveDate}</span>}
+              <span>Versión {LEGAL_DOCUMENT_VERSION}</span>
+              {legal.legalName && <span>{legal.legalName}{legal.nit ? ` · ${legal.idLabel} ${legal.nit}` : ''}</span>}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 210px', gap: isMobile ? 24 : 42, alignItems: 'start' }}>
@@ -49,7 +61,11 @@ export function LegalLayout({ title, intro, children }: { title: string; intro: 
 
       <footer style={{ borderTop: '1px solid #E8E8ED', background: '#FAFAFA' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px', display: 'flex', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', fontSize: 12, color: '#6E6E73' }}>
-          <span>{legal.brandName} · {legal.city}</span>
+          <span>
+            {legal.legalName || legal.brandName}
+            {legal.nit ? ` · ${legal.idLabel} ${legal.nit}` : ''}
+            {legal.address ? ` · ${legal.address}` : ''} · {legal.city}
+          </span>
           <a href={`mailto:${legal.supportEmail}`} style={{ color: '#122545', fontWeight: 700 }}>{legal.supportEmail}</a>
         </div>
       </footer>
