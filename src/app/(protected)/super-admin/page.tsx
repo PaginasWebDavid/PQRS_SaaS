@@ -68,7 +68,14 @@ type ApiAuditLog = {
   createdAt: string;
 };
 type BillingOverview = {
+  // Ingreso recurrente: reparte lo anual entre doce y cuenta por periodo
+  // cubierto. Responde "cuanto vale la base de clientes al mes".
   monthlyRevenueCents: number;
+  // Caja: dinero que entro este mes, por fecha de pago y valor completo.
+  // Responde "cuanto me pagaron". Son preguntas distintas y no deben mezclarse.
+  receivedThisMonthCents: number;
+  // Registros manuales del Super Admin: anotaciones, no dinero recibido.
+  recordedThisMonthCents: number;
   totalRevenueCents: number;
   monthlyApprovedPayments: number;
   pendingPayments: number;
@@ -1686,12 +1693,20 @@ export default function DashboardSuperAdminPage() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(3, minmax(0,1fr))', gap: 14, marginBottom: 20 }}>
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
+                  {/* Esta tarjeta mostraba monthlyRevenueCents, que es MRR: reparte
+                      lo anual entre doce y cuenta por periodo cubierto. Decia
+                      "Recibido" pero no era caja, y por eso una anualidad cobrada
+                      hoy no movia el numero. Ahora muestra dinero que entro. */}
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>
                     Recibido en {new Date().toLocaleDateString('es-CO', { month: 'long' })}
-                    <InfoTip text="Pagos aprobados del mes calendario en curso. Si aparece en cero pero abajo ves pagos, es porque son de meses anteriores. Ojo: incluye los registros manuales que hiciste con 'Registrar pago', no solo el dinero cobrado por la pasarela." />
+                    <InfoTip text="Dinero que entró de verdad este mes calendario, por fecha de pago y por su valor completo: pasarela y transferencias confirmadas. NO incluye los registros manuales sin cobro, que se muestran aparte. Es distinto del MRR: una anualidad entra aquí completa el día que se cobra, y en el MRR aporta una doceava parte cada mes." />
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{billing ? formatMoney(billing.monthlyRevenueCents) : '—'}</div>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{billing?.monthlyApprovedPayments ?? 0} pagos aprobados</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.success }}>{billing ? formatMoney(billing.receivedThisMonthCents) : '—'}</div>
+                  {billing && billing.recordedThisMonthCents > 0 && (
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
+                      + {formatMoney(billing.recordedThisMonthCents)} en registros manuales sin cobro
+                    </div>
+                  )}
                 </div>
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15 }}>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Pagos pendientes</div>

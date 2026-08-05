@@ -13,6 +13,7 @@ import {
 } from "./billing-outbox.service";
 import { addDays, BILLING_PERIOD_DAYS, computeNextPeriod } from "./period";
 import { decideCronTransition, type CronTransitionKind } from "./cron-decision";
+import { REAL_MONEY_PROVIDERS } from "@/lib/design/billing";
 
 export const DEFAULT_TRIAL_DAYS = 15;
 const RENEWAL_WINDOW_DAYS = 15;
@@ -363,6 +364,8 @@ export async function getBillingPlatformOverview() {
   const [
     recurringPayments,
     totalApprovedPayments,
+    receivedThisMonth,
+    recordedThisMonth,
     pendingPayments,
     upcomingRenewals,
     activeLicenses,
@@ -382,6 +385,30 @@ export async function getBillingPlatformOverview() {
     }),
     prisma.payment.aggregate({
       where: { status: "APPROVED", concept: { not: "COURTESY" }, provider: { not: "COURTESY" } },
+      _sum: { amountCents: true },
+    }),
+    // Caja del mes: dinero que de verdad entro, por fecha de pago y por su
+    // valor completo. Es una pregunta distinta a la del MRR, que reparte lo
+    // anual entre doce y cuenta por periodo cubierto. Una anualidad de 540.000
+    // cobrada hoy son 540.000 de caja hoy y 45.000 de MRR cada mes del año que
+    // cubre: las dos cifras son correctas y responden cosas distintas.
+    prisma.payment.aggregate({
+      where: {
+        status: "APPROVED",
+        provider: { in: [...REAL_MONEY_PROVIDERS] },
+        paidAt: { gte: thisMonthStart, lt: nextMonthStart },
+      },
+      _sum: { amountCents: true },
+    }),
+    // Registros manuales del Super Admin: no es dinero recibido por ningun
+    // canal, es una anotacion. Se cuenta aparte para que nunca se sume a la
+    // caja sin que se vea.
+    prisma.payment.aggregate({
+      where: {
+        status: "APPROVED",
+        provider: "SIMULATED",
+        paidAt: { gte: thisMonthStart, lt: nextMonthStart },
+      },
       _sum: { amountCents: true },
     }),
     prisma.payment.count({ where: { status: "PENDING" } }),
@@ -414,6 +441,8 @@ export async function getBillingPlatformOverview() {
 
   return {
     monthlyRevenueCents,
+    receivedThisMonthCents: receivedThisMonth._sum.amountCents || 0,
+    recordedThisMonthCents: recordedThisMonth._sum.amountCents || 0,
     totalRevenueCents: totalApprovedPayments._sum.amountCents || 0,
     monthlyApprovedPayments: recurringPayments.filter((payment) => payment.concept === "SUBSCRIPTION_MONTHLY" && payment.paidAt && payment.paidAt >= thisMonthStart && payment.paidAt < nextMonthStart).length,
     pendingPayments,
