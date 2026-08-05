@@ -1,12 +1,142 @@
 import { LegalLayout, LegalList, LegalSection } from '@/components/legal/LegalLayout';
+import {
+  LEGAL_MIN_GRACE_DAYS,
+  LEGAL_PRICE_CHANGE_NOTICE_DAYS,
+  LEGAL_TRIAL_DAYS,
+  getLegalConfig,
+} from '@/lib/legal';
 
 export default function PaymentsPage() {
-  return <LegalLayout title="Pagos, renovación y cancelación" intro="Estas son las reglas operativas que deben aparecer antes de que un conjunto confirme una suscripción mensual.">
-    <LegalSection title="1. Precio y alcance"><p>El precio aplicable es el que se muestra en la propuesta comercial o en la pantalla de checkout antes del pago. Puede depender del número de unidades, los módulos contratados y las condiciones particulares del conjunto. No se debe cobrar un concepto que no haya sido informado previamente.</p></LegalSection>
-    <LegalSection title="2. Cobro mensual"><p>Cuando el conjunto confirma una suscripción, el medio de pago autorizado procesa el cobro según la frecuencia y las condiciones mostradas. El conjunto debe mantener un medio de pago válido y autorizado.</p></LegalSection>
-    <LegalSection title="3. Fallo de pago y suspensión"><LegalList items={['Un pago rechazado debe mostrar un mensaje claro y permitir actualizar el medio de pago.', 'Durante el periodo de gracia que figure en el contrato, el conjunto puede regularizar la cuenta.', 'Si la deuda continúa, el acceso puede suspenderse de acuerdo con el contrato.', 'La suspensión no autoriza a borrar arbitrariamente la información del conjunto.']} /></LegalSection>
-    <LegalSection title="4. Cancelación"><p>El administrador puede solicitar la cancelación por el canal definido en su contrato. La solicitud debe indicar el conjunto, la cuenta administradora y la fecha deseada. La cancelación detiene renovaciones futuras, pero no necesariamente reversa cobros ya procesados.</p></LegalSection>
-    <LegalSection title="5. Reembolsos y comprobantes"><p>Los reembolsos, ajustes y comprobantes se gestionan conforme al contrato, la normativa aplicable y las reglas del medio de pago. La plataforma debe entregar al cliente el comprobante o documento tributario que corresponda.</p></LegalSection>
-    <LegalSection title="6. Soporte"><p>Para revisar un cobro, envía el nombre del conjunto, fecha, valor y referencia de pago al canal de soporte. Nunca envíes contraseñas, tokens ni datos completos de tarjetas.</p></LegalSection>
+  const legal = getLegalConfig();
+
+  return <LegalLayout
+    title="Pagos, renovación y cancelación"
+    intro="Las reglas de cobro del servicio. Este documento hace parte integral de los términos y condiciones y aplica a todo conjunto que contrate una suscripción."
+  >
+    <LegalSection title="1. Precio">
+      <p>
+        La tarifa depende del número de unidades del conjunto y se muestra antes de confirmar la suscripción, así como
+        en la sección <em>Licencias y pagos</em> de la cuenta. Nunca se cobra un concepto que no haya sido informado
+        previamente en pantalla.
+      </p>
+      <p>
+        {legal.isVatResponsible
+          ? 'Los precios mostrados no incluyen IVA, salvo indicación expresa. El impuesto se liquida y se discrimina en la factura conforme a la ley.'
+          : 'A la fecha de vigencia de este documento el prestador no es responsable de IVA, por lo que el valor mostrado es el total a pagar. Si esa condición cambia, se informará antes de aplicar el impuesto.'}
+      </p>
+      <p>
+        Si el conjunto cambia su número de unidades, la nueva tarifa aplica a partir del siguiente periodo de
+        facturación, no de forma retroactiva.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="2. Periodo de prueba">
+      <p>
+        Los conjuntos nuevos cuentan con un periodo de prueba de <strong>{LEGAL_TRIAL_DAYS} días calendario</strong>{' '}
+        sin costo y sin necesidad de registrar un medio de pago. Al terminar, el acceso se suspende salvo que se
+        active una suscripción. Durante la prueba no se genera ningún cobro automático.
+      </p>
+      <p>
+        Cuando se acuerde un plan piloto pagado con condiciones particulares —duración, acompañamiento o
+        implementación asistida— esas condiciones se informan por escrito antes del cobro y prevalecen sobre esta
+        sección para ese conjunto.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="3. Cobro mensual y renovación automática">
+      <p>
+        Al activar la suscripción, el conjunto autoriza el <strong>cobro automático mensual</strong> del valor vigente
+        sobre el medio de pago registrado, de forma recurrente, hasta que solicite la cancelación. La autorización se
+        otorga de forma expresa en la pantalla de configuración del pago automático.
+      </p>
+      <LegalList items={[
+        'El conjunto debe mantener un medio de pago válido y con fondos suficientes.',
+        'La fecha del siguiente cobro se muestra siempre en la sección Licencias y pagos.',
+        'El conjunto puede desactivar el cobro automático en cualquier momento desde esa misma sección, sin llamar ni escribir a nadie.',
+        'Los datos de la tarjeta se procesan directamente en la pasarela de pagos y no se almacenan en nuestros servidores.',
+      ]} />
+    </LegalSection>
+
+    <LegalSection title="4. Pago rechazado, periodo de gracia y suspensión">
+      <p>
+        Si un cobro es rechazado, se informa al administrador por correo y en la plataforma, con la causa reportada por
+        la pasarela y la opción de actualizar el medio de pago.
+      </p>
+      <LegalList items={[
+        `A partir del rechazo se abre un periodo de gracia no inferior a ${LEGAL_MIN_GRACE_DAYS} días calendario para regularizar la cuenta, durante el cual el servicio sigue funcionando con normalidad.`,
+        'Si al terminar la gracia la cuenta sigue en mora, el acceso se suspende.',
+        'La suspensión bloquea el acceso, pero no elimina la información del conjunto.',
+        'Al regularizar el pago, el acceso se restablece con toda la información intacta.',
+      ]} />
+      <p>
+        Podemos ampliar el periodo de gracia, nunca reducirlo por debajo de {LEGAL_MIN_GRACE_DAYS} días sin comunicarlo
+        con {LEGAL_PRICE_CHANGE_NOTICE_DAYS} días calendario de anticipación.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="5. Cancelación">
+      <p>
+        El administrador puede cancelar en cualquier momento, sin penalidad y sin permanencia mínima, desde la sección{' '}
+        <em>Licencias y pagos</em> o escribiendo a{' '}
+        <a href={`mailto:${legal.supportEmail}`} style={linkStyle}>{legal.supportEmail}</a> desde el correo registrado
+        como administrador.
+      </p>
+      <LegalList items={[
+        'La cancelación detiene las renovaciones futuras.',
+        'El servicio permanece activo hasta el final del periodo ya pagado.',
+        'No se reversan de forma automática los cobros de periodos ya iniciados, salvo los casos de la sección 6.',
+        'Tras la cancelación, el conjunto dispone de 30 días calendario para solicitar la exportación de su información antes de su eliminación.',
+      ]} />
+    </LegalSection>
+
+    <LegalSection title="6. Retracto y reembolsos">
+      <p>
+        <strong>Retracto.</strong> El conjunto puede retractarse de su primera suscripción dentro de los{' '}
+        <strong>cinco (5) días hábiles</strong> siguientes al primer pago, comunicándolo a{' '}
+        <a href={`mailto:${legal.supportEmail}`} style={linkStyle}>{legal.supportEmail}</a>. En ese caso se reembolsa
+        el 100% de lo pagado por ese periodo, por el mismo medio de pago, dentro de los treinta (30) días calendario
+        siguientes, conforme al Estatuto del Consumidor.
+      </p>
+      <p>
+        <strong>Reembolsos por falla del servicio.</strong> Si por causa atribuible a nosotros el servicio permanece
+        indisponible de forma continua por más de <strong>72 horas</strong> dentro de un mismo periodo facturado,
+        el conjunto puede solicitar el reembolso proporcional a los días afectados.
+      </p>
+      <p>
+        Fuera de estos dos casos, los periodos ya iniciados no son reembolsables. Cualquier reembolso está sujeto a las
+        reglas operativas de la pasarela de pagos.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="7. Comprobantes y facturación">
+      <p>
+        Cada pago aprobado queda registrado en la plataforma con su fecha, valor, medio de pago y referencia, y es
+        consultable y descargable por el administrador desde <em>Licencias y pagos</em>. El documento tributario que
+        corresponda se expide conforme a la normativa vigente y se remite al correo de facturación registrado.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="8. Cambios de tarifa">
+      <p>
+        Todo cambio de precio se comunica al correo del administrador con al menos{' '}
+        <strong>{LEGAL_PRICE_CHANGE_NOTICE_DAYS} días calendario</strong> de anticipación y solo aplica desde el
+        siguiente periodo. Si el conjunto no lo acepta, puede cancelar antes de que entre en vigor, sin penalidad y sin
+        perder el periodo ya pagado.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="9. Reclamos sobre un cobro">
+      <p>
+        Para revisar un cobro, escribe a{' '}
+        <a href={`mailto:${legal.supportEmail}`} style={linkStyle}>{legal.supportEmail}</a> con el nombre del conjunto,
+        la fecha, el valor y la referencia del pago. Respondemos dentro de los quince (15) días hábiles siguientes.
+      </p>
+      <p>
+        <strong>Nunca envíes contraseñas, códigos de seguridad ni el número completo de una tarjeta.</strong> No te los
+        vamos a pedir por ningún canal.
+      </p>
+    </LegalSection>
   </LegalLayout>;
 }
+
+const linkStyle = { color: '#122545', fontWeight: 700 } as const;
