@@ -182,21 +182,108 @@ aplicación.
 
 ## 7. Segunda pieza — brochure de una página
 
-Solo para responder a quien pida información. Mismo color, misma tipografía,
-formato carta vertical. Estructura:
+**Formato: carta vertical, 21,6 × 27,9 cm.** Es el tamaño que una administradora
+imprime y lleva a la reunión de consejo, y esa es exactamente la situación para
+la que sirve esta pieza.
 
-1. Cabecera con logo y el mismo titular
-2. El problema, en tres líneas: las solicitudes viven repartidas, no hay cómo
-   demostrar que se atendió, el informe se arma a mano
-3. Cómo funciona, en tres pasos: el residente radica → la administración atiende
-   y cierra con evidencia → el informe sale solo
-4. Qué incluye: cuentas por rol (administración, consejo, residentes),
-   categorías configurables, notificaciones por correo, exportación a Excel y
-   PDF, historial completo por caso
-5. Preguntas frecuentes, dos: *¿los residentes instalan algo?* No, funciona en
-   el navegador. *¿qué pasa con lo que ya tenemos en Excel?* Se carga durante el
-   montaje
-6. Cierre con los mismos datos de contacto
+Cambia el trabajo respecto a la primera: quien la recibe **ya levantó la mano**.
+No hay que llamar su atención, hay que **resolver objeciones** y conseguir la
+demostración. Por eso aquí sí cabe densidad de información, mientras la pieza de
+WhatsApp tenía que leerse en tres segundos.
+
+### Texto, zona por zona
+
+**[CABECERA]** — logo + `PQRS Services`, alineado a la izquierda
+
+**[TITULAR]**
+
+> Toda solicitud del conjunto:
+> radicada, atendida y con evidencia.
+
+**[SUBTÍTULO]**
+
+> Para administraciones de propiedad horizontal que necesitan demostrar, con
+> fechas y soportes, cómo se atendió cada caso.
+
+**[LO QUE PASA HOY]** — título de sección + tres líneas
+
+> **Lo que pasa hoy**
+>
+> Las solicitudes llegan por WhatsApp, por correo y en portería. Nunca están en
+> un solo lugar.
+>
+> Cuando un residente dice que no le respondieron, no hay cómo demostrar lo
+> contrario.
+>
+> El informe para el consejo se arma a mano, buscando conversación por
+> conversación.
+
+**[CÓMO FUNCIONA]** — tres pasos numerados
+
+> **1. El residente radica desde el celular**
+> Entra por un enlace, sin instalar nada. Escribe qué pasó, adjunta hasta tres
+> fotos y recibe su número de radicado al instante.
+>
+> **2. La administración clasifica, atiende y cierra**
+> Se asigna categoría y responsable. Los casos de mantenimiento avanzan por
+> fases. El cierre exige registrar qué se hizo y adjuntar el soporte.
+>
+> **3. El informe sale solo**
+> Indicadores de tiempo de respuesta, casos por categoría y estado del mes, con
+> exportación a Excel y PDF.
+
+**[QUÉ INCLUYE]** — lista en dos columnas
+
+> Cuentas separadas para administración, consejo y residentes
+> Categorías de solicitud configurables por el conjunto
+> Prioridad, responsable y seguimiento por fases
+> Historial completo con fecha y autor de cada cambio
+> Evidencias y fotos adjuntas en cada caso
+> Notificaciones automáticas por correo
+> Reportes con filtros e indicadores
+> Exportación a Excel y PDF
+> Acceso desde celular y computador
+> Acompañamiento en el montaje inicial
+
+**[SUS DATOS]** — bloque sobre fondo `#EAEEF6`
+
+> **Sus datos, de su conjunto**
+>
+> La información de cada conjunto está aislada: ningún otro cliente puede verla.
+> Las contraseñas se guardan cifradas, los archivos en almacenamiento privado y
+> cada operación queda registrada con su autor y su fecha.
+>
+> El tratamiento de datos personales se rige por la Ley 1581 de 2012. El conjunto
+> es el Responsable y PQRS Services actúa como Encargado, con un acuerdo escrito
+> que define las obligaciones de cada parte.
+
+**[PREGUNTAS FRECUENTES]** — tres
+
+> **¿Los residentes tienen que instalar una aplicación?**
+> No. Funciona en el navegador del celular o del computador. Reciben un enlace,
+> crean su cuenta y ya pueden radicar.
+>
+> **¿Qué pasa con las solicitudes que ya tenemos en Excel?**
+> Las cargamos durante el montaje para no perder el historial. Revisamos su
+> archivo antes de empezar y le decimos con claridad qué entra y qué no.
+>
+> **¿Y si un día decidimos no continuar?**
+> La información es del conjunto. Puede exportarla en cualquier momento, y al
+> terminar tiene 30 días para descargarla completa.
+
+**[CIERRE]** — franja `#122545`, texto blanco
+
+> **Le mostramos la plataforma funcionando en 20 minutos**
+>
+> Sin compromiso y con el escenario de un conjunto del tamaño del suyo.
+>
+> WhatsApp · +57 318 535 6362
+> hola@pqrsservices.com
+> pqrsservices.com
+
+**[PIE]**
+
+> Hecho en Colombia para propiedad horizontal.
 
 ---
 
