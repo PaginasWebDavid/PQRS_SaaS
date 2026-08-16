@@ -59,6 +59,10 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 
+# Obsidian: configuracion y estado del vault, personal de cada equipo.
+# Los apuntes en .md si se versionan; la carpeta de ajustes no.
+.obsidian/
+
 # local databases and backups
 *.db
 *.db-journal
