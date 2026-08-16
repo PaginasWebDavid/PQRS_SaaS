@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Por donde empezar
+
+`docs/mapa/` son 13 notas cortas que explican como encaja el sistema: los cuatro roles, el
+recorrido de una PQRS, como se cobra, y por que un conjunto nunca ve datos de otro. Estan
+enlazadas entre si y se leen enteras en pocos minutos. Empieza por `docs/mapa/PQRS Services.md`.
+
+`docs/programa-mejora/` es historico: describe fases ya superadas. **No lo leas como estado
+actual** — hay 130 archivos ahi y llevan a conclusiones equivocadas sobre como funciona hoy.
+
 ## Comandos
 
 ```bash
