@@ -69,3 +69,9 @@ __pycache__/
 *.dump
 *.backup
 /backups/
+
+# Piezas de video: pesan decenas de MB y se quedarian en la historia de git
+# para siempre. Se guardan en docs/marketing/comercial/ pero fuera del repo.
+# Ver docs/marketing/comercial/LEEME.md
+*.mp4
+*.mov
