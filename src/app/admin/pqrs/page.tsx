@@ -579,7 +579,7 @@ function ModuloPqrsPageContent() {
                 <button type="button" onClick={openCorrection} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 600, color: COLORS.textMuted, cursor: 'pointer', textDecoration: 'underline' }}>Corregir un error de esta solicitud</button>
               </div>
             </>
-          ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
+          ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Seleccione una solicitud.</div>}
         </DetailPanel>
       </div>
 
@@ -594,7 +594,7 @@ function ModuloPqrsPageContent() {
         <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
         <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: COLORS.bg }}>
-          <option value="">Selecciona una categoria</option>
+          <option value="">Seleccione una categoría</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
         <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Descripción" rows={4} style={{ width: '100%', padding: '12px 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
@@ -626,23 +626,40 @@ function ModuloPqrsPageContent() {
                 siguiente accion esta a un clic en la ficha. */}
             <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.55, marginBottom: 16 }}>
               {selected?.workflowType === 'MAINTENANCE'
-                ? 'Ya puedes registrar el diagnóstico o avanzar de fase desde la ficha.'
-                : 'Cuando lo resuelvas, cierra la solicitud con la acción tomada y la evidencia.'}
+                ? 'Ya puede registrar el diagnóstico o avanzar de fase desde la ficha.'
+                : 'Cuando lo resuelva, cierre la solicitud con la acción tomada y la evidencia.'}
             </div>
             <button type="button" onClick={() => setContactOpen(false)} style={{ width: '100%', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Entendido</button>
           </div>
         ) : (
         <>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Se genera el número de radicación, la solicitud pasa a &quot;En proceso&quot; y se le avisa al residente por correo.</p>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 16px' }}>Se asigna el número de radicación, la solicitud pasa a En proceso y el residente recibe la respuesta por correo.</p>
 
-        <label htmlFor="contact-categoria" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>1. ¿De qué es la solicitud?</label>
+        {/* Lo que escribio el residente, a la vista mientras se llena el
+            formulario. Antes habia que cerrar el modal para releerlo, o
+            recordarlo de memoria justo cuando hay que clasificar y responder. */}
+        {selected && (
+          <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: '13px 15px', marginBottom: 18 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: COLORS.textMuted, marginBottom: 6 }}>Lo que reportó el residente</div>
+            {selected.titulo && (
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.textPrimary, marginBottom: 4, lineHeight: 1.35 }}>{selected.titulo}</div>
+            )}
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{selected.descripcion}</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, marginTop: 8 }}>
+              {selected.nombreResidente} · Bloque {selected.bloque} · Apto {selected.apto}
+              {selected.fotos && selected.fotos.length > 0 ? ` · ${selected.fotos.length} ${selected.fotos.length === 1 ? 'foto adjunta' : 'fotos adjuntas'}` : ''}
+            </div>
+          </div>
+        )}
+
+        <label htmlFor="contact-categoria" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>1. Clasifique la solicitud</label>
         <select
           id="contact-categoria"
           value={contactCategoryId}
           onChange={(e) => setContactCategoryId(e.target.value)}
           style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', marginBottom: 10 }}
         >
-          <option value="">Selecciona una categoría</option>
+          <option value="">Seleccione una categoría</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
 
@@ -651,18 +668,18 @@ function ModuloPqrsPageContent() {
         {contactCategory && (
           <div className="apl-up" style={{ background: contactWorkflow === 'MAINTENANCE' ? COLORS.warningSoft : COLORS.navySoft, borderRadius: RADIUS.stat, padding: '13px 15px', marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: contactWorkflow === 'MAINTENANCE' ? COLORS.warning : COLORS.navy, marginBottom: 6 }}>
-              {contactWorkflow === 'MAINTENANCE' ? 'Se gestiona por 5 fases' : 'Gestión simple'}
+              {contactWorkflow === 'MAINTENANCE' ? 'Se gestiona en 5 fases' : 'Gestión directa'}
             </div>
             <div style={{ fontSize: 12, color: contactWorkflow === 'MAINTENANCE' ? COLORS.warning : COLORS.navy, fontWeight: 500, lineHeight: 1.5 }}>
               {contactWorkflow === 'MAINTENANCE'
-                ? 'Vas a registrar: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada fase tiene su plazo.'
-                : 'Vas a registrar: esta nota de primer contacto, la acción tomada y la evidencia de cierre.'}
+                ? 'Registrará cinco fases: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada una tiene su plazo.'
+                : 'Registrará dos cosas: esta primera respuesta y, al resolver, la acción tomada con su evidencia.'}
             </div>
           </div>
         )}
 
-        <label htmlFor="contact-nota" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>2. ¿Qué le dijiste al residente?</label>
-        <textarea id="contact-nota" value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="Ej: se le confirmó la recepción y se programó visita para el jueves" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+        <label htmlFor="contact-nota" style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>2. Primera respuesta al residente</label>
+        <textarea id="contact-nota" value={contactNota} onChange={(e) => setContactNota(e.target.value)} rows={4} placeholder="Ej. Recibimos su solicitud. Programamos la visita técnica para el jueves 22." style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
 
         {/* La prioridad arranca en Media y casi nunca hay que tocarla, asi que
             no estorba como un paso mas. */}
@@ -699,7 +716,7 @@ function ModuloPqrsPageContent() {
           }}
           style={{ width: '100%', height: 42, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, marginBottom: 10 }}
         >
-          <option value="">Selecciona una categoría</option>
+          <option value="">Seleccione una categoría</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
         <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, marginBottom: 12 }}>
@@ -721,7 +738,7 @@ function ModuloPqrsPageContent() {
         </div>
         {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado por equivocación</label>}
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo (obligatorio)</label>
-        <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica el error que se esta corrigiendo" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
+        <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explique el error que se está corrigiendo." style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
         <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
       </Sheet>
       {/* Withdraw evidence sheet */}
@@ -732,19 +749,19 @@ function ModuloPqrsPageContent() {
         </div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 18px' }}>El archivo deja de estar disponible para descarga y el motivo queda registrado en la auditoría.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo del retiro (mínimo 10 caracteres)</label>
-        <textarea value={withdrawReason} onChange={(e) => setWithdrawReason(e.target.value)} rows={3} maxLength={500} placeholder="Explica por qué se retira esta evidencia" style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
+        <textarea value={withdrawReason} onChange={(e) => setWithdrawReason(e.target.value)} rows={3} maxLength={500} placeholder="Explique por qué se retira esta evidencia." style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
         <button type="button" onClick={submitWithdraw} disabled={withdrawReason.trim().length < 10 || withdrawSubmitting} style={{ width: '100%', border: 0, background: withdrawReason.trim().length >= 10 ? COLORS.danger : COLORS.neutralSoft, color: withdrawReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{withdrawSubmitting ? 'Retirando…' : 'Retirar evidencia'}</button>
       </Sheet>
       {/* Fase sheet */}
       <Sheet open={faseOpen} onClose={() => setFaseOpen(false)} maxWidth={480}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Gestión por fases</div>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{isSimpleWorkflow ? 'Avance de la gestión' : 'Gestión por fases'}</div>
           <CloseButton onClick={() => setFaseOpen(false)} />
         </div>
 
         {faseActual === 0 && (
           <>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Esta PQRS aún no ha iniciado su gestión por fases. Empieza con la Fase I.</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>{isSimpleWorkflow ? 'Esta solicitud aún no tiene gestión registrada.' : 'Esta solicitud aún no inicia su gestión por fases. Comience por la Fase I.'}</p>
             <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 16, marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800 }}>{isSimpleWorkflow ? 'En gestión' : 'Fase I · Inspección de Campo'}</div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Plazo: 2 días hábiles</div>
@@ -764,11 +781,11 @@ function ModuloPqrsPageContent() {
               {faseTipo && ` · Ruta: ${faseTipo === 'INSUMOS' ? 'Insumos' : 'Proveedor'}`}
             </p>
 
-            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nota de esta fase (obligatoria para avanzar)</label>
-            <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder="¿Qué pasó en esta fase?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>{isSimpleWorkflow ? 'Avance de la gestión' : 'Nota de la fase (obligatoria para avanzar)'}</label>
+            <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder={isSimpleWorkflow ? 'Ej. Se contactó al proveedor y la reparación quedó programada.' : 'Describa lo realizado en esta fase.'} style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
 
             {faseActual === 1 && isSimpleWorkflow && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Marcar gestión como completa'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Guardar avance y marcar la gestión como completa'}</button>
             )}
             {faseActual === 1 && !isSimpleWorkflow && (
               <div style={{ display: 'flex', gap: 8 }}>
@@ -786,7 +803,7 @@ function ModuloPqrsPageContent() {
         )}
 
         {faseActual === 5 && (
-          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: RADIUS.input, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puedes marcar la PQRS como resuelta.</div>
+          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: RADIUS.input, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puede marcar la solicitud como resuelta.</div>
         )}
       </Sheet>
 
@@ -799,12 +816,12 @@ function ModuloPqrsPageContent() {
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>El residente recibirá una notificación y un correo con esta información{closeFile || closeHasExistingEvidence ? ', incluyendo el archivo de evidencia' : ''}.</p>
 
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Acción tomada</label>
-        <textarea value={closeAccion} onChange={(e) => setCloseAccion(e.target.value)} rows={3} placeholder="¿Qué se hizo para resolver la solicitud?" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+        <textarea value={closeAccion} onChange={(e) => setCloseAccion(e.target.value)} rows={3} placeholder="Ej. Se cambió el filtro de la piscina y se verificó el funcionamiento." style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
 
         {closeNeedsQueSeHizo && (
           <>
-            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>¿Qué se hizo para cerrar? <span style={{ fontWeight: 500, color: COLORS.textMuted }}>(obligatorio: no se completaron las 5 fases)</span></label>
-            <textarea value={closeQueSeHizo} onChange={(e) => setCloseQueSeHizo(e.target.value)} rows={3} placeholder="Justifica el cierre sin haber completado todas las fases" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo del cierre anticipado <span style={{ fontWeight: 500, color: COLORS.textMuted }}>(no se completaron las 5 fases)</span></label>
+            <textarea value={closeQueSeHizo} onChange={(e) => setCloseQueSeHizo(e.target.value)} rows={3} placeholder="Explique por qué se cierra sin completar todas las fases." style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 16 }} />
           </>
         )}
 
@@ -812,7 +829,7 @@ function ModuloPqrsPageContent() {
         {closeHasExistingEvidence && !closeFile && (
           <div style={{ fontSize: 11.5, color: COLORS.success, fontWeight: 600, marginBottom: 8 }}>Ya hay evidencia guardada para esta PQRS{selected?.evidenciaArchivoNombre ? ` (${selected.evidenciaArchivoNombre})` : ''}.</div>
         )}
-        <textarea value={closeEvidenciaTexto} onChange={(e) => setCloseEvidenciaTexto(e.target.value)} rows={2} placeholder="Descripción de la evidencia (opcional si adjuntas un archivo)" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 10 }} />
+        <textarea value={closeEvidenciaTexto} onChange={(e) => setCloseEvidenciaTexto(e.target.value)} rows={2} placeholder="Describa la evidencia. Puede omitirlo si adjunta un archivo." style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 10 }} />
         <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => handleCloseFileChange(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: 12.5, marginBottom: 6 }} />
         <p style={{ fontSize: 11, color: COLORS.textMuted, margin: '0 0 20px' }}>Máx. 2MB · imagen o PDF</p>
         {closeFileError && <div style={{ fontSize: 11.5, color: COLORS.danger, fontWeight: 600, marginBottom: 16 }}>{closeFileError}</div>}
