@@ -277,6 +277,12 @@ async function handlePatch(
         where: { id: params.id, tenantId },
         data: {
           estado: "EN_PROGRESO",
+          // Abrir el caso YA es empezar a gestionarlo. Antes esto quedaba en
+          // fase 0 y hacia falta un clic extra en "Iniciar gestion" que no
+          // capturaba ni un dato: solo movia el numero de fase. La fase 1 es la
+          // primera en los dos flujos ("En gestion" en SIMPLE, "Inspeccion de
+          // campo" en MAINTENANCE) y el grafo ya la admite desde 0.
+          faseActual: 1,
           ...(prioridad ? { prioridad } : {}),
           // La categoria arrastra el workflow: no se guardan por separado para
           // que no puedan quedar contradiciendose.
@@ -547,8 +553,12 @@ async function handlePatch(
       );
     }
 
-    // If phase V not reached, require queSeHizoParaCerrar
-    if (pqrs.faseActual !== 5) {
+    // "Que se hizo para cerrar" es la explicacion de haberse SALTADO fases, asi
+    // que solo tiene sentido donde hay fases que saltarse. En el flujo SIMPLE
+    // no las hay: cerrar desde la fase 1 es el camino normal, no una excepcion.
+    // Pedirlo alli obligaba a escribir cuatro textos para un caso trivial y
+    // duplicaba lo que ya dice "accion tomada".
+    if (pqrs.workflowType === "MAINTENANCE" && pqrs.faseActual !== 5) {
       const finalQueSeHizo = queSeHizoParaCerrar?.trim() || pqrs.queSeHizoParaCerrar?.trim();
       if (!finalQueSeHizo) {
         return NextResponse.json(

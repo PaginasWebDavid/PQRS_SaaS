@@ -283,7 +283,12 @@ function ModuloPqrsPageContent() {
     setCloseFile(file);
   }
 
-  const closeNeedsQueSeHizo = selected ? selected.faseActual !== 5 : false;
+  // Solo se pregunta "que se hizo para cerrar" donde hay fases que saltarse.
+  // En el flujo SIMPLE cerrar desde la fase 1 es el camino normal, no una
+  // excepcion que haya que justificar. Debe coincidir con la regla del API.
+  const closeNeedsQueSeHizo = selected
+    ? selected.workflowType === 'MAINTENANCE' && selected.faseActual !== 5
+    : false;
   const closeHasExistingEvidence = !!(selected?.evidenciaCierre || (selected?.evidenciaArchivoNombre && !selected.evidenciaArchivoRetiradaAt));
   const closeCanSubmit = !!closeAccion.trim() && (!closeNeedsQueSeHizo || !!closeQueSeHizo.trim()) && (!!closeEvidenciaTexto.trim() || !!closeFile || closeHasExistingEvidence) && !closeFileError;
 
@@ -616,16 +621,15 @@ function ModuloPqrsPageContent() {
                 Radicado <strong>{selected?.numeroRadicacion || code(selected?.numero ?? 0)}</strong>. Se le avisó por correo a {selected?.nombreResidente}.
               </div>
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>¿Qué sigue?</div>
+            {/* Sin "¿continuar ahora o mas tarde?": era una pregunta que no
+                decidia nada. El caso ya quedo en gestion al abrirlo, y la
+                siguiente accion esta a un clic en la ficha. */}
             <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.55, marginBottom: 16 }}>
               {selected?.workflowType === 'MAINTENANCE'
-                ? 'Ahora toca registrar el diagnóstico (Fase 1). Puedes hacerlo ya o volver después.'
-                : 'Ahora toca registrar la acción tomada y la evidencia de cierre. Puedes hacerlo ya o volver después.'}
+                ? 'Ya puedes registrar el diagnóstico o avanzar de fase desde la ficha.'
+                : 'Cuando lo resuelvas, cierra la solicitud con la acción tomada y la evidencia.'}
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => { setContactOpen(false); openFase(); }} style={{ flex: 1, minWidth: 150, background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Continuar ahora</button>
-              <button type="button" onClick={() => setContactOpen(false)} style={{ flex: 1, minWidth: 110, background: 'none', color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Más tarde</button>
-            </div>
+            <button type="button" onClick={() => setContactOpen(false)} style={{ width: '100%', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Entendido</button>
           </div>
         ) : (
         <>
