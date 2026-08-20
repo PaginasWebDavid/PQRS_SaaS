@@ -42,8 +42,8 @@ export default function PqrsRecoverPasswordPage() {
         <a href="/login" style={{display:'flex',alignItems:'center',gap:9,marginBottom:40,justifyContent:'center'}}><Logo/><span style={{fontWeight:800,fontSize:15.5,letterSpacing:'-0.01em',color:'#1D1D1F'}}>PQRS <span style={{fontWeight:500,color:'#6E6E73'}}>Services</span></span></a>
 
         {step === 'request' && <div>
-          <h1 style={{fontSize:24,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px',textAlign:'center'}}>Recupera tu acceso</h1>
-          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 28px',textAlign:'center',lineHeight:1.5}}>Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña.</p>
+          <h1 style={{fontSize:24,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px',textAlign:'center'}}>Recupera su acceso</h1>
+          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 28px',textAlign:'center',lineHeight:1.5}}>Escriba su correo y le enviaremos un enlace para crear una nueva contraseña.</p>
           <label style={{display:'block',fontSize:13,fontWeight:700,marginBottom:7}}>Correo electrónico</label>
           <input type="email" value={email} onChange={(e:ChangeEvent<HTMLInputElement>)=>setEmail(e.target.value)} placeholder="tucorreo@ejemplo.com" style={{...inputStyle,marginBottom:22}}/>
           <div onClick={()=>canRequest&&setStep('sent')} style={buttonStyle(canRequest)}>Enviar enlace</div>
@@ -52,16 +52,16 @@ export default function PqrsRecoverPasswordPage() {
 
         {step === 'sent' && <div style={{textAlign:'center'}}>
           <div style={{width:56,height:56,borderRadius:999,background:'#EAEEF6',color:'#122545',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 20px',animation:'apl-pop 400ms cubic-bezier(.2,.7,.2,1) both'}}>✉</div>
-          <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px'}}>Revisa tu correo</h1>
-          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 6px',lineHeight:1.55}}>Enviamos un enlace para restablecer tu contraseña a</p>
+          <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px'}}>Revise su correo</h1>
+          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 6px',lineHeight:1.55}}>Enviamos un enlace para restablecer su contraseña a</p>
           <p style={{fontSize:14,color:'#1D1D1F',fontWeight:700,margin:'0 0 26px'}}>{email}</p>
           <div onClick={()=>setStep('reset')} style={{background:'#122545',color:'#FFFFFF',textAlign:'center',fontSize:14,fontWeight:700,padding:'13px 0',borderRadius:999,cursor:'pointer',marginBottom:14}}>Abrir enlace de ejemplo</div>
           <p style={{fontSize:12.5,color:'#8E8E93',fontWeight:500}}>¿No llegó? <span onClick={()=>canRequest&&setStep('sent')} style={{fontWeight:700,color:'#122545',cursor:'pointer'}}>Reenviar correo</span></p>
         </div>}
 
         {step === 'reset' && <div>
-          <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px',textAlign:'center'}}>Crea tu nueva contraseña</h1>
-          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 26px',textAlign:'center'}}>Usa al menos 8 caracteres.</p>
+          <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px',textAlign:'center'}}>Cree su nueva contraseña</h1>
+          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 26px',textAlign:'center'}}>Use al menos 8 caracteres.</p>
           <label style={{display:'block',fontSize:13,fontWeight:700,marginBottom:7}}>Nueva contraseña</label>
           <input type="password" value={pass1} onChange={(e)=>setPass1(e.target.value)} placeholder="••••••••" style={{...inputStyle,marginBottom:14}}/>
           <label style={{display:'block',fontSize:13,fontWeight:700,marginBottom:7}}>Confirmar contraseña</label>
@@ -73,7 +73,7 @@ export default function PqrsRecoverPasswordPage() {
         {step === 'done' && <div style={{textAlign:'center'}}>
           <div style={{width:56,height:56,borderRadius:999,background:'#ECF6EF',color:'#1A6B3A',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 20px',animation:'apl-pop 400ms cubic-bezier(.2,.7,.2,1) both'}}>✓</div>
           <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 8px'}}>Contraseña actualizada</h1>
-          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 26px',lineHeight:1.55}}>Ya puedes iniciar sesión con tu nueva contraseña.</p>
+          <p style={{fontSize:13.5,color:'#6E6E73',fontWeight:500,margin:'0 0 26px',lineHeight:1.55}}>Ya puede iniciar sesión con su nueva contraseña.</p>
           <a href="/login" style={{display:'block',background:'#122545',color:'#FFFFFF',textAlign:'center',fontSize:14,fontWeight:700,padding:'13px 0',borderRadius:999}}>Iniciar sesión</a>
         </div>}
 

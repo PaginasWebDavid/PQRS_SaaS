@@ -34,7 +34,7 @@ export default function OnboardingAdminPage() {
         setCity(d.tenant?.city || '');
         setUnits(d.tenant?.units || 0);
       })
-      .catch(() => setError('No se pudieron cargar tus datos'));
+      .catch(() => setError('No se pudieron cargar sus datos'));
   }, [router]);
 
   async function finish() {
@@ -74,7 +74,7 @@ export default function OnboardingAdminPage() {
             <div style={{ textAlign: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><LogoMark size={34} /></div>
               <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>Bienvenido, {name.split(' ')[0] || 'Admin'}</h1>
-              <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>En tres pasos dejamos tu conjunto listo para gestionar solicitudes reales.</p>
+              <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>En tres pasos dejamos su conjunto listo para gestionar solicitudes reales.</p>
               <button type="button" onClick={() => setStep(1)} style={primaryButton}>Comenzar</button>
             </div>
           )}
@@ -82,7 +82,7 @@ export default function OnboardingAdminPage() {
           {step === 1 && (
             <div>
               <div style={eyebrowStyle}>PASO 1 DE 3</div>
-              <h1 style={stepTitle}>Confirma los datos de tu conjunto</h1>
+              <h1 style={stepTitle}>Confirme los datos de su conjunto</h1>
               <p style={stepCopy}>El nombre y la ciudad se guardarán en el conjunto.</p>
               <label style={labelStyle}>Nombre del conjunto</label>
               <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }} />
@@ -103,7 +103,7 @@ export default function OnboardingAdminPage() {
           {step === 2 && (
             <div>
               <div style={eyebrowStyle}>PASO 2 DE 3</div>
-              <h1 style={stepTitle}>Invita a tu primer usuario</h1>
+              <h1 style={stepTitle}>Invite a su primer usuario</h1>
               <p style={{ ...stepCopy, marginBottom: 20 }}>Es opcional. La invitación se enviará al finalizar.</p>
               <label style={labelStyle}>Correo</label>
               <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="nombre@correo.com" style={{ ...inputStyle, marginBottom: 12 }} />
@@ -121,7 +121,7 @@ export default function OnboardingAdminPage() {
             <div style={{ textAlign: 'center' }}>
               <div style={eyebrowStyle}>PASO 3 DE 3</div>
               <h1 style={{ ...stepTitle, marginBottom: 20 }}>Todo listo para operar</h1>
-              <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>Podrás crear PQRS, invitar usuarios y seguir cada cambio desde el dashboard.</p>
+              <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>Podrá crear PQRS, invitar usuarios y seguir cada cambio desde el dashboard.</p>
               {error && <p style={{ color: COLORS.warning, fontWeight: 600, marginBottom: 16 }}>{error}</p>}
               <button type="button" onClick={finish} disabled={saving} style={primaryButton}>{saving ? 'Guardando…' : 'Ir al dashboard'}</button>
             </div>

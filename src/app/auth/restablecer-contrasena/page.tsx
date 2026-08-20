@@ -116,7 +116,7 @@ function ResetForm() {
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Contraseña actualizada</h1>
           <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 26px', lineHeight: 1.55 }}>
-            Ya puedes iniciar sesión con tu nueva contraseña.
+            Ya puede iniciar sesión con su nueva contraseña.
           </p>
           <Link href="/auth/login" style={{ display: 'block', background: COLORS.navy, color: COLORS.white, textAlign: 'center', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, textDecoration: 'none' }}>
             Iniciar sesión
@@ -129,8 +129,8 @@ function ResetForm() {
   return (
     <Shell>
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px', textAlign: 'center' }}>Crea tu nueva contraseña</h1>
-        <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 26px', textAlign: 'center' }}>Usa al menos 8 caracteres.</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px', textAlign: 'center' }}>Cree su nueva contraseña</h1>
+        <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 26px', textAlign: 'center' }}>Use al menos 8 caracteres.</p>
         <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 7 }}>Nueva contraseña</label>
         <input
           className="reset-input"

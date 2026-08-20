@@ -200,8 +200,8 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
   const howSteps = [
     {
       num: 'Paso 1',
-      title: 'Configuramos tu conjunto',
-      desc: 'Te acompañamos en el montaje y, si ya tienes información en Excel, te ayudamos a organizarla.',
+      title: 'Configuramos su conjunto',
+      desc: 'Te acompañamos en el montaje y, si ya tiene información en Excel, le ayudamos a organizarla.',
     },
     {
       num: 'Paso 2',
@@ -234,7 +234,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
     },
     {
       q: '¿Qué pasa con las PQRS que ya tenemos en Excel?',
-      a: 'Las cargamos durante el montaje para que no pierdas el historial. Lo que se puede migrar depende de cómo esté organizado tu archivo: lo revisamos contigo antes de empezar y te decimos con claridad qué entra y qué no.',
+      a: 'Las cargamos durante el montaje para que no pierdas el historial. Lo que se puede migrar depende de cómo esté organizado su archivo: lo revisamos con usted antes de empezar y le decimos con claridad qué entra y qué no.',
     },
     {
       q: '¿Puedo exportar los reportes?',
@@ -242,7 +242,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
     },
     {
       q: '¿Quién puede ver la información del conjunto?',
-      a: 'Solo los usuarios de tu conjunto, según su rol. La información de cada cliente está aislada y protegida.',
+      a: 'Solo los usuarios de su conjunto, según su rol. La información de cada cliente está aislada y protegida.',
     },
     {
       q: '¿Cómo funciona el cobro?',
@@ -250,7 +250,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
     },
     {
       q: '¿Y si administro varios conjuntos?',
-      a: 'Puedes gestionarlos desde una misma cuenta, cada uno con su información separada. Tenemos tarifas por portafolio.',
+      a: 'Puede gestionarlos desde una misma cuenta, cada uno con su información separada. Tenemos tarifas por portafolio.',
     },
   ];
 
@@ -500,7 +500,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
                 animation: 'landing-reveal 800ms 80ms cubic-bezier(.2,.7,.2,1) both',
               }}
             >
-              La gestión de tu conjunto,
+              La gestión de su conjunto,
               <br />
               finalmente en orden.
             </h1>
@@ -791,7 +791,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
                     ['✉️', '#EAEEF6', 'Tu PQRS pasó a “En proceso”', 'PQ-0231 · Fuga de agua en zona común', 1],
-                    ['✅', '#ECF6EF', 'Tu PQRS fue cerrada', 'PQ-0224 · Con 2 evidencias adjuntas', 0.65],
+                    ['✅', '#ECF6EF', 'Tu PQRS fue cerrada', 'PQ-0224 · Con 2 evidencias adjunta', 0.65],
                   ].map(([icon, bg, title, subtitle, opacity]) => (
                     <div
                       key={String(title)}
@@ -1048,7 +1048,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
               <span style={{ color: '#6E6E73' }}>con las cuentas claras.</span>
             </h2>
             <p style={{ fontSize: sizes.bodySize, color: '#6E6E73', fontWeight: 500, margin: '0 auto 32px', maxWidth: 440 }}>
-              Escríbenos y coordinamos 30 minutos. Te mostramos la plataforma funcionando con el escenario de un conjunto del tamaño del tuyo.
+              Escríbanos y coordinamos 30 minutos. Le mostramos la plataforma funcionando con el escenario de un conjunto del tamaño del tuyo.
             </p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
               <a

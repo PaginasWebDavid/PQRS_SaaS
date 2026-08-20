@@ -99,7 +99,7 @@ export default function CambiarContrasenaPage() {
                 lineHeight: 1.5,
               }}
             >
-              Escribe tu contraseña actual y elige una nueva.
+              Escriba su contraseña actual y elige una nueva.
             </p>
 
             {error ? (

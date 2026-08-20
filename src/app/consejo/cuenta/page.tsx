@@ -141,7 +141,7 @@ export default function ConsejoCuentaPage() {
             {/* El correo ya se ve en Perfil; repetirlo aqui solo alarga la
                 pantalla. */}
             <Link href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</Link>
-            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambias la contraseña, tendrás que volver a entrar en los dispositivos donde estés conectado.</p>
+            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambia la contraseña, tendrá que volver a entrar en los dispositivos donde estés conectado.</p>
           </div>
         )}
 
@@ -150,7 +150,7 @@ export default function ConsejoCuentaPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
               <button onClick={readAll} style={{ border: 0, background: 'none', color: COLORS.navy, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Marcar todas como leídas</button>
             </div>
-            {notices.length === 0 ? <div style={empty}>No tienes notificaciones.</div> : notices.map((n) => (
+            {notices.length === 0 ? <div style={empty}>No tiene notificaciones.</div> : notices.map((n) => (
               <button key={n.id} onClick={() => read(n)} style={{ width: '100%', border: 0, textAlign: 'left', background: n.readAt ? '#FFF' : COLORS.bgCard, borderRadius: 14, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <b>{n.title}</b>
                 <span style={{ display: 'block', color: COLORS.textSecondary, fontSize: 13, marginTop: 3 }}>{n.message}</span>

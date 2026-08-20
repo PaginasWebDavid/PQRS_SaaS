@@ -122,7 +122,7 @@ export default function VistaResidentePage() {
       const value = await m.json(); setMe(value); setProfileName(value.user?.name || ''); setProfilePhone(value.user?.phone || '');
       setProfileBloque(value.user?.bloque ? String(value.user?.bloque) : ''); setProfileApto(value.user?.apto ? String(value.user?.apto) : '');
     } catch {
-      setLoadError('No pudimos cargar tus datos. Revisa tu conexion e intenta de nuevo.');
+      setLoadError('No pudimos cargar sus datos. Revise su conexion e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ export default function VistaResidentePage() {
   useEffect(() => {
     if (skipFilterLoad.current) { skipFilterLoad.current = false; return; }
     const timer = window.setTimeout(() => {
-      void loadPqrs(1, filter, search).catch(() => setLoadError('No pudimos cargar tus solicitudes. Revisa tu conexion e intenta de nuevo.'));
+      void loadPqrs(1, filter, search).catch(() => setLoadError('No pudimos cargar sus solicitudes. Revise su conexion e intenta de nuevo.'));
     }, 250);
     return () => window.clearTimeout(timer);
   }, [filter, search, loadPqrs]);
@@ -146,7 +146,7 @@ export default function VistaResidentePage() {
       if (!res.ok || !Array.isArray(body)) throw new Error('tickets_load_failed');
       setTickets(body);
     } catch {
-      setTicketsError('No pudimos cargar tus solicitudes de ayuda. Revisa tu conexion e intenta de nuevo.');
+      setTicketsError('No pudimos cargar sus solicitudes de ayuda. Revise su conexion e intenta de nuevo.');
     }
   }
   useEffect(() => { if (tab === 'ayuda') void loadTickets(); }, [tab]);
@@ -240,7 +240,7 @@ export default function VistaResidentePage() {
 
     const bloqueAptoChanged = bloque !== (me?.user?.bloque ?? null) || apto !== (me?.user?.apto ?? null);
     if (bloqueAptoChanged) {
-      if (bloqueAptoLocked) return showToast('Ya corregiste tu bloque y apartamento una vez; contacta a la administración para otro cambio');
+      if (bloqueAptoLocked) return showToast('Ya corregiste su bloque y apartamento una vez; contacta a la administración para otro cambio');
       setConfirmLocationChange({ bloque, apto });
       return;
     }
@@ -261,16 +261,16 @@ export default function VistaResidentePage() {
     {tab === 'inicio' && (
       <div className="apl-up">
         <h1 style={h1}>Hola, {name.split(' ')[0]}</h1>
-        <p style={sub}>{active.length ? `Tienes ${active.length} solicitud${active.length === 1 ? '' : 'es'} activa${active.length === 1 ? '' : 's'}.` : 'No tienes solicitudes activas.'}</p>
+        <p style={sub}>{active.length ? `Tiene ${active.length} solicitud${active.length === 1 ? '' : 'es'} activa${active.length === 1 ? '' : 's'}.` : 'No tiene solicitudes activas.'}</p>
         <button onClick={() => setCreateOpen(true)} style={newButton}><span><b>Nueva solicitud</b><small style={{ display: 'block', fontWeight: 500, color: COLORS.navyMuted, marginTop: 2 }}>Cuéntanos qué está pasando</small></span><span style={{ fontSize: 22 }}>＋</span></button>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en tus solicitudes" style={{ ...inputStyle, flex: 1 }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en sus solicitudes" style={{ ...inputStyle, flex: 1 }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
           {[['all', 'Todas'], ['abiertas', 'Recibidas'], ['gestion', 'En gestión'], ['resuelta', 'Resueltas']].map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={{ border: 0, ...tabStyle(filter === k) }}>{l}</button>)}
         </div>
-        {loading ? <Empty text={'Cargando tus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tienes solicitudes. Crea la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row, i) => <PqrsCard key={row.id} row={row} index={i} onClick={() => openDetail(row.id)} />)}
+        {loading ? <Empty text={'Cargando sus solicitudes...'} /> : loadError ? <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.danger, background: COLORS.dangerSoft, borderRadius: RADIUS.cardSm, fontSize: 13.5, fontWeight: 600 }}>{loadError}<button onClick={() => void load()} style={{ ...secondary, maxWidth: 220, margin: '16px auto 0' }}>Intentar de nuevo</button></div> : filtered.length === 0 ? <Empty text={data.length === 0 ? 'Aún no tiene solicitudes. Cree la primera con el botón de arriba.' : 'No hay solicitudes con este filtro.'} /> : filtered.map((row, i) => <PqrsCard key={row.id} row={row} index={i} onClick={() => openDetail(row.id)} />)}
         {!loading && !loadError && pqrsTotal > PQRS_PAGE_SIZE && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
             <button type='button' disabled={pqrsPage <= 1} onClick={() => void loadPqrs(pqrsPage - 1, filter, search)} style={{ ...secondary, width: 'auto', minWidth: 100, opacity: pqrsPage <= 1 ? 0.5 : 1 }}>Anterior</button>
@@ -284,7 +284,7 @@ export default function VistaResidentePage() {
     {tab === 'notif' && (
       <div className="apl-up">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><h1 style={{ ...h1, margin: 0 }}>Notificaciones</h1>{notifications.length > 0 && <button onClick={markAll} style={linkButton}>Marcar todas</button>}</div>
-        {notifications.length === 0 ? <Empty text="No tienes notificaciones." /> : notifications.map((n) => <button key={n.id} onClick={() => markRead(n)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, background: n.readAt ? COLORS.bg : COLORS.bgCard, border: `1px solid ${n.readAt ? COLORS.border : 'transparent'}`, borderRadius: RADIUS.stat, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: n.readAt ? COLORS.textMuted : COLORS.navy, marginTop: 6, flexShrink: 0 }} /><span><b style={{ fontSize: 13.5 }}>{n.title}</b><span style={{ display: 'block', fontSize: 12.5, color: COLORS.textSecondary, marginTop: 3 }}>{n.message}</span><small style={{ color: COLORS.textMuted }}>{fmt(n.createdAt)}</small></span></button>)}
+        {notifications.length === 0 ? <Empty text="No tiene notificaciones." /> : notifications.map((n) => <button key={n.id} onClick={() => markRead(n)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, background: n.readAt ? COLORS.bg : COLORS.bgCard, border: `1px solid ${n.readAt ? COLORS.border : 'transparent'}`, borderRadius: RADIUS.stat, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: n.readAt ? COLORS.textMuted : COLORS.navy, marginTop: 6, flexShrink: 0 }} /><span><b style={{ fontSize: 13.5 }}>{n.title}</b><span style={{ display: 'block', fontSize: 12.5, color: COLORS.textSecondary, marginTop: 3 }}>{n.message}</span><small style={{ color: COLORS.textMuted }}>{fmt(n.createdAt)}</small></span></button>)}
       </div>
     )}
 
@@ -309,7 +309,7 @@ export default function VistaResidentePage() {
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '8px 0 0' }}>
-            {bloqueAptoLocked ? 'Ya corregiste tu bloque y apartamento una vez. Si necesitas otro cambio, contacta a la administración.' : 'Puedes corregir tu bloque y apartamento una sola vez si los pusiste mal en el registro.'}
+            {bloqueAptoLocked ? 'Ya corregiste su bloque y apartamento una vez. Si necesita otro cambio, contacta a la administración.' : 'Puede corregir su bloque y apartamento una sola vez si los pusiste mal en el registro.'}
           </p>
           <button onClick={saveProfile} disabled={savingProfile} style={primary}>{savingProfile ? 'Guardando…' : 'Guardar cambios'}</button>
           <Link href="/cambiar-contrasena" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: COLORS.navy, fontWeight: 700 }}>Cambiar contraseña</Link>
@@ -320,7 +320,7 @@ export default function VistaResidentePage() {
     {tab === 'ayuda' && (
       <div className="apl-up">
         <h1 style={h1}>Ayuda</h1>
-        <p style={sub}>¿Tienes un problema con la plataforma? Escríbenos y te responderemos por aquí y por correo.</p>
+        <p style={sub}>¿Tiene un problema con la plataforma? Escríbanos y le responderemos por aquí y por correo.</p>
         <div style={{ background: COLORS.navySoft, borderRadius: RADIUS.control, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, marginBottom: 14 }}>
           Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
         </div>
@@ -328,7 +328,7 @@ export default function VistaResidentePage() {
           <Label>Asunto</Label>
           <input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Ej. No puedo subir fotos a mi solicitud" style={inputStyle} />
           <Label>Mensaje</Label>
-          <textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesitas" style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
+          <textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesita" style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
           <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>
@@ -354,7 +354,7 @@ export default function VistaResidentePage() {
     <Sheet open={confirmLocationChange !== null} onClose={() => setConfirmLocationChange(null)} maxWidth={420}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>Confirmar cambio de ubicación</h2><CloseButton onClick={() => setConfirmLocationChange(null)} /></div>
       <p style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.5, margin: '14px 0 20px' }}>
-        Vas a cambiar tu ubicación a <b>Bloque {confirmLocationChange?.bloque}, Apto {confirmLocationChange?.apto}</b>. Solo puedes hacer esta corrección una vez, después no podrás editarla de nuevo. ¿Confirmas que es correcto?
+        Vas a cambiar su ubicación a <b>Bloque {confirmLocationChange?.bloque}, Apto {confirmLocationChange?.apto}</b>. Solo puede hacer esta corrección una vez, después no podrá editarla de nuevo. ¿Confirmas que es correcto?
       </p>
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={() => setConfirmLocationChange(null)} style={{ ...secondary, marginTop: 0 }}>Cancelar</button>

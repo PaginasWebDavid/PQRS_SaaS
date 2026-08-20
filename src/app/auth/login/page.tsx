@@ -10,7 +10,7 @@ import { useIsMobile } from '@/components/shell/Sheet';
 
 const HIGHLIGHTS = [
   { icon: '✓', title: 'Trazabilidad total', desc: 'Cada solicitud con historial completo, fase por fase.' },
-  { icon: '▤', title: 'Reportes ejecutivos', desc: 'Métricas listas para tu consejo de administración.' },
+  { icon: '▤', title: 'Reportes ejecutivos', desc: 'Métricas listas para su consejo de administración.' },
   { icon: '◷', title: 'Respuesta a tiempo', desc: 'Tiempos de cierre visibles para todo el equipo.' },
 ];
 
@@ -198,7 +198,7 @@ export default function LoginPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 26 }}>
               <Link href="/auth/olvidar-contrasena" style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: 600 }}>
-                ¿Olvidaste tu contraseña?
+                ¿Olvidaste su contraseña?
               </Link>
             </div>
 
@@ -224,7 +224,7 @@ export default function LoginPage() {
           </form>
 
           <p style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: 500, marginTop: 28, textAlign: "center", lineHeight: 1.6 }}>
-            El acceso se habilita desde la invitación enviada por la administración de tu conjunto.
+            El acceso se habilita desde la invitación enviada por la administración de su conjunto.
           </p>
 
           <p style={{ fontSize: 12, color: '#C7C7CC', fontWeight: 500, marginTop: 28, textAlign: 'center' }}>

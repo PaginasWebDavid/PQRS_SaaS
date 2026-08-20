@@ -30,7 +30,7 @@ export default function SelectTenantPage() {
         setError(
           reason instanceof Error
             ? reason.message
-            : "No se pudieron cargar tus conjuntos"
+            : "No se pudieron cargar sus conjuntos"
         )
       )
       .finally(() => setLoading(false));
@@ -69,7 +69,7 @@ export default function SelectTenantPage() {
           <LogoMark size={32} />
         </div>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>
-          Elige un conjunto
+          Elija un conjunto
         </h1>
         <p
           style={{
@@ -84,7 +84,7 @@ export default function SelectTenantPage() {
         </p>
         {loading && <p>Cargando conjuntos…</p>}
         {!loading && memberships.length === 0 && (
-          <p>No tienes membresías activas.</p>
+          <p>No tiene membresías activas.</p>
         )}
         <div style={{ display: "grid", gap: 10 }}>
           {memberships.map((membership) => (

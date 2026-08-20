@@ -176,8 +176,8 @@ export function AdminShell({
 
 const BLOCKED_COPY: Record<string, { title: string; body: string; canPay: boolean }> = {
   PENDING_PAYMENT: {
-    title: 'Activa tu licencia',
-    body: 'Antes de usar PQRS Services, tu conjunto debe completar el primer pago de la licencia.',
+    title: 'Activa su licencia',
+    body: 'Antes de usar PQRS Services, su conjunto debe completar el primer pago de la licencia.',
     canPay: true,
   },
   SUSPENDED: {
@@ -187,7 +187,7 @@ const BLOCKED_COPY: Record<string, { title: string; body: string; canPay: boolea
   },
   CANCELLED: {
     title: 'Licencia cancelada',
-    body: 'La licencia de este conjunto fue cancelada. Contacta al equipo de PQRS Services para reactivarla.',
+    body: 'La licencia de este conjunto fue cancelada. Contacte al equipo de PQRS Services para reactivarla.',
     canPay: false,
   },
 };
@@ -216,11 +216,11 @@ function BlockedScreen({
         </button>
       )}
       {copy.canPay && !isAdmin && (
-        <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 600 }}>Pide al administrador de tu conjunto que complete el pago para continuar.</p>
+        <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 600 }}>Pida al administrador de su conjunto que complete el pago para continuar.</p>
       )}
       <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, marginTop: 22 }}>
-        ¿Problemas con el pago o con tu licencia?{' '}
-        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbenos</a>.
+        ¿Problemas con el pago o con su licencia?{' '}
+        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbanos</a>.
       </p>
     </div>
   );

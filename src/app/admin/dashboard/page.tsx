@@ -101,7 +101,7 @@ export default function DashboardAdminPage() {
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>{greeting(new Date().getHours())}, {(me?.user?.name || 'Ana').split(' ')[0]}.</h1>
-          <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Así va tu conjunto hoy, {longDate(new Date())}.</p>
+          <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Así va su conjunto hoy, {longDate(new Date())}.</p>
         </div>
         <Link href="/admin/pqrs" style={{ background: COLORS.navy, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: 999 }}>Radicar una PQRS</Link>
       </div>
@@ -115,7 +115,7 @@ export default function DashboardAdminPage() {
 
       {showLicenseBanner && (
         <Link href="/admin/licencias" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', background: '#FBF3DF', borderRadius: 14, padding: '14px 18px', marginBottom: 20, color: '#8A5A00' }}>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Tu licencia se renueva en {licenseDaysLeft} día{licenseDaysLeft === 1 ? '' : 's'} ({shortDate(data?.licenseSummary?.currentPeriodEnd)}). Revisa el estado de pago.</span>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Tu licencia se renueva en {licenseDaysLeft} día{licenseDaysLeft === 1 ? '' : 's'} ({shortDate(data?.licenseSummary?.currentPeriodEnd)}). Revise el estado de pago.</span>
           <span style={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}>Ver licencia ›</span>
         </Link>
       )}

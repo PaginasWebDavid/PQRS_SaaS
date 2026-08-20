@@ -63,7 +63,7 @@ export default function InvitacionPage() {
               <div style={{ fontSize: 16, fontWeight: 800, margin: '4px 0 8px' }}>{details.tenant.name}</div>
               <span style={badgeStyle(COLORS.navySoft, COLORS.navy)}>{roleLabel[details.role] || details.role}</span>
             </div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', textAlign: 'center' }}>{details.existingAccount ? 'Confirma el nuevo acceso' : 'Crea tu contraseña para continuar'}</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px', textAlign: 'center' }}>{details.existingAccount ? 'Confirme el nuevo acceso' : 'Cree su contraseña para continuar'}</h1>
 
             {!details.existingAccount && (
               <>
@@ -123,7 +123,7 @@ export default function InvitacionPage() {
               Confirmar acceso
             </button>
             <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
-              La invitación queda asociada automáticamente a tu conjunto y rol.
+              La invitación queda asociada automáticamente a su conjunto y rol.
             </p>
           </div>
         )}

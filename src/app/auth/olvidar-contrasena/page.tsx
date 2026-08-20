@@ -41,9 +41,9 @@ export default function OlvidarContrasenaPage() {
 
         {!sent ? (
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px', textAlign: 'center' }}>Recupera tu acceso</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px', textAlign: 'center' }}>Recupera su acceso</h1>
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 28px', textAlign: 'center', lineHeight: 1.5 }}>
-              Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña.
+              Escriba su correo y le enviaremos un enlace para crear una nueva contraseña.
             </p>
             {error ? (
               <p style={{ background: COLORS.dangerSoft, color: COLORS.danger, fontSize: 12.5, fontWeight: 700, borderRadius: RADIUS.input, padding: '10px 12px', marginBottom: 16 }}>
@@ -101,7 +101,7 @@ export default function OlvidarContrasenaPage() {
             <div className="apl-up" style={{ width: 56, height: 56, borderRadius: 999, background: COLORS.navySoft, color: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 20px' }}>
               ✉
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Revisa tu correo</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Revise su correo</h1>
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 6px' }}>Si corresponde a una cuenta activa, recibiras un enlace en los proximos minutos.</p>
             <div style={{ marginBottom: 26 }} />
             <Link href="/auth/login" style={{ display: 'block', background: COLORS.navy, color: '#FFFFFF', textAlign: 'center', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, marginBottom: 14 }}>

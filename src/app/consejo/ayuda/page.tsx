@@ -7,10 +7,10 @@ import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories';
 
 const FAQS = [
-  { q: '¿Puedo gestionar o cerrar una PQRS desde aquí?', a: 'No. El rol Consejo es de solo lectura — puedes ver el estado, historial y reportes de todas las PQRS del conjunto, pero la gestión (primer contacto, fases, cierre) la realiza la administración.' },
-  { q: '¿Cómo exporto un reporte para la reunión de consejo?', a: 'Ve a Reportes, ajusta el periodo y los filtros que necesites, y usa el botón PDF (elige el tipo "Ejecutivo" para un resumen ideal para consejo) o Excel.' },
-  { q: '¿Por qué no veo el módulo de Usuarios o Licencias?', a: 'Esos módulos son exclusivos de la administración del conjunto. Como Consejo puedes consultar PQRS, Reservas, Pagos, Reportes y Actividad, siempre en modo lectura.' },
-  { q: '¿Cómo cambio mi contraseña?', a: 'Ve a Mi cuenta → Seguridad → Cambiar contraseña.' },
+  { q: '¿Puedo gestionar o cerrar una PQRS desde aquí?', a: 'No. El rol Consejo es de solo lectura — puede ver el estado, historial y reportes de todas las PQRS del conjunto, pero la gestión (primer contacto, fases, cierre) la realiza la administración.' },
+  { q: '¿Cómo exporto un reporte para la reunión de consejo?', a: 'Vaya a Reportes, ajuste el periodo y los filtros que necesites, y usa el botón PDF (elige el tipo "Ejecutivo" para un resumen ideal para consejo) o Excel.' },
+  { q: '¿Por qué no veo el módulo de Usuarios o Licencias?', a: 'Esos módulos son exclusivos de la administración del conjunto. Como Consejo puede consultar PQRS, Reservas, Pagos, Reportes y Actividad, siempre en modo lectura.' },
+  { q: '¿Cómo cambio mi contraseña?', a: 'Vaya a Mi cuenta → Seguridad → Cambiar contraseña.' },
 ];
 
 type Category = 'TECHNICAL' | 'ACCESS' | 'PRIVACY_SECURITY';
@@ -48,9 +48,9 @@ export default function ConsejoAyudaPage() {
   const fetchTickets = () => {
     setLoading(true);
     fetch('/api/support-tickets', { cache: 'no-store' })
-      .then((res) => { if (!res.ok) throw new Error('No se pudieron cargar tus solicitudes'); return res.json(); })
+      .then((res) => { if (!res.ok) throw new Error('No se pudieron cargar sus solicitudes'); return res.json(); })
       .then((data: Ticket[]) => setTickets(data))
-      .catch(() => showToast('No se pudieron cargar tus solicitudes'))
+      .catch(() => showToast('No se pudieron cargar sus solicitudes'))
       .finally(() => setLoading(false));
   };
 
@@ -103,7 +103,7 @@ export default function ConsejoAyudaPage() {
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Contactar soporte</div>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontró la respuesta arriba? Escríbanos y el equipo de PQRS Services le responderá por aquí y por correo.</p>
           <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, margin: '0 0 18px' }}>
             Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
           </div>
@@ -130,7 +130,7 @@ export default function ConsejoAyudaPage() {
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Asunto</label>
           <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ej. No puedo exportar un reporte" style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Mensaje</label>
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesitas" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesita" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
           <button type="button" disabled={!canSubmit} onClick={submit} style={{ width: '100%', textAlign: 'center', background: canSubmit ? COLORS.navy : COLORS.neutralSoft, color: canSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: canSubmit ? 'pointer' : 'default' }}>{submitting ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
 

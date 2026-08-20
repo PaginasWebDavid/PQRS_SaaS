@@ -17,15 +17,15 @@ const BLOCKING_STATUSES = ['PENDING_PAYMENT', 'SUSPENDED', 'CANCELLED'];
 const BLOCKED_COPY: Record<string, { title: string; body: string }> = {
   PENDING_PAYMENT: {
     title: 'Tu conjunto no tiene el servicio activo',
-    body: 'La administración de tu conjunto aún no completa el primer pago de la licencia. Pídele que active el servicio para poder radicar y ver tus solicitudes.',
+    body: 'La administración de su conjunto aún no completa el primer pago de la licencia. Pídele que active el servicio para poder radicar y ver sus solicitudes.',
   },
   SUSPENDED: {
     title: 'Servicio suspendido',
-    body: 'La licencia de tu conjunto está suspendida por falta de pago. Contacta a la administración para reactivar el acceso.',
+    body: 'La licencia de su conjunto está suspendida por falta de pago. Contacte a la administración para reactivar el acceso.',
   },
   CANCELLED: {
     title: 'Servicio no disponible',
-    body: 'La licencia de tu conjunto fue cancelada. Contacta a la administración de tu conjunto para más información.',
+    body: 'La licencia de su conjunto fue cancelada. Contacte a la administración de su conjunto para más información.',
   },
 };
 
@@ -37,8 +37,8 @@ function ResidentBlockedScreen({ status }: { status: string }) {
       <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{copy.title}</h1>
       <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 10px' }}>{copy.body}</p>
       <p style={{ fontSize: 12, color: COLORS.textMuted, fontWeight: 500, marginTop: 22 }}>
-        ¿Necesitas ayuda?{' '}
-        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbenos</a>.
+        ¿Necesita ayuda?{' '}
+        <a href="mailto:hola@pqrsservices.com" style={{ color: COLORS.navy, fontWeight: 700 }}>Escríbanos</a>.
       </p>
     </div>
   );
@@ -47,7 +47,7 @@ function ResidentBlockedScreen({ status }: { status: string }) {
 function ResidentErrorScreen() {
   return (
     <div style={{ maxWidth: 380, margin: '60px auto 0', textAlign: 'center' }}>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6 }}>No pudimos verificar tu sesión. Intenta recargar la página.</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6 }}>No pudimos verificar su sesión. Intente recargar la página.</p>
     </div>
   );
 }
