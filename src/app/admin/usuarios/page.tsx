@@ -208,7 +208,7 @@ export default function UsuariosPage() {
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Invitar usuario</h2>
         <CloseButton onClick={() => setInviteOpen(false)} />
       </div>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>Recibirá una invitación por correo para unirse a tu conjunto.</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 22px' }}>Recibirá una invitación por correo para unirse a su conjunto.</p>
       <label style={labelStyle}>Correo electrónico</label>
       <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="nombre@correo.com" style={inputStyle} />
       <label style={labelStyle}>Rol</label>

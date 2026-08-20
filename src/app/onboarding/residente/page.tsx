@@ -7,9 +7,9 @@ import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
 
 const TIPS = [
-  'Toca "Nueva solicitud" y cuéntanos qué está pasando.',
-  'Adjunta una foto si ayuda a explicar el problema.',
-  'Haz seguimiento del estado en cualquier momento desde Mis PQRS.',
+  'Pulse "Nueva solicitud" y cuéntenos qué está pasando.',
+  'Adjunte una foto si ayuda a explicar el problema.',
+  'Haga seguimiento del estado en cualquier momento desde Mis PQRS.',
 ];
 
 export default function OnboardingResidentePage() {
@@ -34,7 +34,7 @@ export default function OnboardingResidentePage() {
         setBloque(d.user?.bloque ? String(d.user.bloque) : '');
         setApto(d.user?.apto ? String(d.user.apto) : '');
       })
-      .catch(() => setError('No se pudieron cargar tus datos'));
+      .catch(() => setError('No se pudieron cargar sus datos'));
   }, [router]);
 
   const canContinueStep1 = name.trim().length >= 2 && bloque.trim() && apto.trim();
@@ -81,7 +81,7 @@ export default function OnboardingResidentePage() {
                 Hola, {name.split(' ')[0] || 'Residente'} 👋
               </h1>
               <p style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 30px' }}>
-                Bienvenido a PQRS Services, tu canal directo con la administración de tu conjunto.
+                Bienvenido a PQRS Services, su canal directo con la administración de su conjunto.
               </p>
               <button
                 type="button"
@@ -96,7 +96,7 @@ export default function OnboardingResidentePage() {
           {step === 1 && (
             <div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 6 }}>PASO 1 DE 2</div>
-              <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px' }}>Confirma tus datos</h1>
+              <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 20px' }}>Confirme sus datos</h1>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Nombre completo</label>
               <input
                 value={name}
@@ -131,7 +131,7 @@ export default function OnboardingResidentePage() {
                   />
                 </div>
               </div>
-              <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 26px' }}>Con esto identificamos tu unidad ante la administración de tu conjunto.</p>
+              <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 26px' }}>Con esto identificamos su unidad ante la administración de su conjunto.</p>
               {error && <p style={{ color: COLORS.warning, fontSize: 13, margin: '0 0 14px' }}>{error}</p>}
               <button
                 type="button"

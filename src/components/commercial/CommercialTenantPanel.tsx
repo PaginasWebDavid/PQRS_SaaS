@@ -55,7 +55,7 @@ const BILLING_MODE_LABEL: Record<string, string> = { MONTHLY: 'Mensual', ANNUAL:
 const CHECKLIST: { field: keyof CommercialProfile; label: string }[] = [
   { field: 'documentsAcceptedAt', label: 'Documentos aceptados' }, { field: 'residentBaseReceivedAt', label: 'Base de residentes recibida' },
   { field: 'categoriesConfiguredAt', label: 'Categorías configuradas' }, { field: 'administratorInvitedAt', label: 'Administrador invitado' },
-  { field: 'trainingCompletedAt', label: 'Capacitación completada' }, { field: 'smokeTestApprovedAt', label: 'Prueba operativa aprobada' },
+  { field: 'trainingCompletedAt', label: 'Capacitación completada' }, { field: 'smokeTestApprovedAt', label: 'Pruebe operativa aprobada' },
   { field: 'launchCommunicationSentAt', label: 'Comunicación de lanzamiento enviada' },
 ];
 
@@ -124,13 +124,13 @@ export function CommercialTenantPanel({ tenantId, detail, metrics, founderSlotsR
         return {
           text: checklistPending.length > 0
             ? `Ya pagó el piloto. Antes de arrancar falta dejar listo: ${checklistPending.join(', ')}. Cuando termines, inicia el piloto.`
-            : 'Ya pagó el piloto y la preparación está completa. Puedes iniciar el piloto cuando quieras.',
+            : 'Ya pagó el piloto y la preparación está completa. Puede iniciar el piloto cuando quiera.',
           tone: 'action',
         };
       case 'PILOT_ACTIVE':
         return { text: `El piloto está corriendo${metrics?.totalDaysRemaining != null ? ` y le quedan ${metrics.totalDaysRemaining} días` : ''}. Cerca del final, abre la evaluación para decidir con el conjunto si continúa como cliente pagado.`, tone: 'info' };
       case 'PILOT_EVALUATION':
-        return { text: `Toca decidir antes del ${date(profile.decisionDueAt)}: convertirlo en cliente pagado, darle una extensión excepcional, o cerrarlo sin conversión.`, tone: 'action' };
+        return { text: `Pulse decidir antes del ${date(profile.decisionDueAt)}: convertirlo en cliente pagado, darle una extensión excepcional, o cerrarlo sin conversión.`, tone: 'action' };
       case 'CONVERTED_MONTHLY':
       case 'CONVERTED_ANNUAL':
         return { text: `Ya es cliente pagado (${BILLING_MODE_LABEL[profile.billingMode || ''] || 'plan activo'}). No queda nada pendiente aquí; su cobro y renovación se manejan en "Licencias y pagos".`, tone: 'done' };
@@ -183,7 +183,7 @@ export function CommercialTenantPanel({ tenantId, detail, metrics, founderSlotsR
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 9 }}>
             <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 800 }}>
               PREPARACIÓN
-              <InfoTip text="Los pasos que hay que dejar listos antes de que el conjunto empiece a usar la plataforma de verdad. Marca cada uno a medida que lo completes; solo se pueden editar durante la preparación y el piloto." />
+              <InfoTip text="Los pasos que hay que dejar listos antes de que el conjunto empiece a usar la plataforma de verdad. Marque cada uno a medida que lo complete; solo se pueden editar durante la preparación y el piloto." />
             </div>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: checklistDone === CHECKLIST.length ? COLORS.success : COLORS.textSecondary }}>{checklistDone} de {CHECKLIST.length} listos</span>
           </div>

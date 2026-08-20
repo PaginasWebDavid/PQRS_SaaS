@@ -85,7 +85,7 @@ export default function ResidenteReservasPage() {
       const [hour, minute] = startTime.split(':').map(Number);
       const duration = Number(durationMinutes);
       if (![year, month, day, hour, minute, duration].every(Number.isFinite) || !Number.isInteger(duration) || duration <= 0) {
-        showToast('Completa una fecha, hora y duracion validas');
+        showToast('Complete una fecha, hora y duracion validas');
         return;
       }
       // El formulario representa hora civil de Bogota, aun si el navegador se
@@ -128,7 +128,7 @@ export default function ResidenteReservasPage() {
   return (
     <ResidentShell activeKey="reservas" initials={initials || 'RS'} greetingName={name} bottomNav={bottomNav}>
       <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px' }}>Reservas</h1>
-      <p style={{ color: COLORS.textSecondary, marginBottom: 24, fontSize: 14 }}>Reserva zonas comunes de tu conjunto</p>
+      <p style={{ color: COLORS.textSecondary, marginBottom: 24, fontSize: 14 }}>Reserva zonas comunes de su conjunto</p>
 
       {error && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600, marginBottom: 16 }}>{error}</div>}
       {loading && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Cargando…</div>}
@@ -168,7 +168,7 @@ export default function ResidenteReservasPage() {
       )}
 
       <div style={{ fontSize: 13, fontWeight: 800, margin: '24px 0 10px' }}>Mis reservas</div>
-      {!loading && reservations.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Aún no tienes reservas.</div>}
+      {!loading && reservations.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Aún no tiene reservas.</div>}
       {reservations.map((r) => (
         <div key={r.id} style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>

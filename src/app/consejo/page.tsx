@@ -75,7 +75,7 @@ function VistaConsejoPageContent() {
     fetch('/api/pqrs', { cache: 'no-store' })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((rows: Pqrs[]) => { if (alive) setData(rows); })
-      .catch(() => { if (alive) { setData([]); setError("No se pudieron cargar las PQRS. Intenta de nuevo."); } })
+      .catch(() => { if (alive) { setData([]); setError("No se pudieron cargar las PQRS. Intente de nuevo."); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [reloadKey]);
@@ -266,7 +266,7 @@ function VistaConsejoPageContent() {
 
               <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, textAlign: 'center', margin: 0 }}>Vista de solo lectura — la gestión de esta solicitud la realiza la administración.</p>
             </>
-          ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Selecciona una PQRS.</div>}
+          ) : <div style={{ color: COLORS.textMuted, fontWeight: 600 }}>Seleccione una PQRS.</div>}
         </DetailPanel>
       </div>
     </AdminShell>

@@ -14,7 +14,7 @@ export default function RegistroPage() {
           Para proteger la informacion de cada conjunto, las cuentas se activan unicamente desde una invitacion enviada por su administrador.
         </p>
         <div style={{ background: COLORS.bgCard, borderRadius: 16, padding: 20, marginBottom: 22, fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6 }}>
-          Si recibiste un correo de invitacion, abre el enlace incluido, crea tu contrasena y luego inicia sesion.
+          Si recibiste un correo de invitacion, abre el enlace incluido, crea su contrasena y luego inicia sesion.
         </div>
         <Link href="/auth/login" style={{ display: "block", background: COLORS.navy, color: COLORS.white, fontSize: 14, fontWeight: 700, padding: "13px 0", borderRadius: RADIUS.pill }}>
           Ir a iniciar sesion

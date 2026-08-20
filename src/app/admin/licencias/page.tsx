@@ -345,7 +345,7 @@ export default function ModuloLicenciasPage() {
           <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: 22 }}>
             <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 700, marginBottom: 10 }}>{isPaidPilot ? 'Precio posterior al piloto' : isAnnualPlan ? 'Renovación anual' : needsPayment ? 'Pago pendiente' : 'Próxima factura'}</div>
             <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{money(isPaidPilot ? (me?.commercial?.postPilotPriceCents || 0) : isAnnualPlan && annualAmount ? annualAmount : (license?.priceCents || 0), isAnnualPlan ? annualCurrency : me?.commercial?.currency || license?.currency)}</div>
-            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : isAnnualPlan ? `Cubre 12 meses. Renueva el ${shortDate(license?.currentPeriodEnd)}` : needsPayment ? 'Paga ahora para activar tu licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, marginBottom: 18 }}>{isPaidPilot ? `El piloto ya está pagado y termina el ${shortDate(me?.commercial?.pilotAccessEndsAt)}` : isAnnualPlan ? `Cubre 12 meses. Renueva el ${shortDate(license?.currentPeriodEnd)}` : needsPayment ? 'Paga ahora para activar su licencia' : `Vence el ${shortDate(license?.nextPaymentDueDate)}`}</div>
             <button type="button" onClick={() => setDocumentOpen(true)} style={{ width: '100%', background: COLORS.navy, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer', marginBottom: 10 }}><FileText size={16} />Ver resumen de licencia</button>
             {isPaidPilot ? null : needsPayment ? (
               <button type="button" onClick={() => void payNow(isAnnualPlan ? 'ANNUAL' : 'MONTHLY')} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', textAlign: 'center', fontSize: 13, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{payLoading ? 'Abriendo el portal de pagos…' : isAnnualPlan ? 'Pagar plan anual' : 'Pagar mensualidad'}</button>
@@ -363,7 +363,7 @@ export default function ModuloLicenciasPage() {
               <div style={{ fontSize: 23, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>{money(annualAmount, annualCurrency)}</div>
               <p style={{ fontSize: 12.5, color: COLORS.success, fontWeight: 600, lineHeight: 1.55, margin: '0 0 14px' }}>
                 12 meses por el valor de {money(annualOffer?.listAmountCents || 0, annualCurrency)}. Ahorras {money(annualOffer?.savingsCents || 0, annualCurrency)}.
-                {annualOffer?.isPilotConversion ? ' Al aprobarse, tu piloto pasa al plan anual.' : annualOffer?.startsAfterCurrentPeriod ? ' La anualidad empieza cuando termine tu periodo vigente.' : ''}
+                {annualOffer?.isPilotConversion ? ' Al aprobarse, su piloto pasa al plan anual.' : annualOffer?.startsAfterCurrentPeriod ? ' La anualidad empieza cuando termine su periodo vigente.' : ''}
               </p>
               <button type="button" onClick={() => void payNow('ANNUAL')} disabled={payLoading} style={{ width: '100%', background: COLORS.success, color: '#FFFFFF', border: 'none', borderRadius: RADIUS.pill, padding: '11px 12px', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}>
                 {payLoading ? 'Abriendo el portal de pagos…' : isPaidPilot ? 'Pasar a plan anual' : 'Pagar plan anual'}
@@ -383,10 +383,10 @@ export default function ModuloLicenciasPage() {
                   <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.success }}>Cobro automático activo</span>
                 </div>
                 <p style={{ fontSize: 13, color: COLORS.success, fontWeight: 500, lineHeight: 1.6, margin: '0 0 6px' }}>
-                  No tienes que hacer nada. {isAnnualPlan ? 'Cada año' : 'Cada mes'} se cobra solo con {automaticLabel}.
+                  No tiene que hacer nada. {isAnnualPlan ? 'Cada año' : 'Cada mes'} se cobra solo con {automaticLabel}.
                 </p>
                 <p style={{ fontSize: 12, color: COLORS.success, fontWeight: 500, lineHeight: 1.55, margin: '0 0 16px', opacity: 0.85 }}>
-                  Próximo cobro: {shortDate(license?.nextPaymentDueDate)}. Si algo falla, siempre puedes pagar a mano.
+                  Próximo cobro: {shortDate(license?.nextPaymentDueDate)}. Si algo falla, siempre puede pagar a mano.
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => void setAutomaticRenewal(false)} disabled={automaticLoading} style={{ flex: 1, minWidth: 130, border: `1.5px solid ${COLORS.success}`, background: 'transparent', color: COLORS.success, borderRadius: RADIUS.pill, padding: '10px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: automaticLoading ? 'wait' : 'pointer' }}>
@@ -404,13 +404,13 @@ export default function ModuloLicenciasPage() {
                   <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.white }}>{isAnnualPlan ? 'Renueva sin pendientes cada año' : 'Olvídate de pagar cada mes'}</span>
                 </div>
                 <p style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 500, lineHeight: 1.6, margin: '0 0 16px' }}>
-                  Registra una tarjeta y la licencia se renueva sola {isAnnualPlan ? 'cada año' : 'cada mes'}. Se acaban los recordatorios, la mora y el riesgo de que se te suspenda el acceso.
+                  Registra una tarjeta y la licencia se renueva sola {isAnnualPlan ? 'cada año' : 'cada mes'}. Se acaban los recordatorios, la mora y el riesgo de que se le suspenda el acceso.
                 </p>
                 <button type="button" onClick={() => automaticAvailable ? void setAutomaticRenewal(true) : void openAutomaticSetup()} disabled={automaticLoading} style={{ width: '100%', border: 'none', background: COLORS.white, color: COLORS.navy, borderRadius: RADIUS.pill, padding: '13px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, cursor: automaticLoading ? 'wait' : 'pointer' }}>
                   <ShieldCheck size={16} />{automaticLoading ? 'Preparando…' : 'Activar cobro automático'}
                 </button>
                 <p style={{ fontSize: 11.5, color: COLORS.navyMuted2, fontWeight: 500, lineHeight: 1.5, margin: '12px 0 0', textAlign: 'center' }}>
-                  La tarjeta la guarda Wompi, no nosotros. Puedes desactivarlo cuando quieras.
+                  La tarjeta la guarda Wompi, no nosotros. Puede desactivarlo cuando quiera.
                 </p>
               </div>
             )
@@ -419,7 +419,7 @@ export default function ModuloLicenciasPage() {
           {!isPaidPilot && (
             <div style={{ background: COLORS.bgCard, borderRadius: 18, padding: '16px 18px' }}>
               <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 600, lineHeight: 1.6 }}>
-                También puedes pagar a mano con PSE, tarjeta, Nequi o Bancolombia. La licencia se actualiza solo cuando el pago queda confirmado.
+                También puede pagar a mano con PSE, tarjeta, Nequi o Bancolombia. La licencia se actualiza solo cuando el pago queda confirmado.
               </div>
             </div>
           )}
@@ -484,7 +484,7 @@ export default function ModuloLicenciasPage() {
           ) : null}
         </form>
         <p style={{ color: COLORS.textMuted, fontSize: 11.5, lineHeight: 1.55, margin: '16px 0 0' }}>
-          Puedes desactivar el cobro automático o eliminar la tarjeta guardada en cualquier momento desde esta pagina.
+          Puede desactivar el cobro automático o eliminar la tarjeta guardada en cualquier momento desde esta pagina.
         </p>
       </Sheet>
 

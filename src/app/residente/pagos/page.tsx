@@ -66,7 +66,7 @@ export default function ResidentePagosPage() {
     let alive = true;
     setLoading(true);
     setError('');
-    load().catch(() => { if (alive) setError('No se pudo cargar tu informacion de pagos.'); }).finally(() => { if (alive) setLoading(false); });
+    load().catch(() => { if (alive) setError('No se pudo cargar su informacion de pagos.'); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [load]);
 
@@ -74,7 +74,7 @@ export default function ResidentePagosPage() {
 
   async function uploadReceipt(chargeId: string) {
     const file = fileInputRef.current?.files?.[0];
-    if (!file) { showToast('Selecciona un archivo primero'); return; }
+    if (!file) { showToast('Seleccione un archivo primero'); return; }
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -108,7 +108,7 @@ export default function ResidentePagosPage() {
   return (
     <ResidentShell activeKey="pagos" initials="RS" greetingName="Residente" bottomNav={bottomNav}>
       <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px' }}>Pagos</h1>
-      <p style={{ color: COLORS.textSecondary, marginBottom: 16, fontSize: 14 }}>Cuotas de administracion de tu unidad</p>
+      <p style={{ color: COLORS.textSecondary, marginBottom: 16, fontSize: 14 }}>Cuotas de administracion de su unidad</p>
 
       {error && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 12, padding: 12, fontSize: 12.5, fontWeight: 600, marginBottom: 16 }}>{error}</div>}
       {loading && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>Cargando…</div>}
@@ -121,7 +121,7 @@ export default function ResidentePagosPage() {
       )}
 
       <div style={{ fontSize: 13, fontWeight: 800, margin: '20px 0 10px' }}>Obligaciones</div>
-      {!loading && charges.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>No tienes obligaciones registradas.</div>}
+      {!loading && charges.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: COLORS.textMuted, fontWeight: 600 }}>No tiene obligaciones registradas.</div>}
       {charges.map((c) => (
         <div key={c.id} style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>

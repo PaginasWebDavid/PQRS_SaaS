@@ -8,7 +8,7 @@ import { COLORS, FONTS, RADIUS } from '@/lib/design/tokens';
 
 const errorMessages: Record<string, string> = {
   Configuration: 'Hay un problema con la configuracion del servidor.',
-  AccessDenied: 'No tienes permiso para acceder.',
+  AccessDenied: 'No tiene permiso para acceder.',
   Verification: 'El enlace de verificacion expiro o ya fue utilizado.',
   Default: 'Ocurrio un error al intentar iniciar sesion.',
 };

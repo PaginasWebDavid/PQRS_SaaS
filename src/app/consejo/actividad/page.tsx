@@ -42,7 +42,7 @@ export default function ConsejoActividadPage() {
     setError('');
     load(filter, 0).then((body) => {
       setEntries(body.entries); setTotal(body.total);
-    }).catch(() => { setEntries([]); setTotal(0); setError('No se pudo cargar la actividad. Intenta de nuevo.'); }).finally(() => setLoading(false));
+    }).catch(() => { setEntries([]); setTotal(0); setError('No se pudo cargar la actividad. Intente de nuevo.'); }).finally(() => setLoading(false));
   }, [filter, load, reloadKey]);
 
   async function loadMore() {
@@ -60,7 +60,7 @@ export default function ConsejoActividadPage() {
   return (
     <AdminShell navItems={CONSEJO_NAV} activeKey="actividad" userName="Consejo" userRole="Consejo de Administración" initials="CM" mobileTitle="Actividad">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Actividad</h1>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 20px' }}>Trazabilidad de las PQRS de tu conjunto</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 20px' }}>Trazabilidad de las PQRS de su conjunto</p>
 
       {error && <div style={{ background: COLORS.dangerSoft, color: COLORS.danger, borderRadius: 14, padding: 16, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>{error} <button type="button" onClick={() => setReloadKey((value) => value + 1)} style={{ marginLeft: 10, border: 'none', background: COLORS.danger, color: '#FFF', borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Reintentar</button></div>}
 

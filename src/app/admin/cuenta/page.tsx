@@ -63,7 +63,7 @@ export default function MiCuentaPage() {
     // prender el aviso te lo guardaba sin pedirtelo.
     const res = await fetch('/api/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notifyNewPqrsEmail: next }) });
     if (!res.ok) { setNotifyNewPqrsEmail(!next); showToast('No se pudo actualizar la preferencia'); return; }
-    showToast(next ? 'Recibirás correo por cada nueva PQRS' : 'Ya no recibirás correo por nuevas PQRS');
+    showToast(next ? 'Recibirá correo por cada nueva PQRS' : 'Ya no recibirá correo por nuevas PQRS');
   }
 
   async function uploadAvatar(file: File) {
@@ -157,7 +157,7 @@ export default function MiCuentaPage() {
             {/* El correo ya se ve en Perfil; repetirlo aqui solo hace mas larga
                 la pantalla. */}
             <Link href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</Link>
-            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambias la contraseña, tendrás que volver a entrar en los dispositivos donde estés conectado.</p>
+            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambia la contraseña, tendrá que volver a entrar en los dispositivos donde estés conectado.</p>
           </div>
         )}
 
@@ -167,7 +167,7 @@ export default function MiCuentaPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
                 <div style={{ maxWidth: 420, minWidth: 200 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>Avisarme por correo ante una nueva PQRS</div>
-                  <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500 }}>Además de la notificación aquí abajo, te llega un correo apenas un residente radica una solicitud.</div>
+                  <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500 }}>Además de la notificación aquí abajo, le llega un correo apenas un residente radica una solicitud.</div>
                 </div>
                 <button
                   type="button"
@@ -182,7 +182,7 @@ export default function MiCuentaPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
               <button onClick={readAll} style={{ border: 0, background: 'none', color: COLORS.navy, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Marcar todas como leídas</button>
             </div>
-            {notices.length === 0 ? <div style={empty}>No tienes notificaciones.</div> : notices.map((n) => (
+            {notices.length === 0 ? <div style={empty}>No tiene notificaciones.</div> : notices.map((n) => (
               <button key={n.id} onClick={() => read(n)} style={{ width: '100%', border: 0, textAlign: 'left', background: n.readAt ? '#FFF' : COLORS.bgCard, borderRadius: 14, padding: '14px 16px', marginBottom: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <b>{n.title}</b>
                 <span style={{ display: 'block', color: COLORS.textSecondary, fontSize: 13, marginTop: 3 }}>{n.message}</span>

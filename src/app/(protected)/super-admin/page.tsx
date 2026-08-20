@@ -606,7 +606,7 @@ export default function DashboardSuperAdminPage() {
       await fetchOverview();
       showToast('Licencia renovada');
     } catch {
-      showToast('No se pudo confirmar la renovacion. Vuelve a intentarlo.');
+      showToast('No se pudo confirmar la renovacion. Vuelva a intentarlo.');
     } finally {
       setRenewingTenantId(null);
     }
@@ -616,7 +616,7 @@ export default function DashboardSuperAdminPage() {
     if (courtesySubmitting) return;
     const days = Number(courtesyDays);
     if (!Number.isSafeInteger(days) || days <= 0 || days > 90 || !courtesyReason.trim()) {
-      showToast('Indica dias (1-90) y un motivo');
+      showToast('Indique los dias (1-90) y un motivo');
       return;
     }
     const operationId = courtesyOperationKey.current || globalThis.crypto.randomUUID();
@@ -640,7 +640,7 @@ export default function DashboardSuperAdminPage() {
       setCourtesyDays('7');
       showToast(`Cortesia de ${days} dia(s) aplicada`);
     } catch {
-      showToast('No se pudo confirmar la cortesia. Vuelve a intentarlo.');
+      showToast('No se pudo confirmar la cortesia. Vuelva a intentarlo.');
     } finally {
       setCourtesySubmitting(false);
     }
@@ -758,7 +758,7 @@ export default function DashboardSuperAdminPage() {
         showToast(body?.error || 'No se pudo enviar el correo de prueba');
         return;
       }
-      showToast('Correo de prueba enviado ✓ Revisa tu bandeja de entrada.');
+      showToast('Correo de prueba enviado ✓ Revise su bandeja de entrada.');
     } finally {
       setSendingTestEmail(false);
     }
@@ -767,8 +767,8 @@ export default function DashboardSuperAdminPage() {
   const validateCapsForm = (): string | null => {
     const minCop = Number(capsMinInput);
     const maxCop = Number(capsMaxInput);
-    if (!capsMinInput || Number.isNaN(minCop) || minCop <= 0) return 'Ingresa un tope mínimo válido.';
-    if (!capsMaxInput || Number.isNaN(maxCop)) return 'Ingresa un tope máximo válido.';
+    if (!capsMinInput || Number.isNaN(minCop) || minCop <= 0) return 'Ingrese un tope mínimo válido.';
+    if (!capsMaxInput || Number.isNaN(maxCop)) return 'Ingrese un tope máximo válido.';
     if (maxCop <= minCop) return 'El tope máximo debe ser mayor que el tope mínimo.';
     return null;
   };
@@ -840,8 +840,8 @@ export default function DashboardSuperAdminPage() {
     const min = Number(ruleMinUnits);
     const max = ruleMaxUnits ? Number(ruleMaxUnits) : null;
     const price = Number(rulePrice);
-    if (!ruleMinUnits || Number.isNaN(min)) return 'Ingresa el rango "desde".';
-    if (!rulePrice || Number.isNaN(price)) return 'Ingresa el precio mensual.';
+    if (!ruleMinUnits || Number.isNaN(min)) return 'Ingrese el rango "desde".';
+    if (!rulePrice || Number.isNaN(price)) return 'Ingrese el precio mensual.';
     const priceCentsForCapCheck = Math.round(price * 100);
     if (priceCentsForCapCheck < pricingCapsMinCents || priceCentsForCapCheck > pricingCapsMaxCents) {
       return `El precio debe estar entre ${formatMoney(pricingCapsMinCents)} y ${formatMoney(pricingCapsMaxCents)}.`;
@@ -980,7 +980,7 @@ export default function DashboardSuperAdminPage() {
         setAccountEmail(data.user.email || '');
         setAccountCreatedAt(data.user.createdAt || null);
       })
-      .catch(() => showToast('No se pudo cargar tu cuenta'));
+      .catch(() => showToast('No se pudo cargar su cuenta'));
   }, [nav, showToast]);
 
   async function saveAccount() {
@@ -1272,7 +1272,7 @@ export default function DashboardSuperAdminPage() {
       setCreateStep(5);
       await fetchOverview();
       setCreatePhase('done');
-      showToast('Piloto creado. Confirma la transferencia para activar el acceso y enviar la invitación.');
+      showToast('Piloto creado. Confirme la transferencia para activar el acceso y enviar la invitación.');
     } catch (error) {
       console.error(error);
       setCreatePhase('form');
@@ -1498,7 +1498,7 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.5, maxWidth: 340, margin: '0 auto 14px' }}>
                   {tenants.length === 0
                     ? 'Cuando crees el primer conjunto aparecerá aquí con su estado de licencia.'
-                    : 'Prueba con otro término de búsqueda o quita el filtro de estado.'}
+                    : 'Pruebe con otro término de búsqueda o quita el filtro de estado.'}
                 </div>
                 {tenants.length === 0 ? (
                   <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
@@ -1573,7 +1573,7 @@ export default function DashboardSuperAdminPage() {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>Actualizar estados por mora</div>
               <div style={{ fontSize: 11.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.45 }}>
-                Revisa todos los conjuntos y mueve a mora los que se les venció la licencia, y a suspendido los que ya agotaron los {graceDays} días de gracia. Normalmente lo hace el sistema solo; ejecútalo a mano únicamente si necesitas adelantar esa revisión.
+                Revise todos los conjuntos y mueve a mora los que se les venció la licencia, y a suspendido los que ya agotaron los {graceDays} días de gracia. Normalmente lo hace el sistema solo; ejecútalo a mano únicamente si necesita adelantar esa revisión.
               </div>
             </div>
             <button type="button" onClick={runOverdueRules} disabled={applyingOverdue} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: COLORS.bg, color: COLORS.textPrimary, fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: applyingOverdue ? 'default' : 'pointer', font: 'inherit', flexShrink: 0, opacity: applyingOverdue ? 0.6 : 1 }}>{applyingOverdue ? 'Actualizando…' : 'Ejecutar ahora'}</button>
@@ -1592,8 +1592,8 @@ export default function DashboardSuperAdminPage() {
 
           {finSubTab === 'licencia' && (() => {
             const GROUPS = [
-              { key: 'needsAction', title: 'Requieren acción', help: 'Conjuntos que no están pagando: en mora, sin primer pago o suspendidos. Empieza por aquí.', list: licenseBuckets.needsAction, accent: COLORS.warning, soft: COLORS.warningSoft },
-              { key: 'expiringSoon', title: 'Vencen pronto', help: 'Se les acaba la licencia en 15 días o menos. Confirma que van a renovar antes de que caigan en mora.', list: licenseBuckets.expiringSoon, accent: COLORS.navy, soft: COLORS.navySoft },
+              { key: 'needsAction', title: 'Requieren acción', help: 'Conjuntos que no están pagando: en mora, sin primer pago o suspendidos. Comience por aquí.', list: licenseBuckets.needsAction, accent: COLORS.warning, soft: COLORS.warningSoft },
+              { key: 'expiringSoon', title: 'Vencen pronto', help: 'Se les acaba la licencia en 15 días o menos. Confirme que van a renovar antes de que caigan en mora.', list: licenseBuckets.expiringSoon, accent: COLORS.navy, soft: COLORS.navySoft },
               { key: 'healthy', title: 'Al día', help: 'Nada que hacer con estos por ahora.', list: licenseBuckets.healthy, accent: COLORS.success, soft: COLORS.successSoft },
               { key: 'closed', title: 'Cerrados', help: 'Conjuntos cancelados. Se conservan por historial.', list: licenseBuckets.closed, accent: COLORS.textMuted, soft: COLORS.neutralSoft },
             ];
@@ -1621,7 +1621,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                       <button type="button" onClick={() => setConfirmingRenewalId(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Registrando…' : 'Registrar pago'}</button>
-                      <InfoTip text="Marca la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úsalo solo cuando ya recibiste el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
+                      <InfoTip text="Marque la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úsalo solo cuando ya recibiste el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
                     </span>
                     <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
@@ -1805,7 +1805,7 @@ export default function DashboardSuperAdminPage() {
             </div>
 
             {!simValid ? (
-              <div style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 600 }}>Escribe un número de unidades para ver el precio.</div>
+              <div style={{ fontSize: 13, color: COLORS.navyMuted, fontWeight: 600 }}>Escriba un número de unidades para ver el precio.</div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,minmax(0,1fr))', gap: isMobile ? 14 : 18 }}>
                 {[
@@ -1880,10 +1880,10 @@ export default function DashboardSuperAdminPage() {
                   Son {simMonthlyEstimate.extraUnits} unidades por encima del último tramo. La sugerencia parte de{' '}
                   {formatMoney(simMonthlyEstimate.fromRule.priceCents)} y suma entre{' '}
                   {formatMoney(simMonthlyEstimate.perUnitMinCents)} y {formatMoney(simMonthlyEstimate.perUnitMaxCents)} por
-                  unidad adicional, que es lo que sube tu propia tabla en cada salto.
+                  unidad adicional, que es lo que sube su propia tabla en cada salto.
                 </div>
                 <div style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.55, color: COLORS.navyMuted, marginTop: 6 }}>
-                  El valor que acuerdes lo escribes al crear el conjunto, junto con el motivo. Ese precio es el que
+                  El valor que acuerdes lo escribe al crear el conjunto, junto con el motivo. Ese precio es el que
                   cobra el sistema: no hay tarifa automática arriba de {simMonthlyEstimate.fromRule.maxUnits} unidades.
                 </div>
               </div>
@@ -1897,7 +1897,7 @@ export default function DashboardSuperAdminPage() {
           ] as const).map(({ title, coverage }) => (
             (coverage.overlaps.length > 0 || coverage.gaps.length > 0) && (
               <div key={title} style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.cardSm, padding: '13px 16px', marginBottom: 12 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 5 }}>Revisa los rangos del {title}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 5 }}>Revise los rangos del {title}</div>
                 {coverage.overlaps.length > 0 && (
                   <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 500, lineHeight: 1.5 }}>
                     Hay rangos que se pisan ({coverage.overlaps.join('; ')}). Cuando dos reglas cubren las mismas unidades se cobra la del rango que empiece más abajo, así que el precio deja de ser obvio.
@@ -2009,7 +2009,7 @@ export default function DashboardSuperAdminPage() {
               {showArchivedRules && (
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden', marginTop: 10 }}>
                   <div style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, padding: '12px 18px', borderBottom: `1px solid ${COLORS.borderSoft}`, lineHeight: 1.45 }}>
-                    Estas reglas no se le cobran a nadie. Se guardan por historial; puedes reactivarlas o eliminarlas.
+                    Estas reglas no se le cobran a nadie. Se guardan por historial; puede reactivarlas o eliminarlas.
                   </div>
                   {archivedRules.map((p) => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '13px 18px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
@@ -2080,7 +2080,7 @@ export default function DashboardSuperAdminPage() {
 
         {!ruleConfirmStep && (
           <>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Define el rango de unidades y cuánto se le cobrará mensualmente a los conjuntos en ese rango.</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Defina el rango de unidades y cuánto se le cobrará mensualmente a los conjuntos en ese rango.</p>
 
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Tipo de tarifa</label>
             <select value={ruleType} disabled={Boolean(editingRuleId)} onChange={(e) => setRuleType(e.target.value as 'MONTHLY' | 'PILOT')} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', marginBottom: 14 }}><option value="MONTHLY">Plan Gestión mensual</option><option value="PILOT">Piloto pago de 45 días</option></select>
@@ -2111,7 +2111,7 @@ export default function DashboardSuperAdminPage() {
               <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.textPrimary, marginBottom: 4 }}>{formatMoney(Math.round(Number(rulePrice) * 100))}<span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>/mes</span></div>
               <div style={{ fontSize: 12.5, color: COLORS.textSecondary }}>A conjuntos de {ruleMinUnits} {ruleMaxUnits ? `a ${ruleMaxUnits}` : 'o más'} unidades</div>
             </div>
-            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Confirma que este valor es el correcto antes de guardarlo. Se aplicará de inmediato al cálculo de precio de nuevos conjuntos.</p>
+            <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Confirme que este valor es el correcto antes de guardarlo. Se aplicará de inmediato al cálculo de precio de nuevos conjuntos.</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" onClick={() => setRuleConfirmStep(false)} style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', background: 'none', color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Revisar de nuevo</button>
               <button type="button" onClick={editingRuleId ? submitEditRule : submitNewRule} style={{ flex: 1, border: 'none', font: 'inherit', background: COLORS.success, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, confirmar y guardar</button>
@@ -2156,7 +2156,7 @@ export default function DashboardSuperAdminPage() {
                 label: 'Riesgo de concentración',
                 value: `${concentrationPct}%`,
                 color: concentrationPct >= 40 ? COLORS.danger : concentrationPct >= 25 ? COLORS.warning : COLORS.success,
-                note: `"${topTenant.name}" aporta el ${concentrationPct} % de tus ingresos. Si se va, eso es lo que dejas de recibir de un solo golpe.`,
+                note: `"${topTenant.name}" aporta el ${concentrationPct} % de sus ingresos. Si se va, eso es lo que dejas de recibir de un solo golpe.`,
               }
             : {
                 label: 'Riesgo de concentración',
@@ -2198,7 +2198,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
                       Ingresos mensuales (MRR)
-                      <InfoTip text="Suma los pagos aprobados de cada mes. Incluye los registros manuales que hiciste con 'Registrar pago', así que no es solo el dinero que entró por la pasarela. Para ver la separación, entra a Licencias y pagos → Pagos." />
+                      <InfoTip text="Suma los pagos aprobados de cada mes. Incluye los registros manuales que hizo con 'Registrar pago', así que no es solo el dinero que entró por la pasarela. Para ver la separación, entra a Licencias y pagos → Pagos." />
                     </div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados (incluye registros manuales)</div>
                     <MiniBarChart data={analytics.mrrTrend.map((m) => ({ label: m.month, value: m.revenueCents }))} color={COLORS.success} formatValue={(v) => formatMoney(v).replace('COP', '').trim()} />
@@ -2212,7 +2212,7 @@ export default function DashboardSuperAdminPage() {
 
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 800, letterSpacing: '0.05em', margin: '26px 0 10px' }}>
                   TU SERVICIO
-                  <InfoTip text="Qué tan bien está funcionando el producto para los conjuntos. Son los números que puedes mostrarle a un prospecto: si resuelves rápido y no dejas casos colgados, eso es tu argumento de venta." />
+                  <InfoTip text="Qué tan bien está funcionando el producto para los conjuntos. Son los números que puede mostrarle a un prospecto: si resuelves rápido y no dejas casos colgados, eso es su argumento de venta." />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
@@ -2319,7 +2319,7 @@ export default function DashboardSuperAdminPage() {
         return (
           <div className="apl-up">
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Usuarios</h1>
-            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elige un conjunto para ver quién tiene acceso y con qué rol</p>
+            <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elija un conjunto para ver quién tiene acceso y con qué rol</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 20, alignItems: 'flex-start' }}>
               {/* En celular el selector ocupa toda la pantalla, asi que el
@@ -2359,7 +2359,7 @@ export default function DashboardSuperAdminPage() {
 
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, minHeight: isMobile && !usersTenantId ? 0 : 300, order: isMobile ? 0 : 1, display: isMobile && !usersTenantId ? 'none' : 'block' }}>
                 {!usersTenantId && (
-                  <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Selecciona un conjunto de la lista para ver sus usuarios.</div>
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Seleccione un conjunto de la lista para ver sus usuarios.</div>
                 )}
                 {usersTenantId && usersTenantLoading && (
                   <div style={{ padding: '60px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13.5 }}>Cargando usuarios…</div>
@@ -2528,7 +2528,7 @@ export default function DashboardSuperAdminPage() {
             {respondingTicket.status !== 'CERRADA' && (
               <>
                 <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>{respondingTicket.response ? 'Actualizar respuesta' : 'Responder'}</label>
-                <textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} placeholder="Escribe la solución o respuesta para este conjunto" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14, resize: 'vertical' }} />
+                <textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} placeholder="Escriba la solución o respuesta para este conjunto" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14, resize: 'vertical' }} />
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 18, cursor: 'pointer' }}>
                   <input type="checkbox" checked={closeOnRespond} onChange={(e) => setCloseOnRespond(e.target.checked)} />
                   Cerrar esta solicitud al responder
@@ -2587,7 +2587,7 @@ export default function DashboardSuperAdminPage() {
 
           <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Reglas operativas</div>
-            <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Define qué tan rápido se debe cerrar una PQRS. Esto alimenta directamente las gráficas y alertas de Analytics.</p>
+            <p style={{ fontSize: 12, color: COLORS.textMuted, margin: '0 0 16px' }}>Defina qué tan rápido se debe cerrar una PQRS. Esto alimenta directamente las gráficas y alertas de Analytics.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>SLA de cierre de PQRS (días)</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input type="number" min={1} value={slaDaysInput} onChange={(e) => setSlaDaysInput(e.target.value)} style={{ width: 100, height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 14, fontWeight: 500, fontFamily: 'inherit' }} />
@@ -2715,7 +2715,7 @@ export default function DashboardSuperAdminPage() {
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Editar conjunto</h2>
               <CloseButton onClick={() => setEditingTenant(null)} />
             </div>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Actualiza los datos básicos de este conjunto.</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Actualice los datos básicos de este conjunto.</p>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Nombre del conjunto</label>
             <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', height: 44, padding: '0 13px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Ciudad</label>
@@ -2747,7 +2747,7 @@ export default function DashboardSuperAdminPage() {
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                   <a href={`/api/platform/tenants/${selected.id}/export`} style={{ display: 'inline-block', textDecoration: 'none', background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Exportar datos</a>
-                  <InfoTip text="Descarga toda la información de este conjunto en un archivo. Útil si el conjunto pide sus datos o si vas a cancelarlo y quieres conservar el histórico." />
+                  <InfoTip text="Descargue toda la información de este conjunto en un archivo. Útil si el conjunto pide sus datos o si va a cancelarlo y quiere conservar el histórico." />
                 </span>
                 <button type="button" onClick={() => setConfirmingCancel(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.warningSoft}`, color: COLORS.warning, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Cancelar conjunto</button>
               </div>

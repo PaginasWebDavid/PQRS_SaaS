@@ -9,14 +9,14 @@ import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories
 // Ojo: estas respuestas describen botones reales. Si cambia el flujo de PQRS,
 // hay que actualizarlas aqui o quedan mintiendo.
 const FAQS = [
-  { q: '¿Qué hago cuando llega una solicitud nueva?', a: 'Entra a PQRS, tócala y pulsa "Abrir caso". Ahí eliges de qué es la solicitud, escribes qué le dijiste al residente y confirmas. Eso le genera el número de radicación y le avisa por correo.' },
-  { q: '¿Por qué el residente no elige la categoría?', a: 'Porque el residente describe su problema, no sabe cómo lo gestiona el conjunto. La categoría la pones tú al abrir el caso, y de ella depende si el caso se maneja simple o por 5 fases.' },
-  { q: '¿Cuál es la diferencia entre simple y 5 fases?', a: 'Simple es para convivencia, certificados, cartera o consultas: registras el primer contacto, la acción tomada y la evidencia de cierre. Las 5 fases son para mantenimiento y zonas comunes: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada categoría ya viene marcada con su ruta en Configuración.' },
-  { q: '¿Cómo cierro una solicitud?', a: 'Ábrela y pulsa "Cerrar solicitud". Te pide qué acción se tomó y la evidencia de cierre. Al confirmar, el residente recibe el correo de cierre.' },
-  { q: '¿Cómo invito a un nuevo usuario?', a: 'Ve a Invitaciones → Nueva invitación, ingresa el correo y el rol. Le llega un enlace para activar su cuenta; vence a los 3 días.' },
-  { q: '¿Puedo cambiar el número de unidades de mi conjunto?', a: 'No directamente. Esa información la administra PQRS Services — escríbenos aquí abajo y lo ajustamos por ti.' },
-  { q: '¿Cómo pago o renuevo mi licencia?', a: 'Ve a Licencias y pagos. Si te falta el primer pago o estás en mora, verás ahí el botón para pagar. Mientras la renovación automática esté activada, el cobro mensual se hace solo.' },
-  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tienes el período de gracia que se muestra en Licencias y pagos para ponerte al día antes de que se suspenda el acceso. Puedes pagar en cualquier momento desde ahí.' },
+  { q: '¿Qué hago cuando llega una solicitud nueva?', a: 'Entre a PQRS, seleccione la solicitud y pulse "Abrir caso". Ahí verá lo que reportó el residente, clasifica la solicitud y escribe la primera respuesta. Esa respuesta se le envía por correo tal como la escriba, junto con el número de radicación.' },
+  { q: '¿Por qué el residente no elige la categoría?', a: 'Porque el residente describe su problema; no tiene por qué saber cómo lo gestiona el conjunto. La categoría la asigna usted al abrir el caso, y de ella depende si se gestiona de forma directa o en 5 fases.' },
+  { q: '¿Cuál es la diferencia entre simple y 5 fases?', a: 'La gestión directa es para convivencia, certificados, cartera o consultas: registra la primera respuesta y, al resolver, la acción tomada con su evidencia. Las 5 fases son para mantenimiento y zonas comunes: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada categoría ya viene marcada con su ruta en Configuración.' },
+  { q: '¿Cómo cierro una solicitud?', a: 'Ábrala y pulse "Cerrar solicitud". Le pide la acción que se tomó y la evidencia de cierre. Al confirmar, el residente recibe el correo de cierre.' },
+  { q: '¿Cómo invito a un nuevo usuario?', a: 'Vaya a Invitaciones → Nueva invitación, ingrese el correo y el rol. Le llega un enlace para activar su cuenta; vence a los 3 días.' },
+  { q: '¿Puedo cambiar el número de unidades de mi conjunto?', a: 'No directamente. Esa información la administra PQRS Services — escríbanos aquí abajo y lo ajustamos por usted.' },
+  { q: '¿Cómo pago o renuevo mi licencia?', a: 'Vaya a Licencias y pagos. Si le falta el primer pago o está en mora, verá ahí el botón para pagar. Mientras la renovación automática esté activada, el cobro mensual se hace solo.' },
+  { q: '¿Qué pasa si mi conjunto queda en mora?', a: 'Tiene el período de gracia que se muestra en Licencias y pagos para ponerse al día antes de que se suspenda el acceso. Puede pagar en cualquier momento desde ahí.' },
 ];
 
 type Category = 'TECHNICAL' | 'ACCESS' | 'PRIVACY_SECURITY' | 'BILLING';
@@ -56,9 +56,9 @@ export default function AyudaPage() {
   const fetchTickets = () => {
     setLoading(true);
     fetch('/api/support-tickets', { cache: 'no-store' })
-      .then((res) => { if (!res.ok) throw new Error('No se pudieron cargar tus solicitudes'); return res.json(); })
+      .then((res) => { if (!res.ok) throw new Error('No se pudieron cargar sus solicitudes'); return res.json(); })
       .then((data: Ticket[]) => setTickets(data))
-      .catch(() => showToast('No se pudieron cargar tus solicitudes'))
+      .catch(() => showToast('No se pudieron cargar sus solicitudes'))
       .finally(() => setLoading(false));
   };
 
@@ -87,7 +87,7 @@ export default function AyudaPage() {
       fetchTickets();
       showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
     } catch {
-      showToast('No se pudo enviar la solicitud. Revisa tu conexión.');
+      showToast('No se pudo enviar la solicitud. Revise su conexión.');
     } finally {
       setSubmitting(false);
     }
@@ -113,7 +113,7 @@ export default function AyudaPage() {
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 24, marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Contactar soporte</div>
-          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontraste la respuesta arriba? Escríbenos y el equipo de PQRS Services te responderá por aquí y por correo.</p>
+          <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 12px' }}>¿No encontró la respuesta arriba? Escríbanos y el equipo de PQRS Services le responderá por aquí y por correo.</p>
           <div style={{ background: COLORS.navySoft, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: COLORS.navy, fontWeight: 600, margin: '0 0 18px' }}>
             Los problemas operativos del conjunto, solicitudes de mantenimiento o reclamos a la administración deben registrarse como PQRS. Este canal es únicamente para problemas técnicos de la plataforma.
           </div>
@@ -140,14 +140,14 @@ export default function AyudaPage() {
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Asunto</label>
           <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ej. No puedo exportar un reporte" style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Mensaje</label>
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesitas" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesita" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
           <button type="button" disabled={!canSubmit} onClick={submit} style={{ width: '100%', textAlign: 'center', background: canSubmit ? COLORS.navy : COLORS.neutralSoft, color: canSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: canSubmit ? 'pointer' : 'default' }}>{submitting ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
 
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>Solicitudes de mi conjunto</div>
-            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Incluye las tuyas y las de otros usuarios de tu conjunto (solo lectura).</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Incluye las tuyas y las de otros usuarios de su conjunto (solo lectura).</div>
           </div>
           {loading && <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Cargando…</div>}
           {!loading && tickets.length === 0 && (

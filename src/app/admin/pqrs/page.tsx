@@ -163,7 +163,7 @@ function ModuloPqrsPageContent() {
       setData(Array.isArray(body) ? body : body?.data || []);
       if (body?.pagination) setPagination(body.pagination);
     } catch {
-      showToast('No se pudieron cargar las PQRS. Revisa tu conexión.');
+      showToast('No se pudieron cargar las PQRS. Revise su conexión.');
     } finally {
       setLoading(false);
     }
@@ -468,7 +468,7 @@ function ModuloPqrsPageContent() {
             para leer la que acababas de tocar. */}
         {/* En escritorio `selected` cae por defecto en la primera de la lista,
             lo cual esta bien para la columna fija; en celular eso abriria el
-            panel encima de la lista apenas entras, asi que aqui manda el
+            panel encima de la lista apenas entra, asi que aqui manda el
             seleccionado de verdad. */}
         <DetailPanel isMobile={isMobile} open={Boolean(selectedId)} onClose={() => setSelectedId(null)}>
           {selected ? (

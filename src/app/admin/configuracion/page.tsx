@@ -59,7 +59,7 @@ export default function ConfiguracionConjuntoPage() {
         showToast(body?.error || 'No se pudo guardar la configuración');
       }
     } catch {
-      showToast('No se pudo guardar la configuración. Revisa tu conexión.');
+      showToast('No se pudo guardar la configuración. Revise su conexión.');
     }
   }
 
@@ -75,7 +75,7 @@ export default function ConfiguracionConjuntoPage() {
       if (!res.ok) { if (res.status !== 409) showToast(body?.error || 'No se pudo actualizar la categoria'); return; }
       setCategories((current) => current.map((item) => item.id === body.id ? body : item).sort((a, b) => a.sortOrder - b.sortOrder));
       showToast('Categoria actualizada');
-    } catch { showToast('No se pudo actualizar la categoria. Revisa tu conexion.'); }
+    } catch { showToast('No se pudo actualizar la categoria. Revise su conexion.'); }
     finally { setCategorySaving(false); }
   }
 
@@ -94,7 +94,7 @@ export default function ConfiguracionConjuntoPage() {
       setCategories((list) => list
         .map((item) => item.id === current.id ? { ...item, sortOrder: neighbour.sortOrder } : item.id === neighbour.id ? { ...item, sortOrder: current.sortOrder } : item)
         .sort((x, y) => x.sortOrder - y.sortOrder));
-    } catch { showToast('No se pudo cambiar el orden. Revisa tu conexión.'); }
+    } catch { showToast('No se pudo cambiar el orden. Revise su conexión.'); }
     finally { setCategorySaving(false); }
   }
 
@@ -107,14 +107,14 @@ export default function ConfiguracionConjuntoPage() {
       const body = await res.json().catch(() => null);
       if (!res.ok) { showToast(body?.error || 'No se pudo crear la categoria'); return; }
       setCategories((current) => [...current, body].sort((a, b) => a.sortOrder - b.sortOrder)); setNewCategoryName(''); showToast('Categoria creada');
-    } catch { showToast('No se pudo crear la categoria. Revisa tu conexion.'); }
+    } catch { showToast('No se pudo crear la categoria. Revise su conexion.'); }
     finally { setCategorySaving(false); }
   }
 
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="configuracion" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Configuración">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Configuración del conjunto</h1>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 24px' }}>Estos datos se leen y guardan en tu conjunto real.</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 24px' }}>Estos datos se leen y guardan en su conjunto real.</p>
       {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
       <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -162,7 +162,7 @@ export default function ConfiguracionConjuntoPage() {
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Categorías de PQRS</div>
           <p style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 4px', lineHeight: 1.6 }}>
-            Cuando abres un caso, eliges una de estas. La categoría decide cómo se gestiona:
+            Cuando abre un caso, elige una de estas. La categoría decide cómo se gestiona:
           </p>
           <ul style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
             <li><strong>Simple</strong>: primer contacto, acción tomada y evidencia de cierre. Para convivencia, certificados, cartera, consultas.</li>
@@ -195,7 +195,7 @@ export default function ConfiguracionConjuntoPage() {
           </div>
           <div style={{ borderTop: `1px solid ${COLORS.borderSoft}`, marginTop: 16, paddingTop: 16 }}>
             <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 3 }}>Crear una categoría propia ({categories.filter((item) => item.isCustom).length}/3)</div>
-            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 8 }}>Por si tu conjunto maneja un tipo de solicitud que no encaja en las de arriba.</div>
+            <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginBottom: 8 }}>Por si su conjunto maneja un tipo de solicitud que no encaja en las de arriba.</div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 190px auto', gap: 8 }}>
               <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} maxLength={80} placeholder="Ej. Mascotas" aria-label="Nombre de la categoría nueva" style={inputStyle} />
               <select value={newCategoryWorkflow} onChange={(e) => setNewCategoryWorkflow(e.target.value as PqrsWorkflowType)} aria-label="Cómo se gestiona" style={inputStyle}><option value="SIMPLE">Simple</option><option value="MAINTENANCE">Mantenimiento (5 fases)</option></select>
@@ -207,7 +207,7 @@ export default function ConfiguracionConjuntoPage() {
             el administrador no puede accionar ("si algo falla, contacta a
             soporte"). Si de verdad se cae uno, se nota al usarlo. */}
         <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500 }}>
-          ¿Buscas activar o desactivar tus correos de nuevas PQRS? Eso se configura en <Link href="/admin/cuenta" style={{ color: COLORS.navy, fontWeight: 700 }}>Mi cuenta</Link>.
+          ¿Buscas activar o desactivar sus correos de nuevas PQRS? Eso se configura en <Link href="/admin/cuenta" style={{ color: COLORS.navy, fontWeight: 700 }}>Mi cuenta</Link>.
         </p>
       </div>
 

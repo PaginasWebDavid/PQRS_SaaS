@@ -175,7 +175,7 @@ export default function ModuloReportesPage() {
         .then((d: ReportData) => { setData(d); setQuickFilter(null); })
         .catch((reason: unknown) => {
           if (reason instanceof DOMException && reason.name === 'AbortError') return;
-          setError('No se pudieron cargar los reportes. Intenta de nuevo.');
+          setError('No se pudieron cargar los reportes. Intente de nuevo.');
         })
         .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     }, 250);
@@ -267,7 +267,7 @@ export default function ModuloReportesPage() {
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>Reportes de PQRS</h1>
-          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Mide la atención de tus PQRS y encuentra dónde actuar.</p>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Mide la atención de sus PQRS y encuentra dónde actuar.</p>
           {data && <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, margin: '4px 0 0' }}>Periodo: {fmtDate(data.periodo.from)} — {fmtDate(new Date(new Date(data.periodo.to).getTime() - 1).toISOString())}</p>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -303,7 +303,7 @@ export default function ModuloReportesPage() {
           <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Periodo y comparación</h2>
           <CloseButton onClick={() => setPeriodOpen(false)} />
         </div>
-        <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Todas las métricas, gráficas y tablas se actualizan según lo que elijas aquí.</p>
+        <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Todas las métricas, gráficas y tablas se actualizan según lo que elija aquí.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
           {PRESETS.map((p) => (
             <button key={p.key} type="button" onClick={() => setPreset(p.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', border: 'none', background: preset === p.key ? COLORS.navySoft : 'none', color: preset === p.key ? COLORS.navy : '#1D1D1F', fontSize: 13, fontWeight: preset === p.key ? 800 : 600, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -575,7 +575,7 @@ export default function ModuloReportesPage() {
                 {filteredTableRows.length === 0 && <tr><td colSpan={11} style={{ padding: 30, textAlign: 'center', color: COLORS.textMuted }}>No hay casos que coincidan.</td></tr>}
               </tbody>
             </table>
-            {filteredTableRows.length > 200 && <p style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 10 }}>Mostrando los primeros 200 de {filteredTableRows.length} casos. Usa un filtro más específico o exporta a Excel/PDF para ver todo.</p>}
+            {filteredTableRows.length > 200 && <p style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 10 }}>Mostrando los primeros 200 de {filteredTableRows.length} casos. Use un filtro más específico o exporta a Excel/PDF para ver todo.</p>}
           </div>
         </>
       )}
@@ -585,7 +585,7 @@ export default function ModuloReportesPage() {
           <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Exportar a PDF</h2>
           <CloseButton onClick={() => setPdfOpen(false)} />
         </div>
-        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elige el nivel de detalle del documento.</p>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>Elija el nivel de detalle del documento.</p>
         {[
           { key: 'ejecutivo', label: 'Ejecutivo', desc: 'Resumen, alertas y hallazgos — ideal para el consejo' },
           { key: 'completo', label: 'Completo', desc: 'Ejecutivo + análisis por categoría y desempeño' },
