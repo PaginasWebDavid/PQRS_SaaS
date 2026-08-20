@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { LogoMark } from '@/components/shell/Logo';
 import { useIsMobile } from '@/components/shell/Sheet';
 import { COLORS, RADIUS } from '@/lib/design/tokens';
@@ -13,6 +14,7 @@ const TIPS = [
 
 export default function OnboardingResidentePage() {
   const router = useRouter();
+  const { update: refrescarSesion } = useSession();
   const isMobile = useIsMobile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -46,10 +48,18 @@ export default function OnboardingResidentePage() {
       body: JSON.stringify({ name, phone, bloque, apto }),
     });
     const body = await res.json().catch(() => null);
-    setSaving(false);
-    if (!res.ok) return setError(body?.error || 'No se pudo finalizar');
-    router.replace('/residente');
-    router.refresh();
+    if (!res.ok) {
+      setSaving(false);
+      return setError(body?.error || 'No se pudo finalizar');
+    }
+    // El middleware decide si el onboarding termino leyendo la COOKIE de sesion
+    // (getToken), no la base de datos. Si solo navegamos, esa cookie sigue
+    // diciendo que falta el onboarding y nos devuelve a esta misma pantalla: el
+    // boton parece no hacer nada. Hay que reemitir el token primero.
+    await refrescarSesion();
+    // Navegacion dura a proposito: garantiza que el middleware lea la cookie ya
+    // reemitida y no una version en cache del cliente.
+    window.location.assign('/residente');
   }
 
   return (
