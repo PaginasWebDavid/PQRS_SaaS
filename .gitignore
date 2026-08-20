@@ -75,3 +75,15 @@ __pycache__/
 # Ver docs/marketing/comercial/LEEME.md
 *.mp4
 *.mov
+
+# Skills instaladas por el gestor (543 archivos, ~12 MB de codigo de terceros).
+# Se reinstalan desde skills-lock.json, que si va versionado: `npx skills install`.
+.claude/skills/
+.agents/skills/
+
+# Musica con licencia de Uppbeat. La licencia cubre USARLA en el comercial, no
+# redistribuir el archivo: este repositorio es publico.
+assets/audio/
+
+# Lienzo de Obsidian, no es parte del proyecto.
+*.canvas
