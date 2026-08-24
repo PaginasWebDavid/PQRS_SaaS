@@ -569,8 +569,13 @@ function ModuloPqrsPageContent() {
                 )}
                 {selected.estado === 'EN_PROGRESO' && (
                   <>
-                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Continuar proceso</button>
-                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: COLORS.bg, color: COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Cerrar solicitud</button>
+                    {/* En el flujo con fases, avanzar ES el camino principal. En
+                        el flujo directo no: registrar un avance es opcional, no
+                        pide nada obligatorio y deja la solicitud abierta. Pintarlo
+                        como accion principal manda al administrador a un rodeo y
+                        deja en segundo plano el boton que si termina el trabajo. */}
+                    <button type="button" onClick={openFase} style={{ flex: 1, textAlign: 'center', background: isSimpleWorkflow ? COLORS.bg : COLORS.navy, color: isSimpleWorkflow ? COLORS.textPrimary : COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: isSimpleWorkflow ? `1.5px solid ${COLORS.inputBorder}` : 'none', fontFamily: 'inherit', cursor: 'pointer' }}>{isSimpleWorkflow ? 'Registrar un avance' : 'Continuar proceso'}</button>
+                    <button type="button" onClick={openClose} style={{ flex: 1, textAlign: 'center', background: isSimpleWorkflow ? COLORS.navy : COLORS.bg, color: isSimpleWorkflow ? COLORS.white : COLORS.textPrimary, fontSize: 13.5, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: isSimpleWorkflow ? 'none' : `1.5px solid ${COLORS.inputBorder}`, fontFamily: 'inherit', cursor: 'pointer' }}>Cerrar solicitud</button>
                   </>
                 )}
                 {selected.estado === 'TERMINADO' && (
