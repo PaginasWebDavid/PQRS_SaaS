@@ -289,6 +289,17 @@ export default function DashboardSuperAdminPage() {
   const [pendingInvitations, setPendingInvitations] = useState<{ id: string; email: string; role: string; expiresAt: string }[]>([]);
   const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // Confirmacion generica para acciones que no se pueden deshacer solas.
+  // Vive aqui, junto a la accion, y no en cada boton: suspender se dispara
+  // desde cuatro sitios y eliminar una regla desde dos, asi que colgar el
+  // aviso de cada boton garantiza que el proximo que se agregue nazca sin el.
+  const [confirmacion, setConfirmacion] = useState<{
+    titulo: string;
+    detalle: string;
+    textoBoton: string;
+    accion: () => Promise<void>;
+  } | null>(null);
+  const [confirmandoEnCurso, setConfirmandoEnCurso] = useState(false);
   const [grantingCourtesy, setGrantingCourtesy] = useState(false);
   const [courtesySubmitting, setCourtesySubmitting] = useState(false);
   const [renewingTenantId, setRenewingTenantId] = useState<string | null>(null);
@@ -941,7 +952,16 @@ export default function DashboardSuperAdminPage() {
     await fetchOverview();
   };
 
-  const deleteRule = async (ruleId: string) => {
+  const deleteRule = async (ruleId: string, etiqueta: string) => {
+    setConfirmacion({
+      titulo: '¿Eliminar esta regla de precio?',
+      detalle: `Se elimina la regla de ${etiqueta}. Los conjuntos que ya tienen un precio acordado lo conservan, pero desde ahora ningun conjunto nuevo en ese rango tendra tarifa automatica: habra que cotizarlo a mano. Si solo quiere dejar de usarla, archivela en vez de eliminarla.`,
+      textoBoton: 'Eliminar la regla',
+      accion: () => eliminarReglaConfirmada(ruleId),
+    });
+  };
+
+  const eliminarReglaConfirmada = async (ruleId: string) => {
     const response = await fetch('/api/platform/super-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1220,7 +1240,14 @@ export default function DashboardSuperAdminPage() {
   }, {} as Record<TenantGroup, number>);
   const hasActiveFilters = filter !== 'all' || q.length > 0;
 
-  const suspend = async (id: string) => { await updateTenantStatus(id, 'SUSPENDED'); };
+  const suspend = async (id: string, nombre: string) => {
+    setConfirmacion({
+      titulo: `¿Suspender ${nombre}?`,
+      detalle: 'Todo el conjunto pierde el acceso de inmediato: administradores, consejo y residentes. Al entrar solo veran la pantalla de licencia suspendida y no podran radicar ni gestionar solicitudes. Se puede reactivar despues, pero mientras tanto quedan sin servicio.',
+      textoBoton: 'Suspender el conjunto',
+      accion: () => updateTenantStatus(id, 'SUSPENDED'),
+    });
+  };
   const reactivate = async (id: string) => { await updateTenantStatus(id, 'ACTIVE'); };
   // Reactivar tambien aplica a conjuntos CANCELLED, no solo SUSPENDED — el
   // backend (updateTenantStatusForSuperAdmin) ya lo soporta con las mismas
@@ -1521,7 +1548,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.adminName} · Plan {t.plan}</div>
                   <div style={{ display: 'flex', gap: 16 }}>
                     <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(t); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id, t.name); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
                 </div>
               ))
@@ -1554,7 +1581,7 @@ export default function DashboardSuperAdminPage() {
                       <td style={{ padding: '13px 22px 13px 8px' }}>
                         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
                           <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(t); }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id, t.name); } }} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 11, fontWeight: 700, color: canReactivate(t.group) ? COLORS.success : COLORS.warning, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                         </div>
                       </td>
                     </tr>
@@ -1623,7 +1650,7 @@ export default function DashboardSuperAdminPage() {
                       <button type="button" onClick={() => setConfirmingRenewalId(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Registrando…' : 'Registrar pago'}</button>
                       <InfoTip text="Marque la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úselo solo cuando ya haya recibido el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
                     </span>
-                    <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
+                    <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id, t.name); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
                   </div>
                   {confirmingRenewalId === t.id && (
@@ -1955,7 +1982,7 @@ export default function DashboardSuperAdminPage() {
                     <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
                       <button type="button" onClick={() => openEditRule(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.navy, cursor: 'pointer' }}>Editar</button>
                       <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.warning, cursor: 'pointer' }}>Archivar</button>
-                      <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
+                      <button type="button" onClick={() => deleteRule(p.id, p.maxUnits ? `${p.minUnits} a ${p.maxUnits} unidades` : `${p.minUnits} unidades o mas`)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
                     </div>
                   </div>
                 ))}
@@ -2024,7 +2051,7 @@ export default function DashboardSuperAdminPage() {
                       </div>
                       <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
                         <button type="button" onClick={() => toggleRuleActive(p)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.success, cursor: 'pointer' }}>Reactivar</button>
-                        <button type="button" onClick={() => deleteRule(p.id)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
+                        <button type="button" onClick={() => deleteRule(p.id, p.maxUnits ? `${p.minUnits} a ${p.maxUnits} unidades` : `${p.minUnits} unidades o mas`)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 700, color: COLORS.danger, cursor: 'pointer' }}>Eliminar</button>
                       </div>
                     </div>
                   ))}
@@ -2740,7 +2767,7 @@ export default function DashboardSuperAdminPage() {
 
             {!confirmingCancel && !grantingCourtesy && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
+                <button type="button" onClick={() => (canReactivate(selected.group) ? reactivate(selected.id) : suspend(selected.id, selected.name))} style={{ border: 'none', font: 'inherit', background: canReactivate(selected.group) ? COLORS.success : COLORS.navy, color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(selected.group) ? 'Reactivar conjunto' : 'Suspender conjunto'}</button>
                 <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                   <button type="button" onClick={() => setGrantingCourtesy(true)} style={{ background: 'none', font: 'inherit', border: `1.5px solid ${COLORS.border}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 16px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Otorgar cortesía</button>
                   <InfoTip text="Regalarle días de servicio sin cobrar: corre la fecha de vencimiento hacia adelante. Sirve para compensar un reclamo justificado o para dar un plazo extra sin suspender el acceso. Queda registrado en la auditoría con el motivo." />
@@ -2803,6 +2830,46 @@ export default function DashboardSuperAdminPage() {
             <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.input, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{selected.adminName}</div>
               <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{selected.adminEmail} · {selected.adminPhone}</div>
+            </div>
+          </>
+        )}
+      </Sheet>
+
+      {/* Confirmacion de acciones que dejan a alguien sin servicio o borran
+          una regla comercial. El boton que confirma va en rojo y nombra la
+          accion; "Cancelar" queda a la izquierda para no pulsarlo de paso. */}
+      <Sheet open={confirmacion !== null} onClose={() => { if (!confirmandoEnCurso) setConfirmacion(null); }} maxWidth={440}>
+        {confirmacion && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{confirmacion.titulo}</div>
+              <CloseButton onClick={() => { if (!confirmandoEnCurso) setConfirmacion(null); }} />
+            </div>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6, margin: '0 0 22px' }}>{confirmacion.detalle}</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmacion(null)}
+                disabled={confirmandoEnCurso}
+                style={{ flex: 1, border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', color: COLORS.textPrimary, font: 'inherit', fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, cursor: confirmandoEnCurso ? 'default' : 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirmandoEnCurso) return;
+                  setConfirmandoEnCurso(true);
+                  try { await confirmacion.accion(); } finally {
+                    setConfirmandoEnCurso(false);
+                    setConfirmacion(null);
+                  }
+                }}
+                disabled={confirmandoEnCurso}
+                style={{ flex: 1, border: 'none', background: COLORS.danger, color: COLORS.white, font: 'inherit', fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, cursor: confirmandoEnCurso ? 'default' : 'pointer', opacity: confirmandoEnCurso ? 0.6 : 1 }}
+              >
+                {confirmandoEnCurso ? 'Aplicando…' : confirmacion.textoBoton}
+              </button>
             </div>
           </>
         )}
