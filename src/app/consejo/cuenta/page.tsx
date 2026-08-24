@@ -141,7 +141,7 @@ export default function ConsejoCuentaPage() {
             {/* El correo ya se ve en Perfil; repetirlo aqui solo alarga la
                 pantalla. */}
             <Link href="/cambiar-contrasena" style={{ display: 'inline-block', border: `1.5px solid ${COLORS.inputBorder}`, color: COLORS.textPrimary, fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, textDecoration: 'none' }}>Cambiar contraseña</Link>
-            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambia la contraseña, tendrá que volver a entrar en los dispositivos donde estés conectado.</p>
+            <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '14px 0 0', lineHeight: 1.5 }}>Si cambia la contraseña, tendrá que volver a entrar en los dispositivos donde esté conectado.</p>
           </div>
         )}
 

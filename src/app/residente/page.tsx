@@ -262,7 +262,7 @@ export default function VistaResidentePage() {
       <div className="apl-up">
         <h1 style={h1}>Hola, {name.split(' ')[0]}</h1>
         <p style={sub}>{active.length ? `Tiene ${active.length} solicitud${active.length === 1 ? '' : 'es'} activa${active.length === 1 ? '' : 's'}.` : 'No tiene solicitudes activas.'}</p>
-        <button onClick={() => setCreateOpen(true)} style={newButton}><span><b>Nueva solicitud</b><small style={{ display: 'block', fontWeight: 500, color: COLORS.navyMuted, marginTop: 2 }}>Cuéntanos qué está pasando</small></span><span style={{ fontSize: 22 }}>＋</span></button>
+        <button onClick={() => setCreateOpen(true)} style={newButton}><span><b>Nueva solicitud</b><small style={{ display: 'block', fontWeight: 500, color: COLORS.navyMuted, marginTop: 2 }}>Cuéntenos qué está pasando</small></span><span style={{ fontSize: 22 }}>＋</span></button>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en sus solicitudes" style={{ ...inputStyle, flex: 1 }} />
@@ -328,7 +328,7 @@ export default function VistaResidentePage() {
           <Label>Asunto</Label>
           <input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Ej. No puedo subir fotos a mi solicitud" style={inputStyle} />
           <Label>Mensaje</Label>
-          <textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesita" style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
+          <textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Cuéntenos qué necesita" style={{ ...inputStyle, height: 'auto', paddingTop: 12 }} />
           <button onClick={submitTicket} disabled={submittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} style={primary}>{submittingTicket ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Mis solicitudes</div>

@@ -322,7 +322,7 @@ export default function ConsejoReportesPage() {
           <h2 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>Filtros</h2>
           <CloseButton onClick={() => setFiltersOpen(false)} />
         </div>
-        <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Acota el reporte por estado, categoría, prioridad, bloque o responsable.</p>
+        <p style={{ fontSize: 12.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Acote el reporte por estado, categoría, prioridad, bloque o responsable.</p>
         <label style={labelStyle}>Estado</label>
         <select value={estado} onChange={(e) => setEstado(e.target.value)} style={{ ...selectStyle, width: '100%', height: 42, marginBottom: 14 }}>
           <option value="">Todos los estados</option>
@@ -372,7 +372,7 @@ export default function ConsejoReportesPage() {
 
       {!loading && !error && data && data.datosTruncados && (
         <div style={{ ...card, marginBottom: 16, background: COLORS.warningSoft, color: COLORS.warning, fontSize: 13, fontWeight: 600 }}>
-          El volumen de PQRS en el periodo seleccionado supera el límite del reporte, por lo que algunas cifras pueden estar incompletas. Reduce el rango de fechas o afina los filtros para ver el detalle completo.
+          El volumen de PQRS en el periodo seleccionado supera el límite del reporte, por lo que algunas cifras pueden estar incompletas. Reduzca el rango de fechas o afine los filtros para ver el detalle completo.
         </div>
       )}
 
@@ -568,7 +568,7 @@ export default function ConsejoReportesPage() {
                 {filteredTableRows.length === 0 && <tr><td colSpan={11} style={{ padding: 30, textAlign: 'center', color: COLORS.textMuted }}>No hay casos que coincidan.</td></tr>}
               </tbody>
             </table>
-            {filteredTableRows.length > 200 && <p style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 10 }}>Mostrando los primeros 200 de {filteredTableRows.length} casos. Use un filtro más específico o exporta a Excel/PDF para ver todo.</p>}
+            {filteredTableRows.length > 200 && <p style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 10 }}>Mostrando los primeros 200 de {filteredTableRows.length} casos. Use un filtro más específico o exporte a Excel/PDF para ver todo.</p>}
           </div>
         </>
       )}

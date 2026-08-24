@@ -32,10 +32,10 @@ export function isTenantAccessBlocked(user: TenantAccessUser): boolean {
   return false;
 }
 export function getTenantAccessBlockedMessage(user: TenantAccessUser): string {
-  if (user.isActive === false) return "Tu cuenta se encuentra desactivada. Contacta al administrador de tu conjunto.";
+  if (user.isActive === false) return "Tu cuenta se encuentra desactivada. Contacte al administrador de su conjunto.";
   if (!user.tenantId) return "Tu usuario no tiene una copropiedad asignada. Contacta al administrador de la plataforma.";
   if (user.tenantStatus === "CANCELLED" || user.subscriptionStatus === "CANCELLED") return "La licencia de esta copropiedad fue cancelada. Contacta al equipo administrador para reactivar el servicio.";
-  if (user.tenantStatus === "PENDING_PAYMENT" || user.subscriptionStatus === "PENDING_PAYMENT") return "Debes completar el pago de tu primera licencia para poder usar la plataforma.";
+  if (user.tenantStatus === "PENDING_PAYMENT" || user.subscriptionStatus === "PENDING_PAYMENT") return "Debe completar el pago de su primera licencia para poder usar la plataforma.";
   return "La licencia de esta copropiedad se encuentra suspendida. Contacta al equipo administrador para reactivar el servicio.";
 }
 export async function refreshTenantAccessForUser(user: TenantAccessUser): Promise<TenantAccessUser> {

@@ -1048,7 +1048,7 @@ export default function PqrsLandingPage({ pricingTiers: rawTiers }: { pricingTie
               <span style={{ color: '#6E6E73' }}>con las cuentas claras.</span>
             </h2>
             <p style={{ fontSize: sizes.bodySize, color: '#6E6E73', fontWeight: 500, margin: '0 auto 32px', maxWidth: 440 }}>
-              Escríbanos y coordinamos 30 minutos. Le mostramos la plataforma funcionando con el escenario de un conjunto del tamaño del tuyo.
+              Escríbanos y coordinamos 30 minutos. Le mostramos la plataforma funcionando con el escenario de un conjunto del tamaño del suyo.
             </p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
               <a

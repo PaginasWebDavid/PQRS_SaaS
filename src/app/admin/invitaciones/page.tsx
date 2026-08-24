@@ -114,7 +114,7 @@ export default function InvitacionesPage() {
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="invitaciones" userName="Admin" userRole="Administración" initials="AD" mobileTitle="Invitaciones">
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div><h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 3px' }}>Invitaciones</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Invita nuevos usuarios a su conjunto</p></div>
+        <div><h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 3px' }}>Invitaciones</h1><p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>Invite nuevos usuarios a su conjunto</p></div>
         <button onClick={() => setCreateOpen(true)} style={{ border: 0, background: COLORS.navy, color: '#FFF', fontSize: 13, fontWeight: 700, padding: '11px 20px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Invitar usuario</button>
       </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por correo" style={{ width: '100%', maxWidth: 360, height: 42, padding: '0 14px', border: '1.5px solid ' + COLORS.inputBorder, borderRadius: 11, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 14 }} />

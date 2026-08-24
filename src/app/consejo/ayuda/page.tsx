@@ -8,7 +8,7 @@ import { supportTicketCategoryLabel } from '@/lib/design/supportTicketCategories
 
 const FAQS = [
   { q: '¿Puedo gestionar o cerrar una PQRS desde aquí?', a: 'No. El rol Consejo es de solo lectura — puede ver el estado, historial y reportes de todas las PQRS del conjunto, pero la gestión (primer contacto, fases, cierre) la realiza la administración.' },
-  { q: '¿Cómo exporto un reporte para la reunión de consejo?', a: 'Vaya a Reportes, ajuste el periodo y los filtros que necesites, y usa el botón PDF (elige el tipo "Ejecutivo" para un resumen ideal para consejo) o Excel.' },
+  { q: '¿Cómo exporto un reporte para la reunión de consejo?', a: 'Vaya a Reportes, ajuste el periodo y los filtros que necesite, y use el botón PDF (elija el tipo "Ejecutivo" para un resumen ideal para consejo) o Excel.' },
   { q: '¿Por qué no veo el módulo de Usuarios o Licencias?', a: 'Esos módulos son exclusivos de la administración del conjunto. Como Consejo puede consultar PQRS, Reservas, Pagos, Reportes y Actividad, siempre en modo lectura.' },
   { q: '¿Cómo cambio mi contraseña?', a: 'Vaya a Mi cuenta → Seguridad → Cambiar contraseña.' },
 ];
@@ -77,7 +77,7 @@ export default function ConsejoAyudaPage() {
       setMessage('');
       setCategory('TECHNICAL');
       fetchTickets();
-      showToast('Solicitud enviada ✓ Te avisaremos por correo cuando la respondamos.');
+      showToast('Solicitud enviada ✓ Le avisaremos por correo cuando la respondamos.');
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +130,7 @@ export default function ConsejoAyudaPage() {
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Asunto</label>
           <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ej. No puedo exportar un reporte" style={{ width: '100%', height: 44, padding: '0 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 14 }} />
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Mensaje</label>
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntanos qué necesita" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Cuéntenos qué necesita" style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: 11, fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', marginBottom: 18, resize: 'vertical' }} />
           <button type="button" disabled={!canSubmit} onClick={submit} style={{ width: '100%', textAlign: 'center', background: canSubmit ? COLORS.navy : COLORS.neutralSoft, color: canSubmit ? '#FFFFFF' : COLORS.textMuted, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: canSubmit ? 'pointer' : 'default' }}>{submitting ? 'Enviando…' : 'Enviar solicitud'}</button>
         </div>
 
@@ -138,7 +138,7 @@ export default function ConsejoAyudaPage() {
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}`, fontSize: 14, fontWeight: 800 }}>Mis solicitudes</div>
           {loading && <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Cargando…</div>}
           {!loading && tickets.length === 0 && (
-            <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Aún no has enviado ninguna solicitud.</div>
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: COLORS.textMuted, fontSize: 13 }}>Aún no ha enviado ninguna solicitud.</div>
           )}
           {!loading && tickets.map((t) => (
             <div key={t.id} style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.borderSoft}` }}>

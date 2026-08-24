@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const supportEnabled = await isFeatureEnabled("supportTicketsEnabled");
   if (!supportEnabled) {
-    return NextResponse.json({ error: "El centro de soporte está deshabilitado temporalmente. Intenta más tarde." }, { status: 403 });
+    return NextResponse.json({ error: "El centro de soporte está deshabilitado temporalmente. Intente más tarde." }, { status: 403 });
   }
 
   const tenantId = getTenantIdFromSession(session);

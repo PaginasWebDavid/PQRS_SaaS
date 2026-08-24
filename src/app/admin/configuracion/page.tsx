@@ -114,7 +114,7 @@ export default function ConfiguracionConjuntoPage() {
   return (
     <AdminShell navItems={ADMIN_NAV} activeKey="configuracion" userName="Ana Ruiz" userRole="Administradora" initials="AR" mobileTitle="Configuración">
       <h1 className="apl-up" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Configuración del conjunto</h1>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 24px' }}>Estos datos se leen y guardan en su conjunto real.</p>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 24px' }}>Estos datos aplican a su conjunto.</p>
       {loadError && <p style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, margin: '-10px 0 20px' }}>{loadError}</p>}
 
       <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -149,7 +149,7 @@ export default function ConfiguracionConjuntoPage() {
               <div style={{ fontSize: 14, fontWeight: 800 }}>{settings?.tenant?.units ?? '—'}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>SLA DE CIERRE</div>
+              <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 4 }}>PLAZO MÁXIMO DE CIERRE</div>
               <div style={{ fontSize: 14, fontWeight: 800 }}>{settings?.pqrsCloseSlaDays ?? '—'} días</div>
             </div>
           </div>
@@ -162,13 +162,13 @@ export default function ConfiguracionConjuntoPage() {
         <div style={{ background: '#FFFFFF', border: `1px solid ${COLORS.border}`, borderRadius: 18, padding: 22 }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>Categorías de PQRS</div>
           <p style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 4px', lineHeight: 1.6 }}>
-            Cuando abre un caso, elige una de estas. La categoría decide cómo se gestiona:
+            Al abrir un caso usted escoge una de estas. La categoría decide cómo se gestiona:
           </p>
           <ul style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.7 }}>
             <li><strong>Simple</strong>: primer contacto, acción tomada y evidencia de cierre. Para convivencia, certificados, cartera, consultas.</li>
-            <li><strong>Mantenimiento</strong>: las 5 fases (diagnóstico, cotización o proveedor, ejecución, verificación y cierre). Para arreglos y zonas comunes.</li>
+            <li><strong>Mantenimiento</strong>: las 5 fases (inspección de campo, adquisición de insumos o contrato con proveedor, ejecución y cierre). Para arreglos y zonas comunes.</li>
           </ul>
-          <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '0 0 14px' }}>Lo que cambies aquí solo aplica a los casos nuevos. Desactivar una categoría no borra los casos que ya la usaban.</p>
+          <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 500, margin: '0 0 14px' }}>Lo que cambie aquí solo aplica a los casos nuevos. Desactivar una categoría no borra los casos que ya la usaban.</p>
 
           {categories.length === 0 && <div style={{ padding: '20px 0', fontSize: 12.5, color: COLORS.textMuted }}>Cargando categorías…</div>}
 
@@ -207,7 +207,7 @@ export default function ConfiguracionConjuntoPage() {
             el administrador no puede accionar ("si algo falla, contacta a
             soporte"). Si de verdad se cae uno, se nota al usarlo. */}
         <p style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500 }}>
-          ¿Buscas activar o desactivar sus correos de nuevas PQRS? Eso se configura en <Link href="/admin/cuenta" style={{ color: COLORS.navy, fontWeight: 700 }}>Mi cuenta</Link>.
+          ¿Busca activar o desactivar sus correos de nuevas PQRS? Eso se configura en <Link href="/admin/cuenta" style={{ color: COLORS.navy, fontWeight: 700 }}>Mi cuenta</Link>.
         </p>
       </div>
 

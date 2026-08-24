@@ -28,6 +28,7 @@ const cardStyle: React.CSSProperties = { background: '#FFFFFF', border: `1px sol
 export default function ConsejoReservasPage() {
   const [zones, setZones] = useState<CommonArea[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [totalReservas, setTotalReservas] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'' | Reservation['status']>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,12 +36,15 @@ export default function ConsejoReservasPage() {
   const load = useCallback(async (status: string) => {
     const [zonesRes, reservationsRes] = await Promise.all([
       fetch('/api/reservas/zonas', { cache: 'no-store' }),
-      fetch(`/api/reservas${status ? `?status=${status}` : ''}`, { cache: 'no-store' }),
+      // Sin pageSize la API entrega 25 y el calendario se corta en silencio.
+      // 100 es el tope que acepta la ruta; si hay mas, se avisa abajo.
+      fetch(`/api/reservas?pageSize=100${status ? `&status=${status}` : ''}`, { cache: 'no-store' }),
     ]);
     if (!zonesRes.ok || !reservationsRes.ok) throw new Error('load_failed');
     setZones(await zonesRes.json());
     const body = await reservationsRes.json();
     setReservations(body.data || []);
+    setTotalReservas(body.pagination?.total ?? (body.data || []).length);
   }, []);
 
   useEffect(() => {
@@ -87,6 +91,11 @@ export default function ConsejoReservasPage() {
               <div style={{ fontSize: 13, color: COLORS.textSecondary }}>{fmt(r.startAt)} — {fmt(r.endAt)}</div>
             </div>
           ))}
+          {totalReservas > reservations.length && (
+            <div style={{ textAlign: 'center', padding: '14px 20px', color: COLORS.textMuted, fontSize: 12.5, fontWeight: 600 }}>
+              Se muestran las {reservations.length} reservas más recientes de {totalReservas}. Use el filtro de estado para acotar el listado.
+            </div>
+          )}
         </>
       )}
     </AdminShell>
