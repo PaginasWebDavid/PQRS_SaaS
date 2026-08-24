@@ -9,47 +9,47 @@ datasource db {
 }
 
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  slug      String       @unique
-  status      TenantStatus @default(ACTIVE)
-  units       Int          @default(0)
-  city        String?
-  address     String?
-  cancelledAt DateTime?
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  status           TenantStatus     @default(ACTIVE)
+  units            Int              @default(0)
+  city             String?
+  address          String?
+  cancelledAt      DateTime?
   // Configuracion legacy conservada durante la migracion aditiva. Las PQRS nuevas
   // derivan workflowType de PqrsCategory; este valor solo respalda lectores antiguos.
   pqrsWorkflowType PqrsWorkflowType @default(MAINTENANCE)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  users         User[]
-  memberships   TenantMembership[]
-  pqrs          Pqrs[]
-  pqrsCategories PqrsCategory[]
-  pqrsCorrections PqrsCorrection[]
-  fotos         PqrsFoto[]
-  historial     HistorialPqrs[]
-  subscription  Subscription?
-  payments      Payment[]
-  wompiPaymentMethods WompiPaymentMethod[]
-  invitations   Invitation[]
-  notifications Notification[]
-  emailLogs     EmailLog[]
+  users                     User[]
+  memberships               TenantMembership[]
+  pqrs                      Pqrs[]
+  pqrsCategories            PqrsCategory[]
+  pqrsCorrections           PqrsCorrection[]
+  fotos                     PqrsFoto[]
+  historial                 HistorialPqrs[]
+  subscription              Subscription?
+  payments                  Payment[]
+  wompiPaymentMethods       WompiPaymentMethod[]
+  invitations               Invitation[]
+  notifications             Notification[]
+  emailLogs                 EmailLog[]
   billingNotificationOutbox BillingNotificationOutbox[]
-  auditLogs     AuditLog[]
-  supportTickets SupportTicket[]
-  commonAreas      CommonArea[]
-  reservations     Reservation[]
-  commonAreaBlocks CommonAreaBlock[]
-  residentUnits        ResidentUnit[]
-  residentCharges      ResidentCharge[]
-  residentPayments     ResidentPayment[]
-  paymentReceipts      PaymentReceipt[]
-  paymentImportBatches PaymentImportBatch[]
-  commercialProfile    TenantCommercialProfile?
-  featureEntitlements  TenantFeatureEntitlement[]
-  commercialOperations CommercialOperation[]
+  auditLogs                 AuditLog[]
+  supportTickets            SupportTicket[]
+  commonAreas               CommonArea[]
+  reservations              Reservation[]
+  commonAreaBlocks          CommonAreaBlock[]
+  residentUnits             ResidentUnit[]
+  residentCharges           ResidentCharge[]
+  residentPayments          ResidentPayment[]
+  paymentReceipts           PaymentReceipt[]
+  paymentImportBatches      PaymentImportBatch[]
+  commercialProfile         TenantCommercialProfile?
+  featureEntitlements       TenantFeatureEntitlement[]
+  commercialOperations      CommercialOperation[]
 
   @@index([slug])
   @@index([status])
@@ -70,58 +70,58 @@ enum TenantStatus {
 }
 
 model User {
-  id                    String     @id @default(cuid())
-  email                 String     @unique
-  password              String
-  name                  String
-  role                  Role       @default(RESIDENTE)
-  tenantId              String?
-  tenant                Tenant?    @relation(fields: [tenantId], references: [id])
-  bloque                Int?
-  apto                  Int?
-  haCorregidoUbicacion  Boolean    @default(false)
-  emailVerified         DateTime?
-  image                 String?
-  phone                 String?
-  isActive              Boolean    @default(true)
-  sessionVersion        Int        @default(0)
-  passwordChangedAt     DateTime?
-  onboardingCompletedAt DateTime?
-  notifyNewPqrsEmail    Boolean    @default(true)
-  bloqueAptoEditado     Boolean    @default(false)
-  termsAcceptedAt       DateTime?
-  privacyAcceptedAt     DateTime?
-  termsVersion          String?
-  privacyVersion        String?
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
-  pqrsCreated           Pqrs[]     @relation("CreatedBy")
-  pqrsManaged           Pqrs[]     @relation("ManagedBy")
-  pqrsCategoriesCreated PqrsCategory[] @relation("PqrsCategoryCreatedBy")
-  pqrsCorrections       PqrsCorrection[] @relation("PqrsCorrectionActor")
-  pqrsEvidenceWithdrawals Pqrs[] @relation("PqrsEvidenceWithdrawnBy")
-  pqrsPhotoWithdrawals  PqrsFoto[] @relation("PqrsPhotoWithdrawnBy")
-  auditLogs             AuditLog[]        @relation("AuditActor")
-  invitedInvitations    Invitation[]      @relation("InvitationInvitedBy")
-  notifications         Notification[]
-  billingOutboxRecipients BillingNotificationOutbox[] @relation("BillingOutboxRecipient")
-  updatedSettings       PlatformSetting[] @relation("PlatformSettingUpdatedBy")
-  supportTicketsCreated   SupportTicket[] @relation("SupportTicketCreatedBy")
-  supportTicketsResponded SupportTicket[] @relation("SupportTicketRespondedBy")
-  sessions              Session[]
-  accounts              Account[]
-  memberships           TenantMembership[]
-  reservationsCreated     Reservation[]     @relation("ReservationCreatedBy")
-  reservationsReviewed    Reservation[]     @relation("ReservationReviewedBy")
-  reservationsCancelled   Reservation[]     @relation("ReservationCancelledBy")
-  commonAreaBlocksCreated CommonAreaBlock[] @relation("CommonAreaBlockCreatedBy")
-  residentChargesCreated       ResidentCharge[]      @relation("ResidentChargeCreatedBy")
-  residentPaymentsRecorded     ResidentPayment[]     @relation("ResidentPaymentRecordedBy")
-  residentPaymentsReversed     ResidentPayment[]     @relation("ResidentPaymentReversedBy")
-  paymentReceiptsUploaded      PaymentReceipt[]      @relation("PaymentReceiptUploadedBy")
-  paymentReceiptsReviewed      PaymentReceipt[]      @relation("PaymentReceiptReviewedBy")
-  paymentImportBatchesUploaded PaymentImportBatch[]  @relation("PaymentImportBatchUploadedBy")
-  wompiPaymentMethodsCreated   WompiPaymentMethod[]  @relation("WompiPaymentMethodCreatedBy")
+  id                           String                      @id @default(cuid())
+  email                        String                      @unique
+  password                     String
+  name                         String
+  role                         Role                        @default(RESIDENTE)
+  tenantId                     String?
+  tenant                       Tenant?                     @relation(fields: [tenantId], references: [id])
+  bloque                       Int?
+  apto                         Int?
+  haCorregidoUbicacion         Boolean                     @default(false)
+  emailVerified                DateTime?
+  image                        String?
+  phone                        String?
+  isActive                     Boolean                     @default(true)
+  sessionVersion               Int                         @default(0)
+  passwordChangedAt            DateTime?
+  onboardingCompletedAt        DateTime?
+  notifyNewPqrsEmail           Boolean                     @default(true)
+  bloqueAptoEditado            Boolean                     @default(false)
+  termsAcceptedAt              DateTime?
+  privacyAcceptedAt            DateTime?
+  termsVersion                 String?
+  privacyVersion               String?
+  createdAt                    DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
+  pqrsCreated                  Pqrs[]                      @relation("CreatedBy")
+  pqrsManaged                  Pqrs[]                      @relation("ManagedBy")
+  pqrsCategoriesCreated        PqrsCategory[]              @relation("PqrsCategoryCreatedBy")
+  pqrsCorrections              PqrsCorrection[]            @relation("PqrsCorrectionActor")
+  pqrsEvidenceWithdrawals      Pqrs[]                      @relation("PqrsEvidenceWithdrawnBy")
+  pqrsPhotoWithdrawals         PqrsFoto[]                  @relation("PqrsPhotoWithdrawnBy")
+  auditLogs                    AuditLog[]                  @relation("AuditActor")
+  invitedInvitations           Invitation[]                @relation("InvitationInvitedBy")
+  notifications                Notification[]
+  billingOutboxRecipients      BillingNotificationOutbox[] @relation("BillingOutboxRecipient")
+  updatedSettings              PlatformSetting[]           @relation("PlatformSettingUpdatedBy")
+  supportTicketsCreated        SupportTicket[]             @relation("SupportTicketCreatedBy")
+  supportTicketsResponded      SupportTicket[]             @relation("SupportTicketRespondedBy")
+  sessions                     Session[]
+  accounts                     Account[]
+  memberships                  TenantMembership[]
+  reservationsCreated          Reservation[]               @relation("ReservationCreatedBy")
+  reservationsReviewed         Reservation[]               @relation("ReservationReviewedBy")
+  reservationsCancelled        Reservation[]               @relation("ReservationCancelledBy")
+  commonAreaBlocksCreated      CommonAreaBlock[]           @relation("CommonAreaBlockCreatedBy")
+  residentChargesCreated       ResidentCharge[]            @relation("ResidentChargeCreatedBy")
+  residentPaymentsRecorded     ResidentPayment[]           @relation("ResidentPaymentRecordedBy")
+  residentPaymentsReversed     ResidentPayment[]           @relation("ResidentPaymentReversedBy")
+  paymentReceiptsUploaded      PaymentReceipt[]            @relation("PaymentReceiptUploadedBy")
+  paymentReceiptsReviewed      PaymentReceipt[]            @relation("PaymentReceiptReviewedBy")
+  paymentImportBatchesUploaded PaymentImportBatch[]        @relation("PaymentImportBatchUploadedBy")
+  wompiPaymentMethodsCreated   WompiPaymentMethod[]        @relation("WompiPaymentMethodCreatedBy")
 
   @@index([tenantId])
   @@index([role])
@@ -134,23 +134,23 @@ model User {
 // User.role/User.tenantId y los campos residenciales en User se conservan
 // temporalmente para un despliegue aditivo y se eliminaran en una fase posterior.
 model TenantMembership {
-  id                    String   @id @default(cuid())
+  id                    String    @id @default(cuid())
   userId                String
   tenantId              String
   role                  Role
-  isActive              Boolean  @default(true)
+  isActive              Boolean   @default(true)
   bloque                Int?
   apto                  Int?
-  haCorregidoUbicacion  Boolean  @default(false)
-  bloqueAptoEditado     Boolean  @default(false)
+  haCorregidoUbicacion  Boolean   @default(false)
+  bloqueAptoEditado     Boolean   @default(false)
   onboardingCompletedAt DateTime?
-  notifyNewPqrsEmail    Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  notifyNewPqrsEmail    Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reservations Reservation[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reservations    Reservation[]
   paymentReceipts PaymentReceipt[]
 
   @@unique([userId, tenantId])
@@ -545,16 +545,16 @@ model PaymentReceipt {
   uploadedBy          User             @relation("PaymentReceiptUploadedBy", fields: [uploadedByUserId], references: [id])
   storagePath         String
   originalFileName    String
-  mimeType             String
-  sizeBytes            Int
-  declaredAmountCents  Int?
-  status               ReceiptStatus   @default(PENDING)
-  reviewedByUserId     String?
-  reviewedBy           User?           @relation("PaymentReceiptReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  reviewedAt           DateTime?
-  rejectionReason      String?         @db.Text
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  mimeType            String
+  sizeBytes           Int
+  declaredAmountCents Int?
+  status              ReceiptStatus    @default(PENDING)
+  reviewedByUserId    String?
+  reviewedBy          User?            @relation("PaymentReceiptReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  rejectionReason     String?          @db.Text
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   payment ResidentPayment?
 
@@ -590,15 +590,15 @@ model PaymentImportBatch {
 }
 
 model PricingRule {
-  id        String   @id @default(cuid())
-  type      PricingRuleType @default(MONTHLY)
-  minUnits  Int
-  maxUnits  Int?
+  id         String          @id @default(cuid())
+  type       PricingRuleType @default(MONTHLY)
+  minUnits   Int
+  maxUnits   Int?
   priceCents Int
-  currency  String   @default("COP")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  currency   String          @default("COP")
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   @@index([type, isActive])
   @@index([type, minUnits, maxUnits])
@@ -610,29 +610,29 @@ enum PricingRuleType {
 }
 
 model Subscription {
-  id                 String             @id @default(cuid())
-  tenantId           String             @unique
-  tenant             Tenant             @relation(fields: [tenantId], references: [id])
-  status             SubscriptionStatus @default(PENDING_PAYMENT)
-  autoRenew          Boolean            @default(true)
-  unitsSnapshot            Int
-  priceCents               Int
-  currency                 String             @default("COP")
-  pendingUnitsSnapshot     Int?
-  pendingPriceCents        Int?
-  pendingCurrency          String?
-  pendingPriceEffectiveAt  DateTime?
-  currentPeriodStart DateTime
-  currentPeriodEnd   DateTime
-  trialEndsAt        DateTime?
-  graceEndsAt                 DateTime?
-  mercadoPagoPreapprovalId    String?            @unique
-  mercadoPagoInitPoint        String?            @db.Text
-  mercadoPagoStatus           String?
-  lastWebhookAt               DateTime?
-  createdAt                   DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  payments           Payment[]
+  id                        String                      @id @default(cuid())
+  tenantId                  String                      @unique
+  tenant                    Tenant                      @relation(fields: [tenantId], references: [id])
+  status                    SubscriptionStatus          @default(PENDING_PAYMENT)
+  autoRenew                 Boolean                     @default(true)
+  unitsSnapshot             Int
+  priceCents                Int
+  currency                  String                      @default("COP")
+  pendingUnitsSnapshot      Int?
+  pendingPriceCents         Int?
+  pendingCurrency           String?
+  pendingPriceEffectiveAt   DateTime?
+  currentPeriodStart        DateTime
+  currentPeriodEnd          DateTime
+  trialEndsAt               DateTime?
+  graceEndsAt               DateTime?
+  mercadoPagoPreapprovalId  String?                     @unique
+  mercadoPagoInitPoint      String?                     @db.Text
+  mercadoPagoStatus         String?
+  lastWebhookAt             DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  payments                  Payment[]
   billingNotificationOutbox BillingNotificationOutbox[]
 
   @@index([tenantId, status])
@@ -649,50 +649,50 @@ enum SubscriptionStatus {
 }
 
 model Payment {
-  id                String          @id @default(cuid())
-  tenantId          String
-  tenant            Tenant          @relation(fields: [tenantId], references: [id])
-  subscriptionId    String
-  subscription      Subscription    @relation(fields: [subscriptionId], references: [id])
-  amountCents       Int
-  concept           PaymentConcept  @default(SUBSCRIPTION_MONTHLY)
-  listAmountCents   Int?
-  discountBps       Int             @default(0)
-  currency          String          @default("COP")
-  status            PaymentStatus   @default(PENDING)
-  provider          PaymentProvider @default(SIMULATED)
-  dueDate           DateTime
-  paidAt            DateTime?
-  periodStart       DateTime
-  periodEnd         DateTime
-  externalReference    String?
-  mercadoPagoPaymentId String?         @unique
-  wompiTransactionId   String?         @unique
-  wompiPaymentMethodId String?
-  wompiPaymentMethod   WompiPaymentMethod? @relation(fields: [wompiPaymentMethodId], references: [id], onDelete: SetNull)
-  rawStatus            String?
-  operationId          String?
-  requestHash          String?
-  recordedByUserId     String?
-  manualReference      String?
+  id                                   String              @id @default(cuid())
+  tenantId                             String
+  tenant                               Tenant              @relation(fields: [tenantId], references: [id])
+  subscriptionId                       String
+  subscription                         Subscription        @relation(fields: [subscriptionId], references: [id])
+  amountCents                          Int
+  concept                              PaymentConcept      @default(SUBSCRIPTION_MONTHLY)
+  listAmountCents                      Int?
+  discountBps                          Int                 @default(0)
+  currency                             String              @default("COP")
+  status                               PaymentStatus       @default(PENDING)
+  provider                             PaymentProvider     @default(SIMULATED)
+  dueDate                              DateTime
+  paidAt                               DateTime?
+  periodStart                          DateTime
+  periodEnd                            DateTime
+  externalReference                    String?
+  mercadoPagoPaymentId                 String?             @unique
+  wompiTransactionId                   String?             @unique
+  wompiPaymentMethodId                 String?
+  wompiPaymentMethod                   WompiPaymentMethod? @relation(fields: [wompiPaymentMethodId], references: [id], onDelete: SetNull)
+  rawStatus                            String?
+  operationId                          String?
+  requestHash                          String?
+  recordedByUserId                     String?
+  manualReference                      String?
   // Marcador atomico de idempotencia del efecto economico: se fija (via update
   // condicional WHERE approvedEffectAppliedAt IS NULL) la primera vez que un pago
   // APPROVED extiende el periodo. Un APPROVED repetido lo encuentra ya fijado y
   // no vuelve a extender. No confundir con `status` (que puede transicionar
   // PENDING -> APPROVED de forma legitima).
-  approvedEffectAppliedAt DateTime?
+  approvedEffectAppliedAt              DateTime?
   // Cuarentena de pagos historicos: los pagos MERCADO_PAGO+APPROVED que existian
   // antes de la migracion de idempotencia se marcan =true. El handler NUNCA reclama
   // el efecto de un pago en cuarentena (no puede extender por replay historico);
   // solo la reconciliacion manual (scripts/reconcile-historical-payment-effects.ts)
   // lo baja a false tras verificar evidencia. Los pagos nuevos nacen en false.
-  approvedEffectReconciliationRequired Boolean @default(false)
-  createdAt            DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  approvedEffectReconciliationRequired Boolean             @default(false)
+  createdAt                            DateTime            @default(now())
+  updatedAt                            DateTime            @updatedAt
 
+  @@unique([tenantId, operationId])
   @@index([tenantId])
   @@index([subscriptionId])
-  @@unique([tenantId, operationId])
   @@index([tenantId, concept, status])
   @@index([status, dueDate])
   @@index([tenantId, status, dueDate])
@@ -975,82 +975,82 @@ enum WebhookEventResult {
 }
 
 model Pqrs {
-  id                            String          @id @default(cuid())
-  numero                        Int             @unique @default(autoincrement())
-  tenantId                      String
-  tenant                        Tenant          @relation(fields: [tenantId], references: [id])
-  medio                         Medio           @default(PLATAFORMA_WEB)
-  fechaRecibido                 DateTime
-  mes                           String
-  bloque                        Int
-  apto                          Int
-  nombreResidente               String
-  tipoPqrs                      TipoPqrs?
-  titulo                        String?
-  asunto                        String?
-  subAsunto                     String?
+  id                  String        @id @default(cuid())
+  numero              Int           @unique @default(autoincrement())
+  tenantId            String
+  tenant              Tenant        @relation(fields: [tenantId], references: [id])
+  medio               Medio         @default(PLATAFORMA_WEB)
+  fechaRecibido       DateTime
+  mes                 String
+  bloque              Int
+  apto                Int
+  nombreResidente     String
+  tipoPqrs            TipoPqrs?
+  titulo              String?
+  asunto              String?
+  subAsunto           String?
   // Relacion y etiqueta historica aditivas. asunto/subAsunto/tipoPqrs se
   // conservan temporalmente para lectores legacy y migracion segura.
-  categoryId                    String?
-  category                      PqrsCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  categorySnapshot              String?
-  prioridad                     Prioridad       @default(MEDIA)
-  descripcion                   String          @db.Text
-  editadoPorResidente           Boolean         @default(false)
-  numeroRadicacion              String?         @unique
+  categoryId          String?
+  category            PqrsCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categorySnapshot    String?
+  prioridad           Prioridad     @default(MEDIA)
+  descripcion         String        @db.Text
+  editadoPorResidente Boolean       @default(false)
+  numeroRadicacion    String?       @unique
 
   // Gestion por asistente/admin
-  fechaPrimerContacto           DateTime?
-  tiempoRespuestaPrimerContacto Int?
-  notaPrimerContacto            String?         @db.Text
-  accionTomada                  String?         @db.Text
-  estado                        Estado          @default(EN_ESPERA)
-  evidenciaCierre               String?         @db.Text
-  evidenciaArchivoData          String?         @db.Text
-  evidenciaArchivoUrl           String?         @db.Text
-  evidenciaArchivoPath          String?
-  evidenciaArchivoNombre        String?
-  evidenciaArchivoTipo          String?
-  evidenciaArchivoSize          Int?
-  evidenciaArchivoRetiradaAt    DateTime?
-  evidenciaArchivoRetiradaPorId String?
-  evidenciaArchivoRetiradaPor   User?           @relation("PqrsEvidenceWithdrawnBy", fields: [evidenciaArchivoRetiradaPorId], references: [id], onDelete: SetNull)
-  evidenciaArchivoRetiroMotivo  String?
+  fechaPrimerContacto               DateTime?
+  tiempoRespuestaPrimerContacto     Int?
+  notaPrimerContacto                String?   @db.Text
+  accionTomada                      String?   @db.Text
+  estado                            Estado    @default(EN_ESPERA)
+  evidenciaCierre                   String?   @db.Text
+  evidenciaArchivoData              String?   @db.Text
+  evidenciaArchivoUrl               String?   @db.Text
+  evidenciaArchivoPath              String?
+  evidenciaArchivoNombre            String?
+  evidenciaArchivoTipo              String?
+  evidenciaArchivoSize              Int?
+  evidenciaArchivoRetiradaAt        DateTime?
+  evidenciaArchivoRetiradaPorId     String?
+  evidenciaArchivoRetiradaPor       User?     @relation("PqrsEvidenceWithdrawnBy", fields: [evidenciaArchivoRetiradaPorId], references: [id], onDelete: SetNull)
+  evidenciaArchivoRetiroMotivo      String?
   // Tombstone privado: conserva el path de Storage retirado hasta que la limpieza
   // fisica confirme exito. Nunca se selecciona fuera de pqrs-evidence.service.ts.
   evidenciaArchivoRetiroStoragePath String?
-  fechaCierre                   DateTime?
-  tiempoRespuestaCierre         Int?
+  fechaCierre                       DateTime?
+  tiempoRespuestaCierre             Int?
 
   // Snapshot inmutable derivado de PqrsCategory al crear la PQRS.
   // Cambiar la categoria despues no altera casos historicos.
-  workflowType                  PqrsWorkflowType @default(MAINTENANCE)
+  workflowType PqrsWorkflowType @default(MAINTENANCE)
 
   // Fases de gestion (solo admin, no visible para residente)
-  faseActual                    Int?            // 1-5, null = sin fase asignada
-  faseTipo                      String?         // "INSUMOS" (Fase II) o "PROVEEDOR" (Fase III)
-  fase1Inicio                   DateTime?       // Inspeccion de Campo
-  fase1Nota                     String?         @db.Text
-  fase2Inicio                   DateTime?       // Adquisicion de insumos
-  fase2Nota                     String?         @db.Text
-  fase3Inicio                   DateTime?       // Firma contrato proveedor
-  fase3Nota                     String?         @db.Text
-  fase4Inicio                   DateTime?       // Ejecucion
-  fase4Nota                     String?         @db.Text
-  fase5Inicio                   DateTime?       // Terminado
-  queSeHizoParaCerrar           String?         @db.Text  // Obligatorio si se cierra sin completar todas las fases
+  faseActual          Int? // 1-5, null = sin fase asignada
+  faseTipo            String? // "INSUMOS" (Fase II) o "PROVEEDOR" (Fase III)
+  fase1Inicio         DateTime? // Inspeccion de Campo
+  fase1Nota           String?   @db.Text
+  fase2Inicio         DateTime? // Adquisicion de insumos
+  fase2Nota           String?   @db.Text
+  fase3Inicio         DateTime? // Firma contrato proveedor
+  fase3Nota           String?   @db.Text
+  fase4Inicio         DateTime? // Ejecucion
+  fase4Nota           String?   @db.Text
+  fase5Inicio         DateTime? // Terminado
+  queSeHizoParaCerrar String?   @db.Text // Obligatorio si se cierra sin completar todas las fases
 
   // Metadata
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  creadoPor       User?     @relation("CreatedBy", fields: [creadoPorId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  creadoPor       User?    @relation("CreatedBy", fields: [creadoPorId], references: [id])
   creadoPorId     String?
-  gestionadoPor   User?     @relation("ManagedBy", fields: [gestionadoPorId], references: [id])
+  gestionadoPor   User?    @relation("ManagedBy", fields: [gestionadoPorId], references: [id])
   gestionadoPorId String?
 
   // Trazabilidad
-  historial HistorialPqrs[]
-  fotos     PqrsFoto[]
+  historial   HistorialPqrs[]
+  fotos       PqrsFoto[]
   corrections PqrsCorrection[]
 
   @@index([tenantId])
@@ -1088,23 +1088,23 @@ enum Prioridad {
 }
 
 model PqrsFoto {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  pqrsId      String
-  pqrs        Pqrs     @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
-  data        String?  @db.Text
-  url         String?  @db.Text
-  storagePath String?
-  nombre      String
-  tipo        String
-  size        Int?
-  orden       Int
-  createdAt   DateTime @default(now())
-  removedAt   DateTime?
-  removedByUserId String?
-  removedBy   User?    @relation("PqrsPhotoWithdrawnBy", fields: [removedByUserId], references: [id], onDelete: SetNull)
-  removalReason String?
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  pqrsId            String
+  pqrs              Pqrs      @relation(fields: [pqrsId], references: [id], onDelete: Cascade)
+  data              String?   @db.Text
+  url               String?   @db.Text
+  storagePath       String?
+  nombre            String
+  tipo              String
+  size              Int?
+  orden             Int
+  createdAt         DateTime  @default(now())
+  removedAt         DateTime?
+  removedByUserId   String?
+  removedBy         User?     @relation("PqrsPhotoWithdrawnBy", fields: [removedByUserId], references: [id], onDelete: SetNull)
+  removalReason     String?
   // Tombstone privado, analogo a Pqrs.evidenciaArchivoRetiroStoragePath.
   retiroStoragePath String?
 
@@ -1129,7 +1129,6 @@ model HistorialPqrs {
   @@index([tenantId, creadoAt])
   @@index([tenantId, pqrsId, creadoAt])
 }
-
 
 model PqrsCategory {
   id              String           @id @default(cuid())
@@ -1173,6 +1172,7 @@ model PqrsCorrection {
   @@index([tenantId, pqrsId, createdAt])
   @@index([actorUserId])
 }
+
 model Invitation {
   id          String           @id @default(cuid())
   tenantId    String
@@ -1224,24 +1224,24 @@ model Notification {
 }
 
 model EmailLog {
-  id                String         @id @default(cuid())
+  id                String                     @id @default(cuid())
   tenantId          String?
-  tenant            Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant            Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   recipient         String
   template          String
-  provider          String         @default("RESEND")
+  provider          String                     @default("RESEND")
   providerMessageId String?
-  dedupeKey         String?        @unique @db.VarChar(255)
-  outboxId          String?        @unique
+  dedupeKey         String?                    @unique @db.VarChar(255)
+  outboxId          String?                    @unique
   billingOutbox     BillingNotificationOutbox? @relation(fields: [outboxId], references: [id], onDelete: SetNull, map: "EmailLog_outboxId_fkey")
   status            EmailLogStatus
-  errorMessage      String?        @db.Text
-  attemptCount      Int            @default(0)
+  errorMessage      String?                    @db.Text
+  attemptCount      Int                        @default(0)
   lastAttemptAt     DateTime?
-  lastErrorCode     String?        @db.VarChar(255)
+  lastErrorCode     String?                    @db.VarChar(255)
   sentAt            DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
   @@index([tenantId])
   @@index([recipient])
@@ -1262,27 +1262,27 @@ enum EmailLogStatus {
 }
 
 model BillingNotificationOutbox {
-  id                       String                  @id @default(cuid())
+  id                       String                 @id @default(cuid())
   tenantId                 String
-  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "BillingOutbox_tenant_fkey")
+  tenant                   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "BillingOutbox_tenant_fkey")
   subscriptionId           String
-  subscription             Subscription            @relation(fields: [subscriptionId], references: [id], onDelete: Cascade, map: "BillingOutbox_subscription_fkey")
+  subscription             Subscription           @relation(fields: [subscriptionId], references: [id], onDelete: Cascade, map: "BillingOutbox_subscription_fkey")
   recipientUserId          String?
-  recipientUser            User?                   @relation("BillingOutboxRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull, map: "BillingOutbox_recipient_fkey")
+  recipientUser            User?                  @relation("BillingOutboxRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull, map: "BillingOutbox_recipient_fkey")
   channel                  BillingOutboxChannel
   eventType                BillingOutboxEventType
-  dedupeKey                String                  @unique @db.VarChar(255)
-  status                   BillingOutboxStatus     @default(PENDING)
-  attemptCount             Int                     @default(0)
-  nextAttemptAt            DateTime                @default(now())
+  dedupeKey                String                 @unique @db.VarChar(255)
+  status                   BillingOutboxStatus    @default(PENDING)
+  attemptCount             Int                    @default(0)
+  nextAttemptAt            DateTime               @default(now())
   lockedAt                 DateTime?
   processingStartedAt      DateTime?
   providerAttemptStartedAt DateTime?
   processedAt              DateTime?
-  lastErrorCode            String?                 @db.VarChar(255)
+  lastErrorCode            String?                @db.VarChar(255)
   payload                  Json
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
   attempts                 BillingOutboxAttempt[]
   emailLog                 EmailLog?
 
@@ -1293,14 +1293,14 @@ model BillingNotificationOutbox {
 }
 
 model BillingOutboxAttempt {
-  id                String                    @id @default(cuid())
+  id                String                     @id @default(cuid())
   outboxId          String
-  outbox            BillingNotificationOutbox @relation(fields: [outboxId], references: [id], onDelete: Cascade, map: "BillingOutboxAttempt_outbox_fkey")
+  outbox            BillingNotificationOutbox  @relation(fields: [outboxId], references: [id], onDelete: Cascade, map: "BillingOutboxAttempt_outbox_fkey")
   attemptNumber     Int
   status            BillingOutboxAttemptStatus
   providerMessageId String?
-  errorCode         String?                   @db.VarChar(255)
-  startedAt         DateTime                  @default(now())
+  errorCode         String?                    @db.VarChar(255)
+  startedAt         DateTime                   @default(now())
   finishedAt        DateTime?
 
   @@unique([outboxId, attemptNumber], map: "BillingOutboxAttempt_outbox_attempt_key")
@@ -1351,6 +1351,7 @@ model PlatformSetting {
   @@index([isSecret])
   @@index([updatedById])
 }
+
 // NextAuth tables
 model Account {
   id                String  @id @default(cuid())
@@ -1384,4 +1385,21 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Intentos registrados para limitar fuerza bruta y abuso de correo.
+//
+// Vive en Postgres a proposito: en Vercel cada funcion puede correr en una
+// instancia distinta y reiniciarse sola, asi que un contador en memoria deja
+// pasar casi todo. Esta tabla es el unico estado compartido que ya existe.
+//
+// Cada fila es UN intento. La ventana se evalua contando filas recientes del
+// mismo bucket, y las vencidas se borran en la misma operacion, de modo que
+// ningun bucket crece sin limite.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  bucket    String
+  createdAt DateTime @default(now())
+
+  @@index([bucket, createdAt])
 }
