@@ -57,7 +57,7 @@ function badge(status: Estado) { return status === 'EN_ESPERA' ? badgeStyle(COLO
 function label(status: Estado) { return status === 'EN_ESPERA' ? 'En espera' : status === 'EN_PROGRESO' ? 'En proceso' : 'Terminada'; }
 function code(n: number) { return `PQ-${String(n).padStart(4, '0')}`; }
 function date(v: string) { return new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
-function categoryLabel(p: Pqrs) { return p.categorySnapshot || (p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoria'); }
+function categoryLabel(p: Pqrs) { return p.categorySnapshot || (p.asunto ? (ASUNTO_LABEL[p.asunto] || p.asunto) : 'Sin categoría'); }
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -182,7 +182,7 @@ function ModuloPqrsPageContent() {
   useEffect(() => {
     fetch('/api/pqrs/categories', { cache: 'no-store' })
       .then(async (res) => { const body = await res.json().catch(() => null); if (!res.ok || !Array.isArray(body)) throw new Error(); setCategories(body); })
-      .catch(() => showToast('No se pudieron cargar las categorias disponibles'));
+      .catch(() => showToast('No se pudieron cargar las categorías disponibles'));
   }, [showToast]);
 
   useEffect(() => {
@@ -354,7 +354,7 @@ function ModuloPqrsPageContent() {
       if (!res.ok) { showToast(response?.error || 'No se pudo corregir el caso'); return; }
       setCorrectionOpen(false);
       await refreshSelected(selected.id);
-      showToast('Correccion registrada con auditoria');
+      showToast('Corrección registrada con auditoría');
     } catch {
       showToast('No se pudo conectar para corregir el caso');
     } finally { setCorrectionSubmitting(false); }
@@ -404,7 +404,7 @@ function ModuloPqrsPageContent() {
       <div className="apl-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 3px' }}>PQRS</h1>
-          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes...' : `${data.length} solicitudes reales`}</p>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: 0 }}>{loading ? 'Cargando solicitudes...' : `${data.length} solicitudes`}</p>
         </div>
         <button type="button" onClick={() => setCreateOpen(true)} style={{ background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '11px 22px', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Radicar una PQRS</button>
       </div>
@@ -416,7 +416,9 @@ function ModuloPqrsPageContent() {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
-          {data.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>No hay solicitudes que coincidan.</div>}
+          {/* Un conjunto recien creado no tiene "coincidencias" que buscar: no hay
+              nada todavia. Decirle que nada coincide sugiere un filtro invisible. */}
+          {data.length === 0 && <div style={{ textAlign: 'center', padding: '60px 20px', color: COLORS.textMuted, fontSize: 13.5 }}>{filter === 'all' && !searchQuery ? 'Aún no hay solicitudes radicadas.' : 'No hay solicitudes que coincidan.'}</div>}
           {data.map((p, i) => (
             isMobile ? (
               <button
@@ -499,7 +501,7 @@ function ModuloPqrsPageContent() {
               {selected.estado === 'EN_PROGRESO' && (
                 <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 14, marginBottom: 18 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>FASE DE GESTIÓN</div>
+                    <div style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 700, letterSpacing: '0.05em' }}>{isSimpleWorkflow ? 'ESTADO DE LA GESTIÓN' : 'FASE DE GESTIÓN'}</div>
                     {activeSemaphore && <div style={{ width: 9, height: 9, borderRadius: RADIUS.pill, background: activeSemaphore.color }} title={`${activeSemaphore.elapsed}/${activeSemaphore.target} días hábiles`} />}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.navy }}>{faseActual ? pqrsPhaseDisplayLabel(selected?.workflowType, faseActual) : 'Sin iniciar'}</div>
@@ -592,7 +594,7 @@ function ModuloPqrsPageContent() {
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 22px' }}>Registra una solicitud para hacerle seguimiento.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Título</label>
         <input value={newTitulo} onChange={(e) => setNewTitulo(e.target.value.slice(0, 120))} placeholder="Ej. Goteras en el techo del pasillo" style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12 }} />
-        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoria</label>
+        <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Categoría</label>
         <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)} style={{ width: '100%', height: 42, padding: '0 14px', border: `1px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 12, background: COLORS.bg }}>
           <option value="">Seleccione una categoría</option>
           {categories.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
@@ -626,7 +628,7 @@ function ModuloPqrsPageContent() {
                 siguiente accion esta a un clic en la ficha. */}
             <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.55, marginBottom: 16 }}>
               {selected?.workflowType === 'MAINTENANCE'
-                ? 'Ya puede registrar el diagnóstico o avanzar de fase desde la ficha.'
+                ? 'Ya puede registrar la inspección de campo o avanzar de fase desde la ficha.'
                 : 'Cuando lo resuelva, cierre la solicitud con la acción tomada y la evidencia.'}
             </div>
             <button type="button" onClick={() => setContactOpen(false)} style={{ width: '100%', background: COLORS.navy, color: COLORS.white, fontSize: 13.5, fontWeight: 700, padding: '12px 0', borderRadius: RADIUS.pill, border: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>Entendido</button>
@@ -672,7 +674,7 @@ function ModuloPqrsPageContent() {
             </div>
             <div style={{ fontSize: 12, color: contactWorkflow === 'MAINTENANCE' ? COLORS.warning : COLORS.navy, fontWeight: 500, lineHeight: 1.5 }}>
               {contactWorkflow === 'MAINTENANCE'
-                ? 'Registrará cinco fases: diagnóstico, cotización o proveedor, ejecución, verificación y cierre. Cada una tiene su plazo.'
+                ? 'Registrará cinco fases: inspección de campo, adquisición de insumos o contrato con proveedor, ejecución y cierre. Cada una tiene su plazo en días hábiles.'
                 : 'Registrará dos cosas: esta primera respuesta y, al resolver, la acción tomada con su evidencia.'}
             </div>
           </div>
@@ -739,7 +741,7 @@ function ModuloPqrsPageContent() {
         {selected?.estado === 'TERMINADO' && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}><input type="checkbox" checked={correctionReopen} onChange={(e) => setCorrectionReopen(e.target.checked)} /> Reabrir caso cerrado por equivocación</label>}
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>Motivo (obligatorio)</label>
         <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} rows={3} maxLength={500} placeholder="Explique el error que se está corrigiendo." style={{ width: '100%', padding: 12, border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontFamily: 'inherit', marginBottom: 16 }} />
-        <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar correccion'}</button>
+        <button type="button" onClick={submitCorrection} disabled={correctionReason.trim().length < 10 || correctionSubmitting} style={{ width: '100%', border: 0, background: correctionReason.trim().length >= 10 ? COLORS.navy : COLORS.neutralSoft, color: correctionReason.trim().length >= 10 ? COLORS.white : COLORS.textMuted, padding: '13px 0', borderRadius: RADIUS.pill, fontWeight: 700 }}>{correctionSubmitting ? 'Guardando...' : 'Guardar corrección'}</button>
       </Sheet>
       {/* Withdraw evidence sheet */}
       <Sheet open={withdrawTarget !== null} onClose={() => setWithdrawTarget(null)} maxWidth={440}>
@@ -761,12 +763,12 @@ function ModuloPqrsPageContent() {
 
         {faseActual === 0 && (
           <>
-            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>{isSimpleWorkflow ? 'Esta solicitud aún no tiene gestión registrada.' : 'Esta solicitud aún no inicia su gestión por fases. Comience por la Fase I.'}</p>
+            <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 20px' }}>{isSimpleWorkflow ? 'Esta solicitud aún no tiene gestión registrada.' : 'Esta solicitud aún no inicia su gestión por fases. Comience por la Fase 1.'}</p>
             <div style={{ background: COLORS.bgCard, borderRadius: RADIUS.stat, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>{isSimpleWorkflow ? 'En gestión' : 'Fase I · Inspección de Campo'}</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>{isSimpleWorkflow ? 'En gestión' : 'Fase 1 · Inspección de campo'}</div>
               <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Plazo: 2 días hábiles</div>
             </div>
-            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : isSimpleWorkflow ? 'Iniciar gestión' : 'Iniciar Fase I'}</button>
+            <button type="button" onClick={() => submitFaseAction({ faseActual: 1 })} disabled={faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', background: COLORS.navy, color: COLORS.white, fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{faseSubmitting ? 'Iniciando…' : isSimpleWorkflow ? 'Iniciar gestión' : 'Iniciar la Fase 1'}</button>
           </>
         )}
 
@@ -785,25 +787,25 @@ function ModuloPqrsPageContent() {
             <textarea value={faseNotaDraft} onChange={(e) => setFaseNotaDraft(e.target.value)} rows={3} placeholder={isSimpleWorkflow ? 'Ej. Se contactó al proveedor y la reparación quedó programada.' : 'Describa lo realizado en esta fase.'} style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13.5, fontFamily: 'inherit', marginBottom: 18 }} />
 
             {faseActual === 1 && isSimpleWorkflow && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Guardar avance y marcar la gestión como completa'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Guardar el avance y dejar la solicitud lista para cerrar'}</button>
             )}
             {faseActual === 1 && !isSimpleWorkflow && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => submitFaseAction({ faseActual: 2, faseTipo: 'INSUMOS', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase II — Insumos</button>
-                <button type="button" onClick={() => submitFaseAction({ faseActual: 3, faseTipo: 'PROVEEDOR', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase III — Proveedor</button>
+                <button type="button" onClick={() => submitFaseAction({ faseActual: 2, faseTipo: 'INSUMOS', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase 2 · Adquisición de insumos</button>
+                <button type="button" onClick={() => submitFaseAction({ faseActual: 3, faseTipo: 'PROVEEDOR', noteFase: 1, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ flex: 1, border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '11px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>Fase 3 · Contrato con proveedor</button>
               </div>
             )}
             {(faseActual === 2 || faseActual === 3) && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 4, noteFase: faseActual, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase IV — Ejecución'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 4, noteFase: faseActual, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a la Fase 4 · Ejecución'}</button>
             )}
             {faseActual === 4 && (
-              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 4, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a Fase V — Terminado'}</button>
+              <button type="button" onClick={() => submitFaseAction({ faseActual: 5, noteFase: 4, note: faseNotaDraft.trim() })} disabled={!faseNotaDraft.trim() || faseSubmitting} style={{ width: '100%', border: 'none', font: 'inherit', fontSize: 14, fontWeight: 700, padding: '13px 0', borderRadius: RADIUS.pill, cursor: 'pointer', background: faseNotaDraft.trim() ? COLORS.navy : COLORS.neutralSoft, color: faseNotaDraft.trim() ? COLORS.white : COLORS.textMuted }}>{faseSubmitting ? 'Guardando…' : 'Avanzar a la Fase 5 · Terminado'}</button>
             )}
           </>
         )}
 
         {faseActual === 5 && (
-          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: RADIUS.input, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>Todas las fases están completas. Ya puede marcar la solicitud como resuelta.</div>
+          <div style={{ background: COLORS.successSoft, color: COLORS.success, borderRadius: RADIUS.input, padding: '14px 16px', fontSize: 12.5, fontWeight: 600 }}>{isSimpleWorkflow ? 'La gestión quedó registrada. Ya puede marcar la solicitud como resuelta.' : 'Todas las fases están completas. Ya puede marcar la solicitud como resuelta.'}</div>
         )}
       </Sheet>
 

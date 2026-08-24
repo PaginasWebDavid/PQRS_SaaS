@@ -46,8 +46,22 @@ export async function GET(req: NextRequest) {
       page,
       pageSize,
     });
+    // CONSEJO supervisa la ocupacion de las zonas comunes, no a quien reserva:
+    // su pantalla solo pinta fecha, zona y estado. Mandar la fila completa le
+    // entregaria al navegador las notas del residente y el motivo de rechazo,
+    // que es justo lo que el rol promete no mostrar.
+    const data =
+      identity.role === "CONSEJO"
+        ? result.data.map((r) => ({
+            id: r.id,
+            startAt: r.startAt,
+            endAt: r.endAt,
+            status: r.status,
+            commonArea: r.commonArea,
+          }))
+        : result.data;
     return NextResponse.json({
-      data: result.data,
+      data,
       pagination: { page, pageSize, total: result.total, totalPages: Math.ceil(result.total / pageSize) },
     });
   } catch (error) {

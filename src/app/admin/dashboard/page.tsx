@@ -115,7 +115,7 @@ export default function DashboardAdminPage() {
 
       {showLicenseBanner && (
         <Link href="/admin/licencias" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', background: '#FBF3DF', borderRadius: 14, padding: '14px 18px', marginBottom: 20, color: '#8A5A00' }}>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Tu licencia se renueva en {licenseDaysLeft} día{licenseDaysLeft === 1 ? '' : 's'} ({shortDate(data?.licenseSummary?.currentPeriodEnd)}). Revise el estado de pago.</span>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Su licencia se renueva en {licenseDaysLeft} día{licenseDaysLeft === 1 ? '' : 's'} ({shortDate(data?.licenseSummary?.currentPeriodEnd)}). Revise el estado de pago.</span>
           <span style={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}>Ver licencia ›</span>
         </Link>
       )}

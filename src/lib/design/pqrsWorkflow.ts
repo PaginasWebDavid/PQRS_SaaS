@@ -1,10 +1,10 @@
 export type PqrsWorkflowType = "SIMPLE" | "MAINTENANCE";
 
 const MAINTENANCE_PHASE_LABELS: Record<number, string> = {
-  1: "Inspeccion de campo",
-  2: "Adquisicion de insumos",
+  1: "Inspección de campo",
+  2: "Adquisición de insumos",
   3: "Firma de contrato con proveedor",
-  4: "Ejecucion",
+  4: "Ejecución",
   5: "Terminado",
 };
 
@@ -13,9 +13,9 @@ export function pqrsPhaseDisplayLabel(
   phase: number
 ): string {
   if (workflowType === "SIMPLE") {
-    if (phase === 1) return "En gestion";
-    if (phase === 5) return "Gestion completada";
-    return "Fase no aplicable";
+    if (phase === 1) return "En gestión";
+    if (phase === 5) return "Gestión completada";
+    return "Sin gestión registrada";
   }
 
   return `Fase ${phase} - ${MAINTENANCE_PHASE_LABELS[phase] || "Sin definir"}`;

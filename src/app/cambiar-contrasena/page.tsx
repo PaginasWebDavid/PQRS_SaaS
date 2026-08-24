@@ -99,7 +99,7 @@ export default function CambiarContrasenaPage() {
                 lineHeight: 1.5,
               }}
             >
-              Escriba su contraseña actual y elige una nueva.
+              Escriba su contraseña actual y elija una nueva.
             </p>
 
             {error ? (
@@ -150,7 +150,7 @@ export default function CambiarContrasenaPage() {
               maxLength={128}
               onFocus={() => setFocused('confirm')}
               onBlur={() => setFocused(null)}
-              placeholder="Repite la nueva contraseña"
+              placeholder="Repita la nueva contraseña"
               style={{ ...inputStyle('confirm'), marginBottom: 22 }}
             />
 
@@ -215,7 +215,7 @@ export default function CambiarContrasenaPage() {
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Contraseña actualizada</h1>
             <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, margin: '0 0 26px' }}>
-              Tu contraseña se actualizó correctamente.
+              Su contraseña se actualizó correctamente.
             </p>
             <button
               type="button"

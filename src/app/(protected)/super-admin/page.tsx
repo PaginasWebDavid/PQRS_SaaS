@@ -1442,7 +1442,7 @@ export default function DashboardSuperAdminPage() {
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
             <div>
               <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Conjuntos</h1>
-              <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administra, edita, suspende o cancela conjuntos</p>
+              <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: 0 }}>Administre, edite, suspenda o cancele conjuntos</p>
             </div>
             <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 13, fontWeight: 700, padding: '11px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit', flexShrink: 0 }}>+ Crear conjunto</button>
           </div>
@@ -1497,8 +1497,8 @@ export default function DashboardSuperAdminPage() {
                 </div>
                 <div style={{ fontSize: 12.5, color: COLORS.textMuted, fontWeight: 500, lineHeight: 1.5, maxWidth: 340, margin: '0 auto 14px' }}>
                   {tenants.length === 0
-                    ? 'Cuando crees el primer conjunto aparecerá aquí con su estado de licencia.'
-                    : 'Pruebe con otro término de búsqueda o quita el filtro de estado.'}
+                    ? 'Cuando cree el primer conjunto aparecerá aquí con su estado de licencia.'
+                    : 'Pruebe con otro término de búsqueda o quite el filtro de estado.'}
                 </div>
                 {tenants.length === 0 ? (
                   <button type="button" onClick={openCreateTenant} style={{ background: COLORS.navy, border: 'none', color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '10px 18px', borderRadius: RADIUS.pill, cursor: 'pointer', font: 'inherit' }}>+ Crear conjunto</button>
@@ -1621,7 +1621,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                       <button type="button" onClick={() => setConfirmingRenewalId(t.id)} disabled={renewingTenantId !== null} style={{ border: urgent ? 'none' : `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: urgent ? COLORS.white : COLORS.textPrimary, background: urgent ? COLORS.success : 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{renewingTenantId === t.id ? 'Registrando…' : 'Registrar pago'}</button>
-                      <InfoTip text="Marque la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úsalo solo cuando ya recibiste el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
+                      <InfoTip text="Marque la licencia como pagada por 30 días más SIN cobrarle nada al conjunto. Úselo solo cuando ya haya recibido el dinero por fuera (transferencia). Queda registrado como 'Registro manual · sin cobro' y no cuenta como ingreso real de la pasarela." />
                     </span>
                     <button type="button" onClick={() => { if (canReactivate(t.group)) { void reactivate(t.id); } else { void suspend(t.id); } }} style={{ border: `1.5px solid ${COLORS.inputBorder}`, font: 'inherit', fontSize: 12.5, fontWeight: 700, color: COLORS.textPrimary, background: 'none', padding: '9px 13px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>{canReactivate(t.group) ? 'Reactivar' : 'Suspender'}</button>
                   </div>
@@ -1630,7 +1630,7 @@ export default function DashboardSuperAdminPage() {
                     <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.stat, padding: 14, margin: isMobile ? '0 18px 14px' : '0 22px 14px' }}>
                       <div style={{ fontSize: 12.5, fontWeight: 800, color: COLORS.warning, marginBottom: 6 }}>Esto no le cobra nada al conjunto</div>
                       <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 500, lineHeight: 1.5, marginBottom: 12 }}>
-                        Vas a extender la licencia de <strong>{t.name}</strong> 30 días y a dejar registrado un pago marcado como <em>sin cobro</em>. Hazlo solo si ya recibiste el dinero por fuera de la plataforma.
+                        Vas a extender la licencia de <strong>{t.name}</strong> 30 días y a dejar registrado un pago marcado como <em>sin cobro</em>. Hágalo solo si ya recibió el dinero por fuera de la plataforma.
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <button type="button" onClick={() => renewSubscription(t.id)} disabled={renewingTenantId !== null} style={{ border: 'none', font: 'inherit', background: COLORS.success, color: COLORS.white, fontSize: 12.5, fontWeight: 700, padding: '9px 14px', borderRadius: RADIUS.pill, cursor: 'pointer' }}>Sí, ya me pagaron</button>
@@ -1883,7 +1883,7 @@ export default function DashboardSuperAdminPage() {
                   unidad adicional, que es lo que sube su propia tabla en cada salto.
                 </div>
                 <div style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.55, color: COLORS.navyMuted, marginTop: 6 }}>
-                  El valor que acuerdes lo escribe al crear el conjunto, junto con el motivo. Ese precio es el que
+                  El valor que acuerde lo escribe al crear el conjunto, junto con el motivo. Ese precio es el que
                   cobra el sistema: no hay tarifa automática arriba de {simMonthlyEstimate.fromRule.maxUnits} unidades.
                 </div>
               </div>
@@ -2039,7 +2039,7 @@ export default function DashboardSuperAdminPage() {
             </button>
             {showPriceCaps && (
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 20, marginTop: 10, maxWidth: 420 }}>
-                <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.45 }}>Ninguna regla se puede guardar fuera de este rango. Ajusta esto solo si el negocio realmente cambió de escala.</div>
+                <div style={{ fontSize: 11.5, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.45 }}>Ninguna regla se puede guardar fuera de este rango. Ajuste esto solo si el negocio realmente cambió de escala.</div>
 
                 <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, marginBottom: 5 }}>Tope mínimo (COP)</label>
                 <input type="number" value={capsMinInput} onChange={(e) => { setCapsMinInput(e.target.value); setCapsConfirmStep(false); }} style={{ width: '100%', height: 40, padding: '0 12px', border: `1.5px solid ${COLORS.inputBorder}`, borderRadius: RADIUS.input, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', marginBottom: 12 }} />
@@ -2056,7 +2056,7 @@ export default function DashboardSuperAdminPage() {
                 ) : (
                   <div style={{ background: COLORS.warningSoft, border: '1px solid #F3D9B1', borderRadius: RADIUS.input, padding: 14 }}>
                     <div style={{ fontSize: 12, color: COLORS.warning, fontWeight: 700, marginBottom: 8, lineHeight: 1.4 }}>
-                      Esto cambia el rango permitido para TODAS las reglas de precio, presentes y futuras. ¿Confirmas?
+                      Esto cambia el rango permitido para TODAS las reglas de precio, presentes y futuras. ¿Confirma?
                     </div>
                     <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>{formatMoney(Number(capsMinInput) * 100)} — {formatMoney(Number(capsMaxInput) * 100)}</div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -2143,7 +2143,7 @@ export default function DashboardSuperAdminPage() {
             color: churnCount === 0 ? COLORS.success : COLORS.danger,
             note: churnCount === 0
               ? 'Nadie se fue este mes.'
-              : `Se fueron ${churnCount} conjunto${churnCount === 1 ? '' : 's'}. Con una base pequeña cada salida pesa mucho: entiende por qué pasó.`,
+              : `Se fueron ${churnCount} conjunto${churnCount === 1 ? '' : 's'}. Con una base pequeña cada salida pesa mucho: entienda por qué pasó.`,
           },
           {
             label: 'Pago promedio por conjunto',
@@ -2156,13 +2156,13 @@ export default function DashboardSuperAdminPage() {
                 label: 'Riesgo de concentración',
                 value: `${concentrationPct}%`,
                 color: concentrationPct >= 40 ? COLORS.danger : concentrationPct >= 25 ? COLORS.warning : COLORS.success,
-                note: `"${topTenant.name}" aporta el ${concentrationPct} % de sus ingresos. Si se va, eso es lo que dejas de recibir de un solo golpe.`,
+                note: `"${topTenant.name}" aporta el ${concentrationPct} % de sus ingresos. Si se va, eso es lo que deja de recibir de un solo golpe.`,
               }
             : {
                 label: 'Riesgo de concentración',
                 value: '—',
                 color: COLORS.textMuted,
-                note: 'Todavía no hay ingresos suficientes para medir qué tan dependiente eres de un solo conjunto.',
+                note: 'Todavía no hay ingresos suficientes para medir qué tan dependiente es de un solo conjunto.',
               },
         ];
 
@@ -2198,7 +2198,7 @@ export default function DashboardSuperAdminPage() {
                   <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 22 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
                       Ingresos mensuales (MRR)
-                      <InfoTip text="Suma los pagos aprobados de cada mes. Incluye los registros manuales que hizo con 'Registrar pago', así que no es solo el dinero que entró por la pasarela. Para ver la separación, entra a Licencias y pagos → Pagos." />
+                      <InfoTip text="Suma los pagos aprobados de cada mes. Incluye los registros manuales que hizo con 'Registrar pago', así que no es solo el dinero que entró por la pasarela. Para ver la separación, entre a Licencias y pagos → Pagos." />
                     </div>
                     <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 18 }}>Últimos 6 meses de pagos aprobados (incluye registros manuales)</div>
                     <MiniBarChart data={analytics.mrrTrend.map((m) => ({ label: m.month, value: m.revenueCents }))} color={COLORS.success} formatValue={(v) => formatMoney(v).replace('COP', '').trim()} />
@@ -2450,7 +2450,7 @@ export default function DashboardSuperAdminPage() {
       {nav === 'soporte' && (
         <div className="apl-up">
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Centro de soporte</h1>
-          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Solicitudes reales enviadas por los administradores de cada conjunto desde su centro de ayuda</p>
+          <p style={{ fontSize: 13.5, color: COLORS.textSecondary, margin: '0 0 18px' }}>Solicitudes enviadas desde cada conjunto por administradores, consejo o residentes desde su centro de ayuda</p>
 
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {[
@@ -2601,7 +2601,7 @@ export default function DashboardSuperAdminPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: `1px solid ${COLORS.borderSoft}` }}>
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 700 }}>Centro de soporte habilitado</div>
-                <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Si está apagado, los administradores no pueden enviar nuevas solicitudes de soporte.</div>
+                <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 2 }}>Si está apagado, nadie puede enviar nuevas solicitudes de soporte: ni administradores, ni consejo, ni residentes.</div>
               </div>
               <button type="button" onClick={() => toggleFeatureFlag('supportTicketsEnabled')} style={{ ...toggleTrackStyle(generalSettings.supportTicketsEnabled), border: 'none', cursor: 'pointer', flexShrink: 0 }}><div style={toggleDotStyle(generalSettings.supportTicketsEnabled)} /></button>
             </div>

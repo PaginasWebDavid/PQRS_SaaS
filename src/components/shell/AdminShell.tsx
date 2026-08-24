@@ -174,15 +174,23 @@ export function AdminShell({
 
 
 
-const BLOCKED_COPY: Record<string, { title: string; body: string; canPay: boolean }> = {
+// Solo el ADMIN puede pagar. Al resto no se le puede pedir una accion que no
+// tiene como ejecutar: por eso cada estado lleva dos textos y no uno.
+const BLOCKED_COPY: Record<
+  string,
+  { title: string; body: string; titleSinPago?: string; bodySinPago?: string; canPay: boolean }
+> = {
   PENDING_PAYMENT: {
-    title: 'Activa su licencia',
+    title: 'Active su licencia',
     body: 'Antes de usar PQRS Services, su conjunto debe completar el primer pago de la licencia.',
+    titleSinPago: 'Licencia pendiente de pago',
+    bodySinPago: 'Este conjunto aún no completa el primer pago de la licencia.',
     canPay: true,
   },
   SUSPENDED: {
     title: 'Licencia suspendida',
-    body: 'La licencia de este conjunto entró en suspensión por falta de pago. Realiza el pago para reactivar el acceso.',
+    body: 'La licencia de este conjunto entró en suspensión por falta de pago. Realice el pago para reactivar el acceso.',
+    bodySinPago: 'La licencia de este conjunto entró en suspensión por falta de pago.',
     canPay: true,
   },
   CANCELLED: {
@@ -202,8 +210,8 @@ function BlockedScreen({
   return (
     <div style={{ maxWidth: 460, margin: '60px auto 0', textAlign: 'center' }}>
       <div style={{ width: 56, height: 56, borderRadius: RADIUS.pill, background: COLORS.warningSoft, color: COLORS.warning, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, margin: '0 auto 20px' }}>!</div>
-      <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{copy.title}</h1>
-      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 26px' }}>{copy.body}</p>
+      <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 10px' }}>{!isAdmin && copy.titleSinPago ? copy.titleSinPago : copy.title}</h1>
+      <p style={{ fontSize: 13.5, color: COLORS.textSecondary, fontWeight: 500, lineHeight: 1.6, margin: '0 0 26px' }}>{!isAdmin && copy.bodySinPago ? copy.bodySinPago : copy.body}</p>
       {payError && <p style={{ color: COLORS.danger, fontWeight: 700, fontSize: 12.5, marginBottom: 14 }}>{payError}</p>}
       {copy.canPay && isAdmin && (
         <button

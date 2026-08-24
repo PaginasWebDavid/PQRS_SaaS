@@ -37,7 +37,7 @@ export async function FeatureGate({
           </h1>
           <p style={{ color: COLORS.textSecondary, fontSize: 13.5, fontWeight: 500, lineHeight: 1.6, margin: "0 0 22px" }}>
             {unavailable
-              ? "Tu conjunto no tiene este módulo activo, por eso no aparece en el menú. Si quiere habilitarlo, escríbenos y lo activamos."
+              ? "Su conjunto no tiene este módulo activo, por eso no aparece en el menú. Si quiere habilitarlo, escríbanos y lo activamos."
               : "Puede ser un problema momentáneo de conexión. Vuelva a intentarlo en unos segundos."}
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>

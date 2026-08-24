@@ -80,7 +80,7 @@ export default function SelectTenantPage() {
             margin: "0 0 24px",
           }}
         >
-          Tu cuenta tiene acceso a más de un conjunto.
+          Su cuenta tiene acceso a más de un conjunto.
         </p>
         {loading && <p>Cargando conjuntos…</p>}
         {!loading && memberships.length === 0 && (

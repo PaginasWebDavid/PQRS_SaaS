@@ -8,6 +8,8 @@ import { InfoTip } from '@/components/shell/InfoTip';
 import { ADMIN_NAV } from '@/lib/design/adminNav';
 import { COLORS, RADIUS, badgeStyle } from '@/lib/design/tokens';
 
+const MOTIVO_SIN_EXPORTAR = 'No hay datos suficientes para el periodo y los filtros seleccionados.';
+
 type Estado = 'EN_ESPERA' | 'EN_PROGRESO' | 'TERMINADO';
 type Prioridad = 'ALTA' | 'MEDIA' | 'BAJA';
 type PqrsCategory = { id: string; displayName: string; isActive: boolean };
@@ -144,6 +146,9 @@ export default function ModuloReportesPage() {
   const [pdfType, setPdfType] = useState<'ejecutivo' | 'completo' | 'detallado'>('completo');
   const [exporting, setExporting] = useState(false);
 
+  const sinDatos = !data?.hayDatosSuficientes;
+  const exportarBloqueado = exporting || sinDatos;
+
   const buildParams = () => {
     const p = new URLSearchParams();
     p.set('preset', preset);
@@ -271,8 +276,10 @@ export default function ModuloReportesPage() {
           {data && <p style={{ fontSize: 11.5, color: COLORS.textMuted, fontWeight: 600, margin: '4px 0 0' }}>Periodo: {fmtDate(data.periodo.from)} — {fmtDate(new Date(new Date(data.periodo.to).getTime() - 1).toISOString())}</p>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={downloadExcel} disabled={exporting || !data?.hayDatosSuficientes} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', color: '#1D1D1F', fontFamily: 'inherit' }}>Descargar Excel</button>
-          <button type="button" onClick={() => setPdfOpen(true)} disabled={!data?.hayDatosSuficientes} style={{ border: 'none', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: 'pointer', fontFamily: 'inherit' }}>Descargar PDF</button>
+          {/* Sin datos (o mientras cargan) las descargas no hacen nada. Deben verse
+              apagadas: un boton que se pinta activo y no responde parece roto. */}
+          <button type="button" onClick={downloadExcel} disabled={exportarBloqueado} title={exportarBloqueado ? MOTIVO_SIN_EXPORTAR : undefined} style={{ border: `1.5px solid ${COLORS.inputBorder}`, background: 'none', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: exportarBloqueado ? 'default' : 'pointer', opacity: exportarBloqueado ? 0.45 : 1, color: '#1D1D1F', fontFamily: 'inherit' }}>Descargar Excel</button>
+          <button type="button" onClick={() => setPdfOpen(true)} disabled={sinDatos} title={sinDatos ? MOTIVO_SIN_EXPORTAR : undefined} style={{ border: 'none', background: COLORS.navy, color: '#FFFFFF', fontSize: 12.5, fontWeight: 700, padding: '10px 16px', borderRadius: RADIUS.pill, cursor: sinDatos ? 'default' : 'pointer', opacity: sinDatos ? 0.45 : 1, fontFamily: 'inherit' }}>Descargar PDF</button>
         </div>
       </div>
 
