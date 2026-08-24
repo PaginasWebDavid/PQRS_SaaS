@@ -12,6 +12,7 @@ import {
   verifyTenantSelection,
 } from "@/lib/tenant-selection";
 import { isSessionVersionCurrent, normalizeAccountEmail } from "@/domains/account/account-security";
+import { LIMITES, ipDeCabeceras, limpiarIntentos, registrarIntento } from "@/lib/rate-limit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -22,13 +23,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Correo", type: "email" },
         password: { label: "Contrasena", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = normalizeAccountEmail(credentials?.email);
         const password = typeof credentials?.password === "string" ? credentials.password : null;
         if (!email || !password || password.length > 128) return null;
+
+        // Se limita por las DOS claves a proposito. Solo por IP, quien tenga
+        // muchas direcciones pasa igual; solo por correo, cualquiera puede
+        // dejar fuera a un cliente suyo a base de fallar contra su cuenta.
+        const ip = ipDeCabeceras(request?.headers ?? new Headers());
+        const bucketCorreo = `login:correo:${email}`;
+        const bucketIp = `login:ip:${ip}`;
+
+        // Se registra ANTES de comparar la contrasena: asi un ataque no logra
+        // que el servidor gaste bcrypt, que es deliberadamente costoso.
+        const porCorreo = await registrarIntento(
+          bucketCorreo,
+          LIMITES.loginPorCorreo.maximo,
+          LIMITES.loginPorCorreo.ventanaSegundos
+        );
+        if (!porCorreo.permitido) return null;
+
+        const porIp = await registrarIntento(
+          bucketIp,
+          LIMITES.loginPorIp.maximo,
+          LIMITES.loginPorIp.ventanaSegundos
+        );
+        if (!porIp.permitido) return null;
+
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user?.isActive) return null;
         if (!(await bcrypt.compare(password, user.password))) return null;
+
+        // Entro bien: haber fallado antes no debe seguir contando en su contra.
+        await limpiarIntentos(bucketCorreo);
+        await limpiarIntentos(bucketIp);
         const hasAccess =
           user.role === "SUPER_ADMIN" ||
           (await prisma.tenantMembership.count({ where: { userId: user.id, isActive: true } })) > 0;
