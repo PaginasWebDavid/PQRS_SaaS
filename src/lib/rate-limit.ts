@@ -24,45 +24,48 @@ export type ResultadoLimite = {
 };
 
 const PERMITIDO: ResultadoLimite = { permitido: true, esperaSegundos: 0 };
+const RETENCION_MAXIMA_SEGUNDOS = 60 * 60;
 
 /**
  * Cuenta los intentos recientes del bucket y, si aun hay cupo, registra este.
- * Las filas vencidas del mismo bucket se borran en la misma llamada, asi que
- * la tabla no crece sin limite y no hace falta un proceso de limpieza aparte.
+ * El lock asesor por bucket vuelve atomica la decision entre instancias de
+ * Vercel. La limpieza global conservadora evita que buckets inventados por un
+ * atacante acumulen filas hasta el siguiente intento de ese mismo bucket.
  */
 export async function registrarIntento(
   bucket: string,
   maximo: number,
   ventanaSegundos: number
 ): Promise<ResultadoLimite> {
+  if (!bucket || !Number.isSafeInteger(maximo) || maximo < 1 || !Number.isSafeInteger(ventanaSegundos) || ventanaSegundos < 1) {
+    throw new Error("Politica de limite invalida");
+  }
   const desde = new Date(Date.now() - ventanaSegundos * 1000);
+  const retenerDesde = new Date(Date.now() - RETENCION_MAXIMA_SEGUNDOS * 1000);
 
   try {
-    // Se borra primero: un intento que ya salio de la ventana no debe contar
-    // ni ocupar espacio.
-    await prisma.rateLimitHit.deleteMany({
-      where: { bucket, createdAt: { lt: desde } },
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`rate-limit:${bucket}`}, 0))`;
+      await tx.rateLimitHit.deleteMany({ where: { createdAt: { lt: retenerDesde } } });
+
+      const recientes = await tx.rateLimitHit.findMany({
+        where: { bucket, createdAt: { gte: desde } },
+        orderBy: { createdAt: "asc" },
+        take: maximo,
+        select: { createdAt: true },
+      });
+
+      if (recientes.length >= maximo) {
+        const libera = recientes[0].createdAt.getTime() + ventanaSegundos * 1000;
+        return {
+          permitido: false,
+          esperaSegundos: Math.max(1, Math.ceil((libera - Date.now()) / 1000)),
+        };
+      }
+
+      await tx.rateLimitHit.create({ data: { bucket } });
+      return PERMITIDO;
     });
-
-    const recientes = await prisma.rateLimitHit.findMany({
-      where: { bucket, createdAt: { gte: desde } },
-      orderBy: { createdAt: "asc" },
-      take: maximo,
-      select: { createdAt: true },
-    });
-
-    if (recientes.length >= maximo) {
-      // El bucket se libera cuando el intento MAS ANTIGUO de la ventana sale
-      // de ella, no cuando pasa la ventana completa desde ahora.
-      const libera = recientes[0].createdAt.getTime() + ventanaSegundos * 1000;
-      return {
-        permitido: false,
-        esperaSegundos: Math.max(1, Math.ceil((libera - Date.now()) / 1000)),
-      };
-    }
-
-    await prisma.rateLimitHit.create({ data: { bucket } });
-    return PERMITIDO;
   } catch {
     return PERMITIDO;
   }
@@ -107,4 +110,7 @@ export const LIMITES = {
   // inundar el buzon de un tercero.
   correoPorDestinatario: { maximo: 3, ventanaSegundos: 60 * 60 },
   correoPorIp: { maximo: 10, ventanaSegundos: 60 * 60 },
+  pqrsCreacionPorUsuario: { maximo: 12, ventanaSegundos: 60 * 60 },
+  pqrsActualizacionPorUsuario: { maximo: 40, ventanaSegundos: 60 * 60 },
+  soportePorUsuario: { maximo: 6, ventanaSegundos: 60 * 60 },
 } as const;

@@ -118,7 +118,7 @@ export function validateProductionConfirmation(input: {
 // La evidencia se busca por subscriptionId y se filtra en memoria por externalId,
 // NUNCA por tenantId (evita contar auditorias de otro pago del mismo conjunto).
 
-export const WEBHOOK_AUDIT_ACTIONS = ["MERCADO_PAGO_WEBHOOK_PROCESSED"] as const;
+export const WEBHOOK_AUDIT_ACTIONS = ["WOMPI_WEBHOOK_PROCESSED"] as const;
 
 export interface AuditEvidenceRow {
   action: string;
@@ -137,7 +137,7 @@ export function auditMetadataMatchesPayment(metadata: unknown, externalId: strin
   if (!externalId) return false;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
   const record = metadata as Record<string, unknown>;
-  return record.provider === "MERCADO_PAGO" && record.externalId === externalId;
+  return record.provider === "WOMPI" && record.externalId === externalId;
 }
 
 export function summarizeAuditEvidence(rows: AuditEvidenceRow[], externalId: string): AuditEvidenceSummary {

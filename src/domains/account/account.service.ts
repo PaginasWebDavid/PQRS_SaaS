@@ -104,6 +104,9 @@ export async function createPasswordResetRequest(emailInput: unknown) {
 
   const expires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
   await prisma.$transaction(async (tx) => {
+    // Dos solicitudes simultaneas para la misma cuenta deben dejar un unico
+    // token vigente. El lock serializa delete+create entre instancias.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`password-reset:${user.email}`}, 0))`;
     await tx.verificationToken.deleteMany({ where: { identifier: user.email } });
     await tx.verificationToken.create({
       data: { identifier: user.email, token: generated.tokenHash, expires },

@@ -29,7 +29,7 @@ export async function GET() {
     integrations: {
       correoTransaccional: generalSettings.transactionalEmailEnabled && integrations.resend.connected && integrations.resend.fromEmailConfigured,
       almacenamientoEvidencias: integrations.supabaseStorage.connected,
-      pagos: integrations.mercadoPago.connected,
+      pagos: integrations.wompi.connected,
     },
   });
 }

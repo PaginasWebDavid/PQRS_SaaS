@@ -10,6 +10,7 @@ import {
   listSupportTicketsForUser,
 } from "@/domains/support/support-ticket.service";
 import { isFeatureEnabled } from "@/domains/platform/platform-setting.service";
+import { LIMITES, registrarIntento } from "@/lib/rate-limit";
 
 export async function GET() {
   const session = await auth();
@@ -50,6 +51,14 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantId = getTenantIdFromSession(session);
+  const limite = await registrarIntento(
+    `support:create:${tenantId}:${session.user.id}`,
+    LIMITES.soportePorUsuario.maximo,
+    LIMITES.soportePorUsuario.ventanaSegundos
+  );
+  if (!limite.permitido) {
+    return NextResponse.json({ error: "Has enviado muchas solicitudes. Intenta de nuevo en unos minutos." }, { status: 429 });
+  }
   const body = await req.json();
 
   if (!body.subject?.trim() || !body.message?.trim()) {

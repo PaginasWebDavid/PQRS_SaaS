@@ -91,7 +91,7 @@ test("sanitizeWebhookMetadata: conserva primitivos y descarta objetos anidados",
 
 // 6. Clave del efecto economico.
 test("buildPaymentEffectKey: formato provider:paymentId:tipo", () => {
-  assert.equal(buildPaymentEffectKey("MERCADO_PAGO", "999"), `MERCADO_PAGO:999:${PAYMENT_EFFECT_TYPE}`);
+  assert.equal(buildPaymentEffectKey("WOMPI", "999"), `WOMPI:999:${PAYMENT_EFFECT_TYPE}`);
 });
 
 // 7. No exposicion de secretos.

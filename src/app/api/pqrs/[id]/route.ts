@@ -21,6 +21,7 @@ import {
   residentDescriptionPatch,
   validatePqrsFile,
 } from "@/domains/pqrs/pqrs-security";
+import { LIMITES, registrarIntento } from "@/lib/rate-limit";
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: "En espera",
@@ -110,6 +111,14 @@ async function handlePatch(
   if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
+  const limite = await registrarIntento(
+    `pqrs:update:${tenantId}:${session.user.id}`,
+    LIMITES.pqrsActualizacionPorUsuario.maximo,
+    LIMITES.pqrsActualizacionPorUsuario.ventanaSegundos
+  );
+  if (!limite.permitido) {
+    return NextResponse.json({ error: "Has realizado muchas actualizaciones. Intenta de nuevo en unos minutos." }, { status: 429 });
+  }
 
   const pqrs = await prisma.pqrs.findFirst({
     where: pqrsResourceScopeForUser({
@@ -144,14 +153,23 @@ async function handlePatch(
       const message = error instanceof PqrsValidationError ? error.message : "Datos invalidos";
       return NextResponse.json({ error: message }, { status: 400 });
     }
-    // Actualizacion atomica condicionada a editadoPorResidente=false: evita que dos solicitudes
-    // concurrentes pasen ambas la verificacion anterior y consuman la unica edicion permitida.
+    // La condicion replica en SQL la regla de "aun no tomada". Asi una toma
+    // administrativa concurrente no deja que el residente edite despues.
     const claimed = await prisma.pqrs.updateMany({
-      where: { id: pqrs.id, tenantId, creadoPorId: session.user.id, editadoPorResidente: false },
+      where: {
+        id: pqrs.id,
+        tenantId,
+        creadoPorId: session.user.id,
+        editadoPorResidente: false,
+        estado: "EN_ESPERA",
+        fechaPrimerContacto: null,
+        gestionadoPorId: null,
+        numeroRadicacion: null,
+      },
       data: { descripcion, editadoPorResidente: true },
     });
     if (claimed.count !== 1) {
-      return NextResponse.json({ error: "Ya editaste esta solicitud una vez; no puede editarse de nuevo" }, { status: 409 });
+      return NextResponse.json({ error: "La solicitud ya fue tomada por administracion o ya fue editada" }, { status: 409 });
     }
     const updated = await prisma.pqrs.findFirstOrThrow({
       where: { id: pqrs.id, tenantId, creadoPorId: session.user.id },
@@ -782,6 +800,3 @@ export async function PATCH(req: NextRequest, context: PqrsRouteContext) {
     return NextResponse.json({ error: "No se pudo actualizar la PQRS" }, { status: 500 });
   }
 }
-
-
-

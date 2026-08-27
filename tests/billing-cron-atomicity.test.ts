@@ -2,7 +2,7 @@
 // precedencia y atomicidad de las transiciones automaticas (FASE 2L, F2-02/05/06).
 //
 // EJECUCION: requieren una base de datos DEDICADA de pruebas (.env.test) validada
-// por el runner seguro. NO llaman a Mercado Pago real (fetch mockeado) ni envian
+// por el runner seguro. No llaman a proveedores reales ni envian
 // emails reales (el correo transaccional esta desactivado -> EmailLog SKIPPED).
 //
 // AISLAMIENTO: todas las corridas del cron se acotan con `{ tenantIds }` a los
@@ -12,7 +12,6 @@
 import "dotenv/config";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import { NextRequest } from "next/server";
 import { prisma } from "../src/lib/prisma";
 import {
@@ -20,9 +19,9 @@ import {
   __unsafeSetCronTestHooks,
   getGracePeriodDays,
   isCronAuthorizationValid,
+  renewSubscriptionWithSimulatedPayment,
   type CronRunOptions,
 } from "../src/domains/billing/billing.service";
-import { processMercadoPagoWebhook } from "../src/domains/billing/mercado-pago.service";
 import {
   __unsafeResetBillingOutboxTestHooks,
   __unsafeSetBillingOutboxTestHooks,
@@ -31,15 +30,7 @@ import { updateTenantStatusForSuperAdmin } from "../src/domains/platform/tenant-
 import { GET as overdueRulesGET } from "../src/app/api/cron/overdue-rules/route";
 
 const RUN = `billing-cron-${Date.now()}`;
-const WEBHOOK_SECRET = "test-cron-webhook-secret";
-const previousWebhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-const previousAccessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 let counter = 0;
-
-process.env.MERCADO_PAGO_WEBHOOK_SECRET = WEBHOOK_SECRET;
-process.env.MERCADO_PAGO_ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN || "TEST-integration";
-
-const realFetch = globalThis.fetch;
 // Guarantia de "cero emails reales": este archivo corre en su propio proceso
 // (node --test aisla cada archivo), asi que retirar RESEND_API_KEY aqui hace que
 // `sendEmail` falle ANTES de cualquier fetch al proveedor (rama sin API key ->
@@ -115,7 +106,7 @@ async function createSuperAdminActor(): Promise<string> {
 }
 
 // Evidencia de acceso vigente (pago real aplicado) que autoriza la reactivacion
-// administrativa: tenantId+subscriptionId exactos, MERCADO_PAGO, APPROVED, efecto
+// administrativa: tenantId+subscriptionId exactos, WOMPI, APPROVED, efecto
 // aplicado, sin reconciliacion, periodo vigente.
 async function createAccessEvidence(tenantId: string, subscriptionId: string) {
   return prisma.payment.create({
@@ -125,7 +116,7 @@ async function createAccessEvidence(tenantId: string, subscriptionId: string) {
       amountCents: 100000,
       currency: "COP",
       status: "APPROVED",
-      provider: "MERCADO_PAGO",
+      provider: "WOMPI",
       dueDate: PAST(),
       paidAt: PAST(),
       periodStart: PAST(),
@@ -134,37 +125,6 @@ async function createAccessEvidence(tenantId: string, subscriptionId: string) {
       approvedEffectAppliedAt: new Date(),
       approvedEffectReconciliationRequired: false,
     },
-  });
-}
-
-function signedHeaders(dataId: string, requestId = `${RUN}-req-${++counter}`): Headers {
-  const ts = String(Date.now());
-  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-  const v1 = crypto.createHmac("sha256", WEBHOOK_SECRET).update(manifest).digest("hex");
-  return new Headers({ "x-signature": `ts=${ts},v1=${v1}`, "x-request-id": requestId });
-}
-
-function mockFetch(fixture: Record<string, unknown>) {
-  globalThis.fetch = (async () =>
-    ({ ok: true, status: 200, json: async () => fixture, text: async () => "", headers: new Headers() }) as unknown as Response) as unknown as typeof fetch;
-}
-
-// Simula la llegada concurrente de un Payment APPROVED real por el webhook.
-async function sendApprovedPaymentWebhook(subscriptionId: string) {
-  const id = `${RUN}-pay-${++counter}`;
-  const fixture = {
-    id,
-    status: "approved",
-    transaction_amount: 1000,
-    currency_id: "COP",
-    date_approved: new Date().toISOString(),
-    external_reference: subscriptionId,
-  };
-  mockFetch(fixture);
-  return processMercadoPagoWebhook({
-    payload: { type: "payment", data: { id } },
-    headers: signedHeaders(id),
-    dataIdFromQuery: null,
   });
 }
 
@@ -208,13 +168,8 @@ after(async () => {
   await prisma.user.deleteMany({ where: { OR: [{ tenantId: { in: tenantIds } }, { id: { in: extraUserIds } }] } });
   await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
   await prisma.pricingRule.deleteMany({ where: { id: { in: pricingRuleIds } } });
-  globalThis.fetch = realFetch;
   if (prevResendKey !== undefined) process.env.RESEND_API_KEY = prevResendKey;
   else delete process.env.RESEND_API_KEY;
-  if (previousWebhookSecret !== undefined) process.env.MERCADO_PAGO_WEBHOOK_SECRET = previousWebhookSecret;
-  else delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (previousAccessToken !== undefined) process.env.MERCADO_PAGO_ACCESS_TOKEN = previousAccessToken;
-  else delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
   await prisma.$disconnect();
 });
 
@@ -303,16 +258,21 @@ test("5. GRACE con graceEndsAt = null se reporta inconsistente y no cambia", asy
 // Carreras (CAS)
 // ===========================================================================
 
-// 6. Payment APPROVED gana frente al cron.
-test("6. Payment APPROVED concurrente gana: el CAS del cron pierde", async () => {
+// 6. Una renovacion registrada concurrentemente gana frente al cron.
+test("6. Renovacion concurrente gana: el CAS del cron pierde", async () => {
   const { tenant, subscription } = await createTenantWithSub({ status: "ACTIVE", currentPeriodEnd: PAST() });
+  const actorUserId = await createActiveAdmin(tenant.id);
 
   let fired = false;
   __unsafeSetCronTestHooks({
     onStep: async (step, ctx) => {
       if (step === "BEFORE_CRON_SUBSCRIPTION_CAS" && ctx.subscriptionId === subscription.id && !fired) {
         fired = true;
-        await sendApprovedPaymentWebhook(subscription.id);
+        await renewSubscriptionWithSimulatedPayment({
+          actorUserId,
+          tenantId: tenant.id,
+          operationId: `${RUN}-renewal-${subscription.id}`,
+        });
       }
     },
   });
@@ -321,7 +281,6 @@ test("6. Payment APPROVED concurrente gana: el CAS del cron pierde", async () =>
     result = await runCron([tenant.id]);
   } finally {
     resetCronHook();
-    globalThis.fetch = realFetch;
   }
 
   const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } });

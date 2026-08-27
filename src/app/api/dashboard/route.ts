@@ -143,10 +143,10 @@ export async function GET(req: NextRequest) {
   });
 
   // By asunto with status breakdown and descriptions
-  const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = {};
+  const asuntoMap: Record<string, { total: number; terminado: number; enProgreso: number; enEspera: number; descripciones: Set<string> }> = Object.create(null);
   for (const p of pqrs) {
     const key = p.categorySnapshot || p.asunto || "Sin categoria";
-    if (!asuntoMap[key]) {
+    if (!Object.hasOwn(asuntoMap, key)) {
       asuntoMap[key] = { total: 0, terminado: 0, enProgreso: 0, enEspera: 0, descripciones: new Set() };
     }
     asuntoMap[key].total++;

@@ -2,7 +2,6 @@ import { AuditAction, Prisma, SubscriptionStatus, TenantStatus } from "@prisma/c
 import { prisma } from "@/lib/prisma";
 import { registerAuditLog } from "./audit.service";
 import { calculatePriceForUnits, DEFAULT_TRIAL_DAYS } from "@/domains/billing/billing.service";
-import { updateMercadoPagoPreapprovalAmount, __billingTestSeam } from "@/domains/billing/mercado-pago.service";
 import { hasCurrentAppliedAccessEvidence } from "@/domains/billing/precedence";
 import { createInvitation } from "@/domains/organizations/invitation.service";
 import { mapInvitationError, normalizeInvitationEmail } from "@/domains/organizations/invitation-security";
@@ -270,7 +269,7 @@ export async function updateTenantStatusForSuperAdmin(
         if (status === "ACTIVE") {
           // La validacion de evidencia ocurre DENTRO de la transaccion serializable.
           // Identidad EXACTA tenant+subscription (F2F-02). hasCurrentAppliedAccessEvidence
-          // acepta pago real de Mercado Pago (aprobado, efecto aplicado, sin cuarentena,
+          // acepta pago real confirmado (aprobado, efecto aplicado, sin cuarentena,
           // periodo vigente) o renovacion simulada/cortesia vigente; NUNCA historico en
           // cuarentena, sin efecto aplicado o con periodo vencido.
           const now = new Date();
@@ -291,9 +290,6 @@ export async function updateTenantStatusForSuperAdmin(
               "No se puede activar: este conjunto no tiene evidencia de pago o renovacion vigente que cubra el periodo actual. El administrador debe pagar la licencia (Licencias y pagos) para activarse."
             );
           }
-          // Seam: la evidencia YA fue leida y validada. Una transaccion concurrente que
-          // invalide la evidencia y toque la Subscription hara fallar el UPDATE serializable.
-          await __billingTestSeam("AFTER_REACTIVATION_EVIDENCE_READ");
         }
 
         const updatedTenant = await tx.tenant.update({
@@ -314,7 +310,6 @@ export async function updateTenantStatusForSuperAdmin(
 
         // AuditLog DENTRO de la transaccion (F2F-03): si falla, Tenant y Subscription
         // se revierten; no queda acceso reactivado sin registro de quien lo hizo.
-        await __billingTestSeam("BEFORE_REACTIVATION_AUDIT_LOG");
         await registerAuditLog(
           {
             actorUserId,
@@ -394,21 +389,7 @@ export async function updateTenantDetails(
     calculatedTerms.priceCents !== currentTerms.priceCents ||
     calculatedTerms.currency !== currentTerms.currency
   ) ? calculatedTerms : null;
-  const providerTerms = scheduledTerms || currentTerms;
-  const shouldSyncProvider = Boolean(
-    unitsChanged && !priceProtectionActive && subscription?.mercadoPagoPreapprovalId && providerTerms
-  );
-
-  if (shouldSyncProvider && subscription?.mercadoPagoPreapprovalId && providerTerms) {
-    await updateMercadoPagoPreapprovalAmount({
-      preapprovalId: subscription.mercadoPagoPreapprovalId,
-      priceCents: providerTerms.priceCents,
-      currency: providerTerms.currency,
-    });
-  }
-
-  try {
-    const tenant = await prisma.$transaction(async (tx) => {
+  const tenant = await prisma.$transaction(async (tx) => {
       const updatedTenant = await tx.tenant.update({ where: { id: tenantId }, data });
 
       if (unitsChanged && subscription && !priceProtectionActive) {
@@ -458,7 +439,6 @@ export async function updateTenantDetails(
                   currentPriceCents: currentTerms?.priceCents,
                   scheduledPriceCents: scheduledTerms?.priceCents || null,
                   effectiveAt: subscription?.currentPeriodEnd.toISOString() || null,
-                  mercadoPagoSynchronized: shouldSyncProvider,
                   priceProtectionActive,
                   requiresCommercialReview: priceProtectionActive,
                 }
@@ -468,19 +448,9 @@ export async function updateTenantDetails(
       });
 
       return updatedTenant;
-    });
+  });
 
-    return tenant;
-  } catch (error) {
-    if (shouldSyncProvider && subscription?.mercadoPagoPreapprovalId && currentTerms) {
-      await updateMercadoPagoPreapprovalAmount({
-        preapprovalId: subscription.mercadoPagoPreapprovalId,
-        priceCents: currentTerms.priceCents,
-        currency: currentTerms.currency,
-      }).catch(() => null);
-    }
-    throw error;
-  }
+  return tenant;
 }
 
 function assertValidTenantInput(input: CreateTenantInput) {

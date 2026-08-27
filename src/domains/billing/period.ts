@@ -3,7 +3,7 @@
 // que webhook, renovacion simulada y pruebas consuman la misma logica.
 
 // Unica constante de duracion del periodo. Reemplaza las copias que existian en
-// billing.service.ts y mercado-pago.service.ts.
+// billing.service.ts y wompi.service.ts.
 export const BILLING_PERIOD_DAYS = 30;
 
 export function addDays(date: Date, days: number): Date {

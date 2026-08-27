@@ -32,6 +32,12 @@ export async function POST(req: NextRequest) {
     // no un 429: responder distinto convertiria este punto en un oraculo para
     // averiguar que correos estan registrados.
     const ip = ipDeCabeceras(req.headers);
+    const porIp = await registrarIntento(
+      `correo:ip:${ip}`,
+      LIMITES.correoPorIp.maximo,
+      LIMITES.correoPorIp.ventanaSegundos
+    );
+    if (!porIp.permitido) return NextResponse.json(PUBLIC_RESPONSE);
     const destinatario = typeof email === "string" ? email.trim().toLowerCase() : "";
     if (destinatario) {
       const porDestinatario = await registrarIntento(
@@ -41,12 +47,6 @@ export async function POST(req: NextRequest) {
       );
       if (!porDestinatario.permitido) return NextResponse.json(PUBLIC_RESPONSE);
     }
-    const porIp = await registrarIntento(
-      `correo:ip:${ip}`,
-      LIMITES.correoPorIp.maximo,
-      LIMITES.correoPorIp.ventanaSegundos
-    );
-    if (!porIp.permitido) return NextResponse.json(PUBLIC_RESPONSE);
 
     const request = await createPasswordResetRequest(email);
     if (request.delivery) {

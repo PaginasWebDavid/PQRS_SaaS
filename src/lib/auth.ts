@@ -37,19 +37,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Se registra ANTES de comparar la contrasena: asi un ataque no logra
         // que el servidor gaste bcrypt, que es deliberadamente costoso.
-        const porCorreo = await registrarIntento(
-          bucketCorreo,
-          LIMITES.loginPorCorreo.maximo,
-          LIMITES.loginPorCorreo.ventanaSegundos
-        );
-        if (!porCorreo.permitido) return null;
-
         const porIp = await registrarIntento(
           bucketIp,
           LIMITES.loginPorIp.maximo,
           LIMITES.loginPorIp.ventanaSegundos
         );
         if (!porIp.permitido) return null;
+
+        const porCorreo = await registrarIntento(
+          bucketCorreo,
+          LIMITES.loginPorCorreo.maximo,
+          LIMITES.loginPorCorreo.ventanaSegundos
+        );
+        if (!porCorreo.permitido) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user?.isActive) return null;

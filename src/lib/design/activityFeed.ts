@@ -84,10 +84,6 @@ export function describeActivity(entry: ActivityEntry): string {
       return 'Se generó la licencia del conjunto, pendiente de primer pago';
     case 'SUBSCRIPTION_RENEWED':
       return 'La licencia fue renovada';
-    case 'MERCADO_PAGO_SUBSCRIPTION_CREATED':
-      return `${who} inició el pago de la licencia con Mercado Pago`;
-    case 'MERCADO_PAGO_WEBHOOK_PROCESSED':
-      return 'Mercado Pago confirmó un movimiento sobre la licencia';
     case 'SUBSCRIPTION_AUTO_RENEW_DISABLED':
       return `${who} desactivó la renovación automática de la licencia`;
     case 'SUBSCRIPTION_AUTO_RENEW_ENABLED':

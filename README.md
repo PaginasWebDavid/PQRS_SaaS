@@ -144,7 +144,7 @@ No deben confundirse Pagos de residentes y Licencias y pagos: el primero corresp
 | Datos | Supabase PostgreSQL |
 | Archivos | Supabase Storage privado |
 | Email | Resend |
-| Pagos | Wompi; integración Mercado Pago conservada como legado |
+| Pagos | Wompi y transferencias manuales confirmadas |
 | Reportes | ExcelJS, jsPDF y jspdf-autotable |
 | Hosting | Vercel |
 
@@ -231,13 +231,12 @@ La plantilla completa vive en [.env.example](.env.example). Grupos principales:
 - Storage: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y SUPABASE_STORAGE_BUCKET;
 - correo: RESEND_API_KEY y RESEND_FROM_EMAIL;
 - Wompi Sandbox y Producción;
-- Mercado Pago legado;
 - cron: CRON_SECRET;
 - identidad legal pública: NEXT_PUBLIC_LEGAL_*.
 
 DATABASE_URL usa el pooler transaccional en Vercel. DIRECT_URL usa conexión directa para migraciones.
 
-Nunca expongas SUPABASE_SERVICE_ROLE_KEY, llaves privadas de Wompi, secretos de eventos, tokens de Mercado Pago, RESEND_API_KEY o NEXTAUTH_SECRET.
+Nunca expongas SUPABASE_SERVICE_ROLE_KEY, llaves privadas de Wompi, secretos de eventos, RESEND_API_KEY o NEXTAUTH_SECRET.
 
 ## Base de datos
 
@@ -262,8 +261,15 @@ La base real no es desechable.
 | npm run release:check | valida Prisma y ejecuta build |
 | npm run db:migrate | migración local controlada |
 | npm run db:migrate:deploy | aplica migraciones existentes |
-| npm run db:seed | seed explícito |
+| npm run db:seed | crea o actualiza de forma idempotente el acceso inicial y el conjunto demo Calle 100, sin borrar datos |
+| npm run db:seed:demo | reinicia los datos enriquecidos de Calle 100 solo en una base dedicada de demostración |
 | npm run db:studio | Prisma Studio |
+
+### Datos demo de Calle 100
+
+`npm run db:seed` es seguro para usar en una base compartida: no elimina conjuntos, usuarios, PQRS ni pagos. Requiere `CALLE_100_DEMO_PASSWORD`, `SUPER_ADMIN_EMAIL` y `SUPER_ADMIN_PASSWORD`.
+
+El reinicio completo del demo es destructivo y queda deliberadamente separado. Antes de ejecutarlo, configura una base exclusiva para demostración y declara las cuatro variables: `DATABASE_URL`, `DEMO_DATABASE_URL` (con el mismo valor de esa base exclusiva), `DEMO_DATABASE_MODE=calle-100` y `CONFIRM_DEMO_RESET=CALLE_100_DEMO`. Después ejecuta `npm run db:seed:demo`. Nunca uses este comando contra Supabase productivo.
 
 Validación recomendada antes de release:
 

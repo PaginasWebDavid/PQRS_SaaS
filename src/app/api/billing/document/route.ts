@@ -41,7 +41,6 @@ function paymentStatusLabel(status?: PaymentStatus) {
 
 function paymentProviderLabel(provider?: string) {
   if (provider === "WOMPI") return "Wompi";
-  if (provider === "MERCADO_PAGO") return "Mercado Pago";
   if (provider === "MANUAL_TRANSFER") return "Transferencia confirmada";
   if (provider === "COURTESY") return "Cortesia";
   return "PQRS Services";
@@ -130,7 +129,6 @@ export async function GET(req: NextRequest) {
         periodEnd: true,
         externalReference: true,
         wompiTransactionId: true,
-        mercadoPagoPaymentId: true,
       },
     })
     : null;
@@ -240,7 +238,7 @@ export async function GET(req: NextRequest) {
   cursorY += 68;
   if (payment) {
     const statusColor = payment.status === "APPROVED" ? SUCCESS : payment.status === "REJECTED" ? DANGER : WARNING;
-    const transactionReference = payment.wompiTransactionId || payment.mercadoPagoPaymentId || payment.externalReference || "Pendiente de asignacion";
+    const transactionReference = payment.wompiTransactionId || payment.externalReference || "Pendiente de asignacion";
     doc.setTextColor(...NAVY);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);

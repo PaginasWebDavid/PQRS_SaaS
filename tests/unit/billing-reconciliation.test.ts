@@ -171,27 +171,27 @@ test("validateProductionConfirmation: acepta produccion con doble confirmacion c
 
 // --- Evidencia de auditoria por subscriptionId + externalId ------------------
 
-function auditRow(externalId: string | null, createdAt = new Date(), provider = "MERCADO_PAGO"): AuditEvidenceRow {
+function auditRow(externalId: string | null, createdAt = new Date(), provider = "WOMPI"): AuditEvidenceRow {
   return {
-    action: "MERCADO_PAGO_WEBHOOK_PROCESSED",
+    action: "WOMPI_WEBHOOK_PROCESSED",
     createdAt,
     metadata: externalId === null ? null : { provider, externalId, topic: "payment" },
   };
 }
 
 test("auditMetadataMatchesPayment: cuenta el mismo payment ID", () => {
-  assert.equal(auditMetadataMatchesPayment({ provider: "MERCADO_PAGO", externalId: "999" }, "999"), true);
+  assert.equal(auditMetadataMatchesPayment({ provider: "WOMPI", externalId: "999" }, "999"), true);
 });
 
 test("auditMetadataMatchesPayment: NO cuenta otro payment ID de la misma suscripcion", () => {
-  assert.equal(auditMetadataMatchesPayment({ provider: "MERCADO_PAGO", externalId: "111" }, "999"), false);
+  assert.equal(auditMetadataMatchesPayment({ provider: "WOMPI", externalId: "111" }, "999"), false);
 });
 
 test("auditMetadataMatchesPayment: metadata nula o malformada no cuenta y no lanza", () => {
   assert.equal(auditMetadataMatchesPayment(null, "999"), false);
   assert.equal(auditMetadataMatchesPayment("texto", "999"), false);
   assert.equal(auditMetadataMatchesPayment(["array"], "999"), false);
-  assert.equal(auditMetadataMatchesPayment({ provider: "MERCADO_PAGO" }, "999"), false);
+  assert.equal(auditMetadataMatchesPayment({ provider: "WOMPI" }, "999"), false);
 });
 
 test("summarizeAuditEvidence: cuenta solo las auditorias del pago exacto", () => {
@@ -203,13 +203,13 @@ test("summarizeAuditEvidence: cuenta solo las auditorias del pago exacto", () =>
   ];
   const summary = summarizeAuditEvidence(rows, "999");
   assert.equal(summary.count, 2);
-  assert.deepEqual(summary.actions, ["MERCADO_PAGO_WEBHOOK_PROCESSED"]);
+  assert.deepEqual(summary.actions, ["WOMPI_WEBHOOK_PROCESSED"]);
   assert.equal(summary.latestAt, "2026-01-03T00:00:00.000Z");
 });
 
 test("summarizeAuditEvidence: no filtra IDs externos completos ni secretos en la salida", () => {
   const rows: AuditEvidenceRow[] = [
-    { action: "MERCADO_PAGO_WEBHOOK_PROCESSED", createdAt: new Date(), metadata: { provider: "MERCADO_PAGO", externalId: "sensitive-999", authorization: "Bearer APP_USR-x" } },
+    { action: "WOMPI_WEBHOOK_PROCESSED", createdAt: new Date(), metadata: { provider: "WOMPI", externalId: "sensitive-999", authorization: "Bearer APP_USR-x" } },
   ];
   const summary = summarizeAuditEvidence(rows, "sensitive-999");
   const serialized = JSON.stringify(summary);

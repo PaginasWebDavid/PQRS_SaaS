@@ -130,7 +130,6 @@ test("16. el contenido de cortesia nunca afirma que hubo un pago", () => {
 });
 
 test("17. los proveedores se muestran con conceptos distintos", () => {
-  assert.equal(paymentProviderLabel("MERCADO_PAGO"), "Mercado Pago");
   assert.equal(paymentProviderLabel("WOMPI"), "Wompi");
   // SIMULATED no es dinero recibido: lo genera el registro manual del Super
   // Admin. Antes decia "Pago manual", que se lee como lo contrario.

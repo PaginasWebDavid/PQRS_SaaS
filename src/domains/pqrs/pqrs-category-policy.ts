@@ -1,6 +1,7 @@
 import type { PqrsWorkflowType } from "@prisma/client";
 
 export const MAX_CUSTOM_PQRS_CATEGORIES = 3;
+const RESERVED_CATEGORY_NAMES = new Set(["__proto__", "prototype", "constructor"]);
 
 export const INITIAL_PQRS_CATEGORIES: ReadonlyArray<{
   canonicalKey: string;
@@ -50,7 +51,12 @@ export function isPqrsWorkflowType(value: unknown): value is PqrsWorkflowType {
 export function normalizeCategoryDisplayName(value: unknown): string {
   if (typeof value !== "string") throw new Error("Nombre de categoria invalido");
   const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length < 2 || normalized.length > 80 || /[\u0000-\u001F\u007F]/.test(normalized)) {
+  if (
+    normalized.length < 2 ||
+    normalized.length > 80 ||
+    /[\u0000-\u001F\u007F]/.test(normalized) ||
+    RESERVED_CATEGORY_NAMES.has(normalized.toLowerCase())
+  ) {
     throw new Error("Nombre de categoria invalido");
   }
   return normalized;
