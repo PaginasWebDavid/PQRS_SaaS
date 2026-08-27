@@ -86,11 +86,10 @@ type BillingOverview = {
   avgPqrsCloseTimeDays: number | null;
 };
 type ApiPayment = { id: string; tenantName: string; amountCents: number; currency: string; status: string; provider: string; createdAt: string };
-type IntegrationStatus = { connected: boolean };
 type IntegrationsFull = {
   resend: { connected: boolean; fromEmailConfigured: boolean };
   supabaseStorage: { connected: boolean };
-  mercadoPago: { connected: boolean; webhookSecretConfigured: boolean };
+  wompi: { connected: boolean; webhookSecretConfigured: boolean };
 };
 type GeneralSettings = { platformName: string; pqrsCloseSlaDays: number; supportTicketsEnabled: boolean; transactionalEmailEnabled: boolean };
 
@@ -339,7 +338,6 @@ export default function DashboardSuperAdminPage() {
   const [paymentSearch, setPaymentSearch] = useState('');
   const [confirmingRenewalId, setConfirmingRenewalId] = useState<string | null>(null);
   const [showGraceSetting, setShowGraceSetting] = useState(false);
-  const [mercadoPago, setMercadoPago] = useState<IntegrationStatus | null>(null);
   const [integrationsFull, setIntegrationsFull] = useState<IntegrationsFull | null>(null);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({ platformName: 'PQRS Services', pqrsCloseSlaDays: 7, supportTicketsEnabled: true, transactionalEmailEnabled: true });
   const [platformNameInput, setPlatformNameInput] = useState('PQRS Services');
@@ -437,8 +435,6 @@ export default function DashboardSuperAdminPage() {
         return { text: `Nueva licencia creada — ${tenantName}`, color: COLORS.navy };
       case 'SUBSCRIPTION_RENEWED':
         return { text: `Pago de licencia confirmado — ${tenantName}`, color: COLORS.success };
-      case 'MERCADO_PAGO_WEBHOOK_PROCESSED':
-        return { text: `Pago procesado — ${tenantName}`, color: COLORS.success };
       case 'INVITATION_ACCEPTED':
         return { text: `Nuevo usuario registrado en ${tenantName}`, color: COLORS.navy };
       case 'PLATFORM_SETTING_CHANGED':
@@ -558,7 +554,6 @@ export default function DashboardSuperAdminPage() {
       setTenants((data.tenants || []).map((t: ApiTenant) => mapTenant(t, data.pricingRules || [])));
       setAuditLog(data.recentAuditLogs || []);
       setPayments(data.recentPayments || []);
-      setMercadoPago(data.integrations?.mercadoPago || null);
       setIntegrationsFull(data.integrations || null);
       if (data.generalSettings) {
         setGeneralSettings(data.generalSettings);
@@ -1742,9 +1737,9 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.stat, padding: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 700, marginBottom: 6 }}>Proveedor de pagos</div>
-                    <div style={{ fontSize: 14, fontWeight: 800 }}>{mercadoPago?.connected ? 'Conectado' : 'No conectado'}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{integrationsFull?.wompi.connected ? 'Conectado' : 'No conectado'}</div>
                   </div>
-                  <span style={mercadoPago?.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{mercadoPago?.connected ? 'Activo' : 'Inactivo'}</span>
+                  <span style={integrationsFull?.wompi.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull?.wompi.connected ? 'Activo' : 'Inactivo'}</span>
                 </div>
               </div>
 
@@ -2601,9 +2596,9 @@ export default function DashboardSuperAdminPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: COLORS.bgCard, borderRadius: RADIUS.input }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>Pasarela de pagos</div>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.mercadoPago.webhookSecretConfigured ? 'Webhook configurado' : 'Falta configurar webhook'}</div>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted }}>{integrationsFull.wompi.webhookSecretConfigured ? 'Webhook configurado' : 'Falta configurar webhook'}</div>
                   </div>
-                  <span style={integrationsFull.mercadoPago.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.mercadoPago.connected ? 'Conectado' : 'No conectado'}</span>
+                  <span style={integrationsFull.wompi.connected ? badgeStyle(COLORS.successSoft, COLORS.success) : badgeStyle(COLORS.dangerSoft, COLORS.danger)}>{integrationsFull.wompi.connected ? 'Conectado' : 'No conectado'}</span>
                 </div>
               </div>
             ) : (

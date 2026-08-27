@@ -19,6 +19,7 @@ import {
   PqrsValidationError,
   validatePqrsFile,
 } from "@/domains/pqrs/pqrs-security";
+import { LIMITES, registrarIntento } from "@/lib/rate-limit";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -163,6 +164,14 @@ async function handlePost(req: NextRequest) {
   if (tenantAccessResponse) return tenantAccessResponse;
 
   const tenantId = getTenantIdFromSession(session);
+  const limite = await registrarIntento(
+    `pqrs:create:${tenantId}:${session.user.id}`,
+    LIMITES.pqrsCreacionPorUsuario.maximo,
+    LIMITES.pqrsCreacionPorUsuario.ventanaSegundos
+  );
+  if (!limite.permitido) {
+    return NextResponse.json({ error: "Has creado muchas solicitudes. Intenta de nuevo en unos minutos." }, { status: 429 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!isRecord(body)) {
@@ -457,4 +466,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No se pudo crear la PQRS" }, { status: 500 });
   }
 }
-

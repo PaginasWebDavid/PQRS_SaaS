@@ -48,6 +48,7 @@ export type PaymentErrorCode =
   | "INVALID_FILE_SIGNATURE"
   | "INVALID_FILE_NAME"
   | "IMPORT_FILE_UNREADABLE"
+  | "IMPORT_ARCHIVE_UNSAFE"
   | "IMPORT_SHEET_EMPTY"
   | "IMPORT_HEADERS_INVALID"
   | "IMPORT_TOO_MANY_ROWS"
@@ -81,6 +82,7 @@ const PUBLIC_MESSAGES: Record<PaymentErrorCode, string> = {
   INVALID_FILE_SIGNATURE: "El contenido del archivo no coincide con su tipo",
   INVALID_FILE_NAME: "Nombre de archivo invalido",
   IMPORT_FILE_UNREADABLE: "No se pudo leer el archivo .xlsx",
+  IMPORT_ARCHIVE_UNSAFE: "El archivo .xlsx supera los limites de seguridad",
   IMPORT_SHEET_EMPTY: "El archivo no tiene hojas con datos",
   IMPORT_HEADERS_INVALID: "Los encabezados del archivo no coinciden con la plantilla esperada",
   IMPORT_TOO_MANY_ROWS: "El archivo supera el numero maximo de filas permitido",
@@ -115,6 +117,7 @@ const PUBLIC_STATUSES: Record<PaymentErrorCode, number> = {
   INVALID_FILE_SIGNATURE: 400,
   INVALID_FILE_NAME: 400,
   IMPORT_FILE_UNREADABLE: 400,
+  IMPORT_ARCHIVE_UNSAFE: 400,
   IMPORT_SHEET_EMPTY: 400,
   IMPORT_HEADERS_INVALID: 400,
   IMPORT_TOO_MANY_ROWS: 400,

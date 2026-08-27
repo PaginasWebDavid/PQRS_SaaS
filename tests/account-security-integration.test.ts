@@ -125,6 +125,16 @@ test("4. recuperacion almacena solo hash y una solicitud nueva invalida la anter
   assert.equal(await prisma.verificationToken.findUnique({ where: { token: storedFirst.token } }), null);
 });
 
+test("4b. solicitudes de recuperacion concurrentes dejan un unico token vigente", async () => {
+  const value = await createUser();
+  const requests = await Promise.all([
+    createPasswordResetRequest(value.email),
+    createPasswordResetRequest(value.email),
+  ]);
+  assert.ok(requests.every((request) => request.delivery));
+  assert.equal(await prisma.verificationToken.count({ where: { identifier: value.email } }), 1);
+});
+
 test("5. endpoint publico no enumera cuenta existente o inexistente", async () => {
   const value = await createUser();
   const existing = await forgotPasswordPost(new NextRequest("http://localhost/api/auth/forgot-password", {

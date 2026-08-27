@@ -6,8 +6,6 @@ import { getWompiIntegrationStatus } from "@/domains/billing/wompi.service";
 const SECRET_ENV_KEYS: Record<string, string> = {
   RESEND_API_KEY: "RESEND_API_KEY",
   SUPABASE_SERVICE_ROLE_KEY: "SUPABASE_SERVICE_ROLE_KEY",
-  MERCADO_PAGO_ACCESS_TOKEN: "MERCADO_PAGO_ACCESS_TOKEN",
-  MERCADO_PAGO_WEBHOOK_SECRET: "MERCADO_PAGO_WEBHOOK_SECRET",
 };
 
 export function secretReference(envKey: keyof typeof SECRET_ENV_KEYS) {
@@ -91,12 +89,6 @@ export async function getIntegrationStatus() {
     supabaseStorage: {
       provider: "SUPABASE",
       connected: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_STORAGE_BUCKET),
-      lastVerifiedAt: null,
-    },
-    mercadoPago: {
-      provider: "MERCADO_PAGO",
-      connected: Boolean(process.env.MERCADO_PAGO_ACCESS_TOKEN),
-      webhookSecretConfigured: Boolean(process.env.MERCADO_PAGO_WEBHOOK_SECRET),
       lastVerifiedAt: null,
     },
     wompi: getWompiIntegrationStatus(),

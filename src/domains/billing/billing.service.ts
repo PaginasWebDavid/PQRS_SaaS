@@ -454,9 +454,8 @@ export async function getBillingPlatformOverview() {
   };
 }
 
-// Fuente unica del periodo de gracia configurable por el Super Admin. El webhook de
-// Mercado Pago (mercado-pago.service.ts) tambien debe leer este mismo valor en vez de
-// tener su propia constante, para que ambos caminos apliquen siempre el mismo numero.
+// Fuente unica del periodo de gracia configurable por el Super Admin. Los cobros y
+// renovaciones deben leer este valor para aplicar siempre el mismo numero.
 export async function getGracePeriodDays(): Promise<number> {
   const graceDaysSetting = await prisma.platformSetting.findUnique({ where: { key: "gracePeriodDays" } });
   return typeof graceDaysSetting?.value === "number" ? graceDaysSetting.value : DEFAULT_GRACE_PERIOD_DAYS;

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
@@ -8,21 +9,35 @@ import {
 
 const prisma = new PrismaClient();
 
+function requiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`Falta ${name}. El seed no usa credenciales por defecto.`);
+  return value;
+}
+
+async function ensureMembership(userId: string, tenantId: string, role: Role) {
+  await prisma.tenantMembership.upsert({
+    where: { userId_tenantId: { userId, tenantId } },
+    update: { role, isActive: true },
+    create: { userId, tenantId, role, isActive: true },
+  });
+}
+
 async function main() {
-  console.log("Limpiando base de datos...");
+  const demoPassword = requiredEnv("CALLE_100_DEMO_PASSWORD");
+  const superAdminEmail = requiredEnv("SUPER_ADMIN_EMAIL").toLowerCase();
+  const superAdminPassword = requiredEnv("SUPER_ADMIN_PASSWORD");
+  const passwordHash = await bcrypt.hash(demoPassword, 10);
+  const superAdminHash = await bcrypt.hash(superAdminPassword, 10);
 
-  await prisma.auditLog.deleteMany();
-  await prisma.historialPqrs.deleteMany();
-  await prisma.pqrsFoto.deleteMany();
-  await prisma.pqrs.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.account.deleteMany();
-  await prisma.verificationToken.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.tenant.deleteMany();
-
-  const tenant = await prisma.tenant.create({
-    data: {
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: INITIAL_TENANT_SLUG },
+    update: {
+      name: INITIAL_TENANT_NAME,
+      status: "ACTIVE",
+      units: 1,
+    },
+    create: {
       id: INITIAL_TENANT_ID,
       name: INITIAL_TENANT_NAME,
       slug: INITIAL_TENANT_SLUG,
@@ -31,54 +46,53 @@ async function main() {
     },
   });
 
-  const hash = (pw: string) => bcrypt.hashSync(pw, 10);
-  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || "superadmin@pqrs.local";
-  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || "superadmin123";
-
-  await prisma.user.create({
-    data: {
+  const superAdmin = await prisma.user.upsert({
+    where: { email: superAdminEmail },
+    update: { isActive: true, role: Role.SUPER_ADMIN, tenantId: null },
+    create: {
       email: superAdminEmail,
-      password: hash(superAdminPassword),
+      password: superAdminHash,
       name: "SUPER_ADMIN PQRS Services",
       role: Role.SUPER_ADMIN,
       tenantId: null,
     },
   });
 
-  await prisma.user.create({
-    data: {
+  const admin = await prisma.user.upsert({
+    where: { email: "admoncallecien@gmail.com" },
+    update: { isActive: true, role: Role.ADMIN, tenantId: tenant.id },
+    create: {
       email: "admoncallecien@gmail.com",
-      password: hash("calle100"),
-      name: "Administración Calle 100",
+      password: passwordHash,
+      name: "Administracion Calle 100",
       role: Role.ADMIN,
       tenantId: tenant.id,
-      memberships: { create: { tenantId: tenant.id, role: Role.ADMIN } },
     },
   });
+  await ensureMembership(admin.id, tenant.id, Role.ADMIN);
 
-  await prisma.user.create({
-    data: {
+  const consejo = await prisma.user.upsert({
+    where: { email: "consejoadmoncallecien@gmail.com" },
+    update: { isActive: true, role: Role.CONSEJO, tenantId: tenant.id },
+    create: {
       email: "consejoadmoncallecien@gmail.com",
-      password: hash("Auditoría"),
+      password: passwordHash,
       name: "Presidente del Consejo",
       role: Role.CONSEJO,
       tenantId: tenant.id,
-      memberships: { create: { tenantId: tenant.id, role: Role.CONSEJO } },
     },
   });
+  await ensureMembership(consejo.id, tenant.id, Role.CONSEJO);
 
-  console.log("Tenant inicial creado: 1");
-  console.log("Usuarios creados: 3");
-  console.log("\n--- Credenciales ---");
-  console.log(`SUPER_ADMIN: ${superAdminEmail} / ${superAdminPassword}`);
-  console.log("ADMIN:       admoncallecien@gmail.com / calle100");
-  console.log("CONSEJO:     consejoadmoncallecien@gmail.com / Auditoría");
+  console.log(`Seed seguro listo para ${tenant.name}.`);
+  console.log(`Super Admin confirmado: ${superAdmin.email}`);
+  console.log("No se eliminaron conjuntos, usuarios, PQRS ni pagos existentes.");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
+  .catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

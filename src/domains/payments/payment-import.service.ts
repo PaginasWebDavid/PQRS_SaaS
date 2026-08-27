@@ -6,6 +6,7 @@ import { getOrCreateUnit, lockChargeIdentity } from "@/domains/payments/payment.
 import { hasXlsxSignature, parseChargeImportWorkbook, type ParsedChargeRow } from "@/domains/payments/payment-excel";
 import { MAX_IMPORT_FILE_BYTES, PaymentDomainError } from "@/domains/payments/payment-security";
 import { assertTenantFeatureActive } from "@/domains/commercial/entitlement.service";
+import { assertSafeXlsxArchive, XlsxArchiveError } from "@/lib/xlsx-security";
 
 const MAX_ERROR_SUMMARY_ENTRIES = 50;
 
@@ -37,6 +38,12 @@ export async function processChargeImportFile({
   if (buffer.length === 0) throw new PaymentDomainError("FILE_EMPTY");
   if (buffer.length > MAX_IMPORT_FILE_BYTES) throw new PaymentDomainError("FILE_TOO_LARGE");
   if (!hasXlsxSignature(buffer)) throw new PaymentDomainError("INVALID_FILE_SIGNATURE");
+  try {
+    assertSafeXlsxArchive(buffer);
+  } catch (error) {
+    if (error instanceof XlsxArchiveError) throw new PaymentDomainError("IMPORT_ARCHIVE_UNSAFE");
+    throw error;
+  }
 
   // Errores de estructura del archivo (ilegible, sin hoja, encabezados
   // equivocados, demasiadas filas) se rechazan directamente: no llegan a

@@ -1402,4 +1402,5 @@ model RateLimitHit {
   createdAt DateTime @default(now())
 
   @@index([bucket, createdAt])
+  @@index([createdAt])
 }

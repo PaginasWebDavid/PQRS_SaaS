@@ -9,6 +9,7 @@ import {
 } from "@/domains/organizations/invitation-security";
 import { resolveUserManagementAccess } from "@/domains/organizations/user-management-access";
 import { getAuthorizationErrorResponse } from "@/lib/authorization-response";
+import { assertSafeXlsxArchive } from "@/lib/xlsx-security";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -56,7 +57,9 @@ export async function POST(req: NextRequest) {
 
   const workbook = new ExcelJS.Workbook();
   try {
-    await workbook.xlsx.load(await file.arrayBuffer());
+    const workbookInput = await file.arrayBuffer();
+    assertSafeXlsxArchive(workbookInput);
+    await workbook.xlsx.load(workbookInput);
   } catch {
     return NextResponse.json(
       { error: "No se pudo leer el archivo .xlsx" },

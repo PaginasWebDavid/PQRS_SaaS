@@ -1,32 +1,24 @@
 /**
  * Reconstruye el conjunto de demostracion desde cero.
  *
- * BORRA TODA la base salvo los SUPER_ADMIN indicados, las reglas de precio y la
- * configuracion de plataforma. Despues crea un unico conjunto con datos que se
- * puedan mostrar a un cliente: seis meses de PQRS, quince residentes y cinco
- * meses de historial de pagos.
+ * BORRA Y RECREA solo los datos del conjunto demo Calle 100. Despues crea un
+ * conjunto con datos que se puedan mostrar a un cliente: seis meses de PQRS,
+ * quince residentes y cinco meses de historial de pagos.
  *
  * Es repetible a proposito: la demo se ensucia al mostrarla (casos abiertos a
  * medias, notas de prueba), y volver a un estado impecable debe costar un
  * comando y no una tarde.
  *
- *   CONFIRM_DEMO_RESET=si npx tsx prisma/seed-demo.ts
+ *   DEMO_DATABASE_URL="..." DEMO_DATABASE_MODE=calle-100 CONFIRM_DEMO_RESET=CALLE_100_DEMO npx tsx prisma/seed-demo.ts
  *
- * La variable de confirmacion existe porque este script es destructivo y corre
- * contra la base que diga DATABASE_URL. Sin ella no hace nada.
+ * Solo opera sobre una base declarada explicitamente como demo. Nunca debe
+ * apuntar a la base operativa de Supabase.
  */
 import "dotenv/config";
 import { PrismaClient, Estado, Prioridad, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
-
-// Cuentas que sobreviven al borrado. Son las del dueno del negocio: sin ellas
-// se pierde el acceso al panel de plataforma y no hay forma de volver a entrar.
-const SUPER_ADMINS_A_CONSERVAR = [
-  "davidhernandezasaf@hotmail.com",
-  "d.hernandeza2@uniandes.edu.co",
-];
 
 const CONJUNTO = {
   nombre: "Conjunto Parque Residencial Calle Cien",
@@ -40,7 +32,22 @@ const CONJUNTO = {
 // precio que despues quede desincronizado con las reglas reales.
 const PRECIO_FALLBACK_CENTS = 199_000 * 100;
 
-const CLAVE_DEMO = "Demo2026*Calle100";
+function demoPassword() {
+  const password = process.env.CALLE_100_DEMO_PASSWORD?.trim();
+  if (!password) throw new Error("Falta CALLE_100_DEMO_PASSWORD para reconstruir la demo.");
+  return password;
+}
+
+function assertDedicatedDemoDatabase() {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  const declaredDemoUrl = process.env.DEMO_DATABASE_URL?.trim();
+  if (!databaseUrl || !declaredDemoUrl || databaseUrl !== declaredDemoUrl) {
+    throw new Error("Abortado: DATABASE_URL debe coincidir exactamente con DEMO_DATABASE_URL.");
+  }
+  if (process.env.DEMO_DATABASE_MODE !== "calle-100") {
+    throw new Error("Abortado: requiere DEMO_DATABASE_MODE=calle-100.");
+  }
+}
 
 const RESIDENTES = [
   ["María Fernanda Ríos", "mfrios", 1, 101],
@@ -141,53 +148,92 @@ function mesEtiqueta(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-async function borrarTodo() {
-  // Orden de hijos a padres. Prisma no reordena por nosotros y varias relaciones
-  // son Restrict (una PQRS impide borrar su categoria), asi que el orden importa.
-  const enOrden = [
-    "billingOutboxAttempt", "billingNotificationOutbox",
-    "pqrsFoto", "historialPqrs", "pqrsCorrection", "pqrs", "pqrsCategory",
-    "paymentReceipt", "residentPayment", "residentCharge", "paymentImportBatch", "residentUnit",
-    "commonAreaBlock", "reservation", "commonArea",
-    "payment", "wompiPaymentMethod",
-    "commercialOperation", "tenantFeatureEntitlement", "tenantCommercialProfile",
-    "subscription", "webhookEvent",
-    "invitation", "notification", "emailLog", "supportTicket", "auditLog",
-    "tenantMembership",
-  ] as const;
+async function borrarDemoExistente() {
+  const existente = await prisma.tenant.findUnique({
+    where: { slug: CONJUNTO.slug },
+    select: { id: true, name: true, subscription: { select: { id: true } } },
+  });
+  if (!existente) return;
 
-  for (const modelo of enOrden) {
-    const r = await (prisma as never as Record<string, { deleteMany: () => Promise<{ count: number }> }>)[modelo].deleteMany();
-    if (r.count) console.log(`   ${modelo}: ${r.count}`);
+  const usuarios = await prisma.user.findMany({
+    where: {
+      OR: [
+        { tenantId: existente.id },
+        { memberships: { some: { tenantId: existente.id } } },
+      ],
+    },
+    select: { id: true, email: true },
+  });
+  const userIds = usuarios.map((usuario) => usuario.id);
+  const compartido = userIds.length
+    ? await prisma.user.findFirst({
+      where: { id: { in: userIds }, memberships: { some: { tenantId: { not: existente.id } } } },
+      select: { email: true },
+    })
+    : null;
+  if (compartido) {
+    throw new Error(`Abortado: ${compartido.email} tambien pertenece a otro conjunto y no se puede reutilizar como cuenta demo.`);
   }
 
-  // El campo legacy User.tenantId impide borrar los conjuntos mientras apunte a
-  // uno de ellos, incluso en las cuentas que se conservan.
-  await prisma.user.updateMany({ data: { tenantId: null } });
-  const users = await prisma.user.deleteMany({ where: { email: { notIn: SUPER_ADMINS_A_CONSERVAR } } });
-  console.log(`   usuarios eliminados: ${users.count}`);
-  const tenants = await prisma.tenant.deleteMany();
-  console.log(`   conjuntos eliminados: ${tenants.count}`);
+  await prisma.$transaction(async (tx) => {
+    // Orden de hijos a padres. Todo filtro queda atado al tenant demo: un
+    // refresco nunca debe tocar otro conjunto, ni siquiera en la misma base.
+    await tx.billingOutboxAttempt.deleteMany({ where: { outbox: { tenantId: existente.id } } });
+    await tx.emailLog.deleteMany({ where: { tenantId: existente.id } });
+    await tx.billingNotificationOutbox.deleteMany({ where: { tenantId: existente.id } });
+    await tx.pqrsFoto.deleteMany({ where: { tenantId: existente.id } });
+    await tx.historialPqrs.deleteMany({ where: { tenantId: existente.id } });
+    await tx.pqrsCorrection.deleteMany({ where: { tenantId: existente.id } });
+    await tx.pqrs.deleteMany({ where: { tenantId: existente.id } });
+    await tx.pqrsCategory.deleteMany({ where: { tenantId: existente.id } });
+    await tx.paymentReceipt.deleteMany({ where: { tenantId: existente.id } });
+    await tx.residentPayment.deleteMany({ where: { tenantId: existente.id } });
+    await tx.residentCharge.deleteMany({ where: { tenantId: existente.id } });
+    await tx.paymentImportBatch.deleteMany({ where: { tenantId: existente.id } });
+    await tx.residentUnit.deleteMany({ where: { tenantId: existente.id } });
+    await tx.commonAreaBlock.deleteMany({ where: { tenantId: existente.id } });
+    await tx.reservation.deleteMany({ where: { tenantId: existente.id } });
+    await tx.commonArea.deleteMany({ where: { tenantId: existente.id } });
+    await tx.payment.deleteMany({ where: { tenantId: existente.id } });
+    await tx.wompiPaymentMethod.deleteMany({ where: { tenantId: existente.id } });
+    await tx.commercialOperation.deleteMany({ where: { tenantId: existente.id } });
+    await tx.tenantFeatureEntitlement.deleteMany({ where: { tenantId: existente.id } });
+    await tx.tenantCommercialProfile.deleteMany({ where: { tenantId: existente.id } });
+    await tx.subscription.deleteMany({ where: { tenantId: existente.id } });
+    await tx.webhookEvent.deleteMany({
+      where: {
+        OR: [
+          { tenantId: existente.id },
+          ...(existente.subscription ? [{ subscriptionId: existente.subscription.id }] : []),
+        ],
+      },
+    });
+    await tx.invitation.deleteMany({ where: { tenantId: existente.id } });
+    await tx.notification.deleteMany({ where: { tenantId: existente.id } });
+    await tx.supportTicket.deleteMany({ where: { tenantId: existente.id } });
+    await tx.auditLog.deleteMany({ where: { tenantId: existente.id } });
+    await tx.tenantMembership.deleteMany({ where: { tenantId: existente.id } });
+    await tx.user.updateMany({ where: { tenantId: existente.id }, data: { tenantId: null } });
+    await tx.tenant.delete({ where: { id: existente.id } });
+
+    if (userIds.length) {
+      await tx.user.deleteMany({
+        where: { id: { in: userIds }, tenantId: null, memberships: { none: {} }, role: { not: Role.SUPER_ADMIN } },
+      });
+    }
+  });
+
+  console.log(`   Demo anterior eliminado: ${existente.name}`);
 }
 
 async function main() {
-  if (process.env.CONFIRM_DEMO_RESET !== "si") {
-    console.error("Abortado. Requiere CONFIRM_DEMO_RESET=si (este script borra la base).");
-    process.exit(1);
+  assertDedicatedDemoDatabase();
+  if (process.env.CONFIRM_DEMO_RESET !== "CALLE_100_DEMO") {
+    throw new Error("Abortado: requiere CONFIRM_DEMO_RESET=CALLE_100_DEMO.");
   }
 
-  const conservados = await prisma.user.findMany({
-    where: { email: { in: SUPER_ADMINS_A_CONSERVAR } },
-    select: { email: true, role: true },
-  });
-  if (conservados.length !== SUPER_ADMINS_A_CONSERVAR.length) {
-    console.error("Abortado: no se encontraron las cuentas a conservar.", conservados.map((c) => c.email));
-    process.exit(1);
-  }
-  console.log("Cuentas que se conservan:", conservados.map((c) => `${c.email} (${c.role})`).join(", "));
-
-  console.log("\n1) Borrando todo...");
-  await borrarTodo();
+  console.log("\n1) Reiniciando solo Calle 100...");
+  await borrarDemoExistente();
 
   console.log("\n2) Creando el conjunto...");
   const regla = await prisma.pricingRule.findFirst({
@@ -224,7 +270,7 @@ async function main() {
   console.log(`   ${categorias.length} categorías`);
 
   console.log("\n3) Creando usuarios...");
-  const hash = await bcrypt.hash(CLAVE_DEMO, 10);
+  const hash = await bcrypt.hash(demoPassword(), 10);
   const ahora = new Date();
 
   const admin = await prisma.user.create({
@@ -398,7 +444,7 @@ async function main() {
   console.log(`   Administradora: administracion@parquecalle100.com`);
   console.log(`   Consejo:        consejo@parquecalle100.com`);
   console.log(`   Residentes:     mfrios@parquecalle100.com ... (15)`);
-  console.log(`   Clave para todos: ${CLAVE_DEMO}`);
+  console.log("   Credenciales de demo creadas sin mostrarlas en consola.");
 }
 
 main()

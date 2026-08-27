@@ -77,7 +77,7 @@ export default function PrivacyPage() {
         'Supabase — base de datos y almacenamiento de archivos.',
         'Vercel — alojamiento y ejecución de la aplicación.',
         'Resend — envío de correos transaccionales.',
-        'Wompi (Bancolombia) y, cuando corresponda, Mercado Pago — procesamiento de pagos.',
+        'Wompi (Bancolombia) — procesamiento de pagos.',
       ]} />
       <p>
         Algunos de estos proveedores operan servidores fuera de Colombia. Estas transferencias se amparan en la

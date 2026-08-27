@@ -287,6 +287,8 @@ test("17. label y slug se validan y normalizan", () => {
   assert.equal(normalizeCategoryDisplayName("  Danos   menores  "), "Danos menores");
   assert.equal(categorySlugBase("Danos menores"), "danos-menores");
   assert.throws(() => normalizeCategoryDisplayName("x"));
+  assert.throws(() => normalizeCategoryDisplayName("__proto__"));
+  assert.throws(() => normalizeCategoryDisplayName("Constructor"));
 });
 
 test("18. valores legacy continuan visibles", () => {

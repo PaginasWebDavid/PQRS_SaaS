@@ -1,7 +1,7 @@
 // Modulo PURO de PRECEDENCIA y COBERTURA de facturacion.
 //
 // No importa el cliente Prisma ni abre conexiones: solo usa TIPOS (import type)
-// para que el webhook, el preapproval, los guards de acceso y las pruebas consuman
+// para que los webhooks, los guards de acceso y las pruebas consuman
 // exactamente la misma logica de decision. Toda entrada es un dato ya cargado.
 //
 // Resuelve tres problemas distintos que antes se mezclaban:
@@ -27,8 +27,6 @@ export const PRECEDENCE_REASON = {
   // Una Subscription ya en GRACE_PERIOD conserva su frontera; un webhook no
   // aprobado nunca reinicia graceEndsAt (F2D-01). El cron decide la suspension.
   EXISTING_GRACE_PRESERVED: "EXISTING_GRACE_PRESERVED",
-  PREAPPROVAL_PAUSED_PRESERVED: "PREAPPROVAL_PAUSED_PRESERVED",
-  PREAPPROVAL_CANCELLED: "PREAPPROVAL_CANCELLED",
 } as const;
 
 export type PrecedenceReason = (typeof PRECEDENCE_REASON)[keyof typeof PRECEDENCE_REASON];
@@ -69,7 +67,6 @@ export type NormalizedProviderPaymentStatus =
   | { known: true; status: KnownPaymentStatus }
   | { known: false; rawStatus: string };
 
-// Estados de Mercado Pago que reconocemos como "pendiente" legitimo.
 const KNOWN_PENDING = new Set(["pending", "in_process", "in_mediation"]);
 const KNOWN_APPROVED = new Set(["approved", "authorized"]);
 const KNOWN_REJECTED = new Set(["rejected", "cancelled", "canceled"]);
@@ -189,7 +186,7 @@ export function decideSubscriptionActionForNonApproved(input: {
 
 // --- Cobertura de ACCESO (F2-04, definicion 1) -------------------------------
 // Decide si el conjunto tiene acceso operativo AHORA. NO decide ingreso real: no
-// exige provider Mercado Pago. Trial y cortesia cuentan como acceso.
+// exige un proveedor que represente ingreso real. Trial y cortesia cuentan como acceso.
 
 export interface AccessCoverageInput {
   subscriptionStatus: SubscriptionStatus;
@@ -250,7 +247,7 @@ function matchesIdentity(row: PaymentCoverageRow, identity: CoverageIdentity): b
 export function isCurrentRealPaymentRow(row: PaymentCoverageRow, now: Date, identity: CoverageIdentity): boolean {
   return (
     matchesIdentity(row, identity) &&
-    (row.provider === "MERCADO_PAGO" || row.provider === "WOMPI" || row.provider === "MANUAL_TRANSFER") &&
+    (row.provider === "WOMPI" || row.provider === "MANUAL_TRANSFER") &&
     row.status === "APPROVED" &&
     row.approvedEffectAppliedAt !== null &&
     row.approvedEffectReconciliationRequired === false &&
@@ -286,90 +283,6 @@ export function isCurrentAppliedAccessEvidenceRow(row: PaymentCoverageRow, now: 
 
 export function hasCurrentAppliedAccessEvidence(rows: PaymentCoverageRow[], now: Date, identity: CoverageIdentity): boolean {
   return rows.some((row) => isCurrentAppliedAccessEvidenceRow(row, now, identity));
-}
-
-// --- Preapproval: precedencia y cobertura ------------------------------------
-
-export type PreapprovalKind = "AUTHORIZED" | "PAUSED" | "CANCELLED" | "PENDING";
-
-export type NormalizedPreapprovalStatus =
-  | { known: true; kind: PreapprovalKind }
-  | { known: false; rawStatus: string };
-
-// Acepta `unknown` por la misma razon que normalizeProviderPaymentStatus (F2D-05).
-export function normalizePreapprovalStatus(status: unknown): NormalizedPreapprovalStatus {
-  if (typeof status !== "string") return { known: false, rawStatus: providerStatusLabel(status) };
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "authorized") return { known: true, kind: "AUTHORIZED" };
-  if (normalized === "paused") return { known: true, kind: "PAUSED" };
-  if (normalized === "cancelled" || normalized === "canceled") return { known: true, kind: "CANCELLED" };
-  if (normalized === "pending") return { known: true, kind: "PENDING" };
-  return { known: false, rawStatus: truncateProviderStatus(status.trim()) };
-}
-
-export interface PreapprovalDecision {
-  // SET: se escribe nextStatus en Subscription/Tenant. PRESERVE: solo metadata
-  // (mercadoPagoStatus/lastWebhookAt), sin cambiar acceso. IGNORE: estado
-  // desconocido -> nada, ledger IGNORED.
-  action: "SET" | "PRESERVE" | "IGNORE";
-  nextStatus: SubscriptionStatus;
-  reason: PrecedenceReason;
-}
-
-// Solo precedencia y conservacion de cobertura. NO implementa politica comercial
-// de cancelacion (fuera de alcance): cancelled conserva el comportamiento previo.
-export function decidePreapprovalOutcome(input: {
-  normalized: NormalizedPreapprovalStatus;
-  accessCovered: boolean;
-  realPaymentCovered: boolean;
-  trialValid: boolean;
-  currentStatus: SubscriptionStatus;
-}): PreapprovalDecision {
-  const { normalized, accessCovered, realPaymentCovered, trialValid, currentStatus } = input;
-
-  if (!normalized.known) {
-    return { action: "IGNORE", nextStatus: currentStatus, reason: PRECEDENCE_REASON.UNKNOWN_PROVIDER_STATUS };
-  }
-
-  // Cancelled entrante: la politica de cancelacion queda FUERA DE ALCANCE; se
-  // conserva el comportamiento previo (marcar CANCELLED). Se evalua antes del guard
-  // de terminales porque es la unica accion administrativa explicita del proveedor.
-  if (normalized.kind === "CANCELLED") {
-    return { action: "SET", nextStatus: "CANCELLED", reason: PRECEDENCE_REASON.PREAPPROVAL_CANCELLED };
-  }
-
-  // Guard de estados terminales (F2D-03): authorized/paused/pending NO alteran una
-  // Subscription SUSPENDED o CANCELLED. Solo una accion administrativa explicita
-  // (no un webhook de preapproval) puede sacarla de ese estado.
-  if (currentStatus === "SUSPENDED" || currentStatus === "CANCELLED") {
-    return { action: "PRESERVE", nextStatus: currentStatus, reason: PRECEDENCE_REASON.TERMINAL_SUBSCRIPTION_STATUS };
-  }
-
-  switch (normalized.kind) {
-    case "AUTHORIZED":
-      // "authorized" es autorizacion de cobro, no ingreso: no activa por si solo.
-      if (realPaymentCovered) return { action: "SET", nextStatus: "ACTIVE", reason: PRECEDENCE_REASON.APPLIES };
-      if (accessCovered)
-        return { action: "PRESERVE", nextStatus: currentStatus, reason: PRECEDENCE_REASON.CURRENT_ACCESS_COVERED };
-      if (trialValid) return { action: "SET", nextStatus: "TRIAL", reason: PRECEDENCE_REASON.APPLIES };
-      return { action: "SET", nextStatus: "PENDING_PAYMENT", reason: PRECEDENCE_REASON.APPLIES };
-
-    case "PENDING":
-      // No convierte una suscripcion cubierta en un estado inferior.
-      if (accessCovered || realPaymentCovered)
-        return { action: "PRESERVE", nextStatus: currentStatus, reason: PRECEDENCE_REASON.CURRENT_ACCESS_COVERED };
-      if (trialValid) return { action: "SET", nextStatus: "TRIAL", reason: PRECEDENCE_REASON.APPLIES };
-      return { action: "SET", nextStatus: "PENDING_PAYMENT", reason: PRECEDENCE_REASON.APPLIES };
-
-    case "PAUSED":
-    default:
-      // Pausar cobros futuros NO es quitar acceso VIGENTE, pero tampoco debe inventar
-      // acceso vencido (F2D-03). Con cobertura vigente -> PRESERVE; sin cobertura ->
-      // fallback tecnico PENDING_PAYMENT (no una politica comercial de pausa).
-      if (accessCovered || realPaymentCovered)
-        return { action: "PRESERVE", nextStatus: currentStatus, reason: PRECEDENCE_REASON.PREAPPROVAL_PAUSED_PRESERVED };
-      return { action: "SET", nextStatus: "PENDING_PAYMENT", reason: PRECEDENCE_REASON.APPLIES };
-  }
 }
 
 // Traduce un estado conocido de Payment al estado de Subscription al degradar.
