@@ -66,4 +66,4 @@ See [ROADMAP.md](ROADMAP.md) for planned Premium capabilities, verification crit
 
 ## License
 
-The project code is available under the [MIT License](LICENSE). Third-party dependencies and bundled assets may have separate licenses and notices; their terms must be reviewed independently.
+The project code is available under the [MIT License](LICENSE). Third-party dependencies and bundled assets may have separate licenses and notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and review their terms independently.
